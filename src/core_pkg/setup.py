@@ -17,10 +17,10 @@ setup(
     maintainer_email='tristanmcginnis26@gmail.com',
     description='Core rover control package to handle command interpretation and embedded interfacing.',
     license='All Rights Reserved',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "core_control = core_pkg.core_control_node:main"
+            "core = core_pkg.core_node:main",
+            "headless = core_pkg.core_headless:main"
         ],
     },
 )
