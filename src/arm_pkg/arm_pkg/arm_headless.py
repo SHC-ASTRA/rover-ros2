@@ -113,9 +113,9 @@ class Headless(Node):
         elif dpad_input[0] == -1:
             input.axis0 = -1
 
-        input.axis1 = round(self.gamepad.get_axis(0))#left x-axis
-        input.axis2 = round(self.gamepad.get_axis(1))#left y-axis
-        input.axis3 = round(self.gamepad.get_axis(4))#right y-axis
+        input.axis1 = -1 * round(self.gamepad.get_axis(0))#left x-axis
+        input.axis2 = -1 * round(self.gamepad.get_axis(1))#left y-axis
+        input.axis3 = -1 * round(self.gamepad.get_axis(4))#right y-axis
 
         #Temporary, not controlling digit. Awaiting embedded implementation
         input.effector_yaw = 0
