@@ -1,0 +1,10 @@
+#Colcon-created build folders
+build/
+install/
+log/
+
+#Mac OS system files
+*.DS_Store
+
+#VSCode settings
+.vscode/

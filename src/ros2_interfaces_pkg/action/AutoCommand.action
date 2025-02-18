@@ -1,0 +1,13 @@
+# Goal
+int64 mission_type
+float64 gps_lat_target
+float64 gps_long_target
+float64 target_radius
+float64 period
+---
+# Result
+int64 final_result
+---
+# Feeedback
+int64 current_status
+float64 distance_remaining
