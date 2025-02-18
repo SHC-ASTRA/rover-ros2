@@ -1,3 +1,0 @@
-[submodule "src/ros2_interfaces_pkg"]
-	path = src/ros2_interfaces_pkg
-	url = git@github.com:SHC-ASTRA/ros2_interfaces_pkg.git
