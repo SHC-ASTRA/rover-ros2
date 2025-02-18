@@ -16,11 +16,11 @@ setup(
     maintainer='tristan',
     maintainer_email='tristanmcginnis26@gmail.com',
     description='TODO: Package description',
-    license='TODO: License declaration',
-    tests_require=['pytest'],
+    license='All Rights Reserved',
     entry_points={
         'console_scripts': [
-            'arm = arm_pkg.arm_relay_node:main'
+            'arm = arm_pkg.arm_node:main',
+            'headless = arm_pkg.arm_headless:main'
         ],
     },
 )

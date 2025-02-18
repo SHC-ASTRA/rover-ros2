@@ -18,7 +18,7 @@ thread = None
 class SerialRelay(Node):
     def __init__(self):
         # Initialize node with name
-        super().__init__("arm_relay")
+        super().__init__("arm_node")
 
         # Create publishers
 

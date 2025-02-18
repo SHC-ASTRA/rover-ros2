@@ -23,7 +23,7 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a
 class Headless(Node):
     def __init__(self):
         # Initalize node with name
-        super().__init__("headless_arm_ctrl")
+        super().__init__("arm_headless")
 
         # Depricated, kept temporarily for reference
         # self.create_timer(0.20, self.send_controls)#read and send controls
