@@ -21,7 +21,7 @@ thread = None
 class SerialRelay(Node):
     def __init__(self):
         # Initalize node with name
-        super().__init__("serial_publisher")#previously 'serial_publisher'
+        super().__init__("core_node")#previously 'serial_publisher'
 
         # Create publishers for feedback and telemetry
         self.debug_pub = self.create_publisher(String, '/core/debug', 10) 

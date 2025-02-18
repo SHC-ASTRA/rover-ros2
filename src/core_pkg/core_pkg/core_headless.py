@@ -25,7 +25,7 @@ max_speed = 75 #Max speed as a duty cycle percentage (1-100)
 class Headless(Node):
     def __init__(self):
         # Initalize node with name
-        super().__init__("headless_ctrl")
+        super().__init__("core_headless")
 
         self.create_timer(0.20, self.send_controls)
 
