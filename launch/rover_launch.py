@@ -17,7 +17,7 @@ def launch_setup(context, *args, **kwargs):
                 package='arm_pkg',
                 executable='arm',  # change as needed
                 name='arm',
-                output='screen',
+                output='both',
                 parameters=[{'launch_mode': mode}]
             )
         )
@@ -26,7 +26,7 @@ def launch_setup(context, *args, **kwargs):
                 package='core_pkg',
                 executable='core',  # change as needed
                 name='core',
-                output='screen',
+                output='both',
                 parameters=[{'launch_mode': mode}]
             )
         )
@@ -35,7 +35,7 @@ def launch_setup(context, *args, **kwargs):
         #         package='bio_pkg',
         #         executable='bio',  # change as needed
         #         name='bio',
-        #         output='screen',
+        #         output='both',
         #         parameters=[{'launch_mode': mode}]
         #     )
         # )
@@ -44,7 +44,7 @@ def launch_setup(context, *args, **kwargs):
                 package='anchor_pkg',
                 executable='anchor',  # change as needed
                 name='anchor',
-                output='screen',
+                output='both',
                 parameters=[{'launch_mode': mode}]
             )
         )
@@ -56,7 +56,7 @@ def launch_setup(context, *args, **kwargs):
                     package='arm_pkg',
                     executable='arm',
                     name='arm',
-                    output='screen',
+                    output='both',
                     parameters=[{'launch_mode': mode}]
                 )
             )
@@ -66,7 +66,7 @@ def launch_setup(context, *args, **kwargs):
                     package='core_pkg',
                     executable='core',
                     name='core',
-                    output='screen',
+                    output='both',
                     parameters=[{'launch_mode': mode}]
                 )
             )
@@ -76,7 +76,7 @@ def launch_setup(context, *args, **kwargs):
         #             package='bio_pkg',
         #             executable='bio',
         #             name='bio',
-        #             output='screen',
+        #             output='both',
         #             parameters=[{'launch_mode': mode}]
         #         )
         #     )
