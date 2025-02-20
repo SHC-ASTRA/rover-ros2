@@ -76,17 +76,18 @@ class SerialRelay(Node):
         thread.start()
         
         #if in arm mode, will need to read from the MCU 
-        if self.launch_mode == 'arm':
-            try:
-                while rclpy.ok():
+
+        try:
+            while rclpy.ok():
+                if self.launch_mode == 'arm':
                     if self.ser.in_waiting:
                         self.read_mcu()
                     else:
                         time.sleep(0.1)
-            except KeyboardInterrupt:
-                pass
-            finally:
-                self.cleanup()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.cleanup()
 
 
     #Currently will just spit out all values over the /arm/feedback/debug topic as strings
