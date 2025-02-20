@@ -108,8 +108,9 @@ class SerialRelay(Node):
             self.exit(1)
 
     def send_cmd(self, msg):
+        message = msg.data
         self.get_logger().info(f"Sending command to MCU: {msg}")
-        self.ser.write(bytes(msg, "utf8"))
+        self.ser.write(bytes(message, "utf8"))
 
     @staticmethod
     def list_serial_ports():
