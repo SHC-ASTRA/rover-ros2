@@ -80,12 +80,13 @@ class SerialRelay(Node):
         thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
         thread.start()
         
-        if self.launch_mode == 'core':
-            try:
-                while rclpy.ok():
+    
+        try:
+            while rclpy.ok():
+                if self.launch_mode == 'core':
                     self.read_MCU() # Check the MCU for updates
-            except KeyboardInterrupt:
-                sys.exit(0)
+        except KeyboardInterrupt:
+            sys.exit(0)
 
     def read_MCU(self):
         try:
