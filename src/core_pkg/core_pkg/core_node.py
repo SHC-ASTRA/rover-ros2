@@ -174,10 +174,9 @@ class SerialRelay(Node):
         self.send_cmd(command)
         
         #print(f"[Sys] Relaying: {command}")
-
     def send_cmd(self, msg):
         if self.launch_mode == 'anchor':
-            self.get_logger().info(f"[Core to Anchor Relay] {msg}")
+            #self.get_logger().info(f"[Core to Anchor Relay] {msg}")
             output = String()#Convert to std_msg string
             output.data = msg
             self.anchor_pub.publish(output)
