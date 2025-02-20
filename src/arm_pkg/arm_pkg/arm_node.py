@@ -142,12 +142,13 @@ class SerialRelay(Node):
 
         return
     
-    def send_cmd(self, cmd):
+    def send_cmd(self, msg):
         if self.launch_mode == 'anchor': #if in anchor mode, send to anchor node to relay
-            self.anchor_pub.publish(cmd)
+            output = String()
+            output.data = msg
+            self.anchor_pub.publish(output)
         elif self.launch_mode == 'arm': #if in standalone mode, send to MCU directly
-            self.ser.write(bytes(cmd, "utf8"))
-        #print(f"[Arm Wrote] {cmd}", end="")
+            self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
         self.get_logger.info(f"[Arm Anchor] {msg.data}", end="")
