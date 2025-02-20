@@ -18,7 +18,7 @@ def launch_setup(context, *args, **kwargs):
                 executable='arm',  # change as needed
                 name='arm',
                 output='screen',
-                parameters=[{'launch_arg': mode}]
+                parameters=[{'launch_mode': mode}]
             )
         )
         nodes.append(
@@ -27,7 +27,7 @@ def launch_setup(context, *args, **kwargs):
                 executable='core',  # change as needed
                 name='core',
                 output='screen',
-                parameters=[{'launch_arg': mode}]
+                parameters=[{'launch_mode': mode}]
             )
         )
         # nodes.append(
@@ -36,7 +36,7 @@ def launch_setup(context, *args, **kwargs):
         #         executable='bio',  # change as needed
         #         name='bio',
         #         output='screen',
-        #         parameters=[{'launch_arg': mode}]
+        #         parameters=[{'launch_mode': mode}]
         #     )
         # )
         nodes.append(
@@ -45,7 +45,7 @@ def launch_setup(context, *args, **kwargs):
                 executable='anchor',  # change as needed
                 name='anchor',
                 output='screen',
-                parameters=[{'launch_arg': mode}]
+                parameters=[{'launch_mode': mode}]
             )
         )
     elif mode in ['arm', 'core', 'bio']:
@@ -57,7 +57,7 @@ def launch_setup(context, *args, **kwargs):
                     executable='arm',
                     name='arm',
                     output='screen',
-                    parameters=[{'launch_arg': mode}]
+                    parameters=[{'launch_mode': mode}]
                 )
             )
         elif mode == 'core':
@@ -67,7 +67,7 @@ def launch_setup(context, *args, **kwargs):
                     executable='core',
                     name='core',
                     output='screen',
-                    parameters=[{'launch_arg': mode}]
+                    parameters=[{'launch_mode': mode}]
                 )
             )
         # elif mode == 'bio':
@@ -77,7 +77,7 @@ def launch_setup(context, *args, **kwargs):
         #             executable='bio',
         #             name='bio',
         #             output='screen',
-        #             parameters=[{'launch_arg': mode}]
+        #             parameters=[{'launch_mode': mode}]
         #         )
         #     )
     else:
