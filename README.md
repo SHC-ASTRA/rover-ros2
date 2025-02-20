@@ -13,7 +13,6 @@ You will use this package to launch any module-side ROS2 nodes.
 - [Connecting the GuliKit Controller](##Connecting-the-GuliKit-Contoller)
 
 
-<br>
 ## Software Pre-reqs
 
 An acting base station computer will need several things:
