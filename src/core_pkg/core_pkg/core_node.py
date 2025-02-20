@@ -178,7 +178,9 @@ class SerialRelay(Node):
     def send_cmd(self, msg):
         if self.launch_mode == 'anchor':
             self.get_logger().info(f"[Core to Anchor Relay] {msg}")
-            self.anchor_pub.publish(msg)
+            output = String()#Convert to std_msg string
+            output.data = msg
+            self.anchor_pub.publish(output)
         elif self.launch_mode == 'core':
             self.get_logger().info(f"[Core to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
