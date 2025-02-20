@@ -6,11 +6,11 @@ You will use this package to launch any module-side ROS2 nodes.
 <br>
 #### Table of Contents
 
-- [Software Prerequisites](#Software-Pre-reqs)
-- [Launching with ANCHOR](#Launching-with-ANCHOR)
-- [Launching as Standalone](#Launching-as-Standalone)
-- [Running Headless](#Running-Headless)
-- [Connecting the GuliKit Controller](#Connecting-the-GuliKit-Contoller)
+- [Software Prerequisites](##Software-Pre-reqs)
+- [Launching with ANCHOR](##Launching-with-ANCHOR)
+- [Launching as Standalone](##Launching-as-Standalone)
+- [Running Headless](##Running-Headless)
+- [Connecting the GuliKit Controller](##Connecting-the-GuliKit-Contoller)
 
 
 <br>
