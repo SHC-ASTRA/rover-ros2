@@ -22,8 +22,8 @@ class SerialRelay(Node):
 
         # Get launch mode parameter
         self.declare_parameter('launch_mode', 'arm')
-        launch_mode = self.get_parameter('launch_mode').value
-        self.get_logger().info(f"arm launch_mode is: {launch_mode}")
+        self.launch_mode = self.get_parameter('launch_mode').value
+        self.get_logger().info(f"arm launch_mode is: {self.launch_mode}")
 
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
@@ -33,13 +33,13 @@ class SerialRelay(Node):
         self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
 
         # Topics used in anchor mode
-        if launch_mode == 'anchor':
+        if self.launch_mode == 'anchor':
             self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
-        if launch_mode == 'arm':
+        if self.launch_mode == 'arm':
             # Loop through all serial devices on the computer to check for the MCU
             self.port = None
             ports = SerialRelay.list_serial_ports()
@@ -150,7 +150,7 @@ class SerialRelay(Node):
         #print(f"[Arm Wrote] {cmd}", end="")
 
     def anchor_feedback(self, msg):
-        self.get_logger.info(f"[Anchor] {msg.data}", end="")
+        self.get_logger.info(f"[Arm Anchor] {msg.data}", end="")
         #self.send_cmd(msg.data)
 
 

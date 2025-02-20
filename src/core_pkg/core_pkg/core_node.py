@@ -25,8 +25,8 @@ class SerialRelay(Node):
 
         # Get launch mode parameter
         self.declare_parameter('launch_mode', 'core')
-        launch_mode = self.get_parameter('launch_mode').value
-        self.get_logger().info(f"core launch_mode is: {launch_mode}")
+        self.launch_mode = self.get_parameter('launch_mode').value
+        self.get_logger().info(f"core launch_mode is: {self.launch_mode}")
 
         # Create publishers 
         self.debug_pub = self.create_publisher(String, '/core/debug', 10) 
@@ -37,12 +37,12 @@ class SerialRelay(Node):
         # Create a service server for pinging the rover
         self.ping_service = self.create_service(Empty, '/astra/core/ping', self.ping_callback)
 
-        if launch_mode == 'anchor':
+        if self.launch_mode == 'anchor':
             self.anchor_sub = self.create_subscription(String, '/anchor/core/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
 
-        if launch_mode == 'core':
+        if self.launch_mode == 'core':
             # Loop through all serial devices on the computer to check for the MCU
             self.port = None
             ports = SerialRelay.list_serial_ports()
@@ -65,13 +65,13 @@ class SerialRelay(Node):
                 if self.port is not None:
                     break
         
-        if self.port is None:
-            self.get_logger.info("Unable to find MCU...")
-            time.sleep(1)
-            sys.exit(1)
+            if self.port is None:
+                self.get_logger.info("Unable to find MCU...")
+                time.sleep(1)
+                sys.exit(1)
         
-        self.ser = serial.Serial(self.port, 115200)
-        atexit.register(self.cleanup)
+            self.ser = serial.Serial(self.port, 115200)
+            atexit.register(self.cleanup)
 
 
     def run(self):
@@ -179,6 +179,9 @@ class SerialRelay(Node):
             self.anchor_pub.publish(cmd)
         elif self.launch_mode == 'core':
             self.ser.write(bytes(cmd, "utf8"))
+
+    def anchor_feedback(self, msg):
+        self.get_logger.info(f"[Arm Anchor] {msg.data}", end="")
 
     def ping_callback(self, request, response):
         return response

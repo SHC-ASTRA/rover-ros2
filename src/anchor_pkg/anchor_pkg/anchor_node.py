@@ -49,7 +49,7 @@ class SerialRelay(Node):
                     # if pong is in response, then we are talking with the MCU
                     if b"pong" in response:
                         self.port = port
-                        self.get_logger.info(f"Found MCU at {self.port}!")
+                        self.get_logger().info(f"Found MCU at {self.port}!")
                         break
                 except:
                     pass
@@ -57,7 +57,7 @@ class SerialRelay(Node):
                 break
         
         if self.port is None:
-            self.get_logger.info("Unable to find MCU...")
+            self.get_logger().info("Unable to find MCU...")
             time.sleep(1)
             sys.exit(1)
         
