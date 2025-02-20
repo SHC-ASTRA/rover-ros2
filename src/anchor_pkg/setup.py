@@ -15,10 +15,11 @@ setup(
     zip_safe=True,
     maintainer='tristan',
     maintainer_email='tristanmcginnis26@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='Anchor node used to run all modules through a single modules MCU/Computer. Commands to all modules will be relayed through CAN',
+    license='All Rights Reserved',
     entry_points={
         'console_scripts': [
+            "anchor = anchor_pkg.anchor_node:main"
         ],
     },
 )
