@@ -108,6 +108,7 @@ class SerialRelay(Node):
             self.exit(1)
 
     def send_cmd(self, msg):
+        self.get_logger().info(f"Sending command to MCU: {msg}")
         self.ser.write(bytes(msg, "utf8"))
 
     @staticmethod
