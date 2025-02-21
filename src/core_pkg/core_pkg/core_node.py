@@ -94,7 +94,7 @@ class SerialRelay(Node):
             
             if output:
                 # All output over debug temporarily
-                print(f"[MCU] {output}", end="")
+                print(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)

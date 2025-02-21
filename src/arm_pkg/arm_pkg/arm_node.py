@@ -95,7 +95,7 @@ class SerialRelay(Node):
         try:
             output = str(self.ser.readline(), "utf8")
             if output:
-                self.get_logger().info(f"[MCU] {output}", end="")
+                self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)
@@ -152,7 +152,7 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
-        self.get_logger().info(f"[Arm Anchor] {msg.data}", end="")
+        self.get_logger().info(f"[Arm Anchor] {msg.data}")
         #self.send_cmd(msg.data)
 
 
