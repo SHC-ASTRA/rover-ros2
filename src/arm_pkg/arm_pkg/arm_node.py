@@ -55,7 +55,7 @@ class SerialRelay(Node):
                         # if pong is in response, then we are talking with the MCU
                         if b"pong" in response:
                             self.port = port
-                            self.get_logger.info(f"Found MCU at {self.port}!")
+                            self.get_logger().info(f"Found MCU at {self.port}!")
                             break
                     except:
                         pass
@@ -63,7 +63,7 @@ class SerialRelay(Node):
                     break
             
             if self.port is None:
-                self.get_logger.info("Unable to find MCU... please make sure it is connected.")
+                self.get_logger().info("Unable to find MCU... please make sure it is connected.")
                 time.sleep(1)
                 sys.exit(1)
             
@@ -95,17 +95,17 @@ class SerialRelay(Node):
         try:
             output = str(self.ser.readline(), "utf8")
             if output:
-                self.get_logger.info(f"[MCU] {output}", end="")
+                self.get_logger().info(f"[MCU] {output}", end="")
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)
         except serial.SerialException:
-            self.get_logger.info("SerialException caught... closing serial port.")
+            self.get_logger().info("SerialException caught... closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
             pass
         except TypeError as e:
-            self.get_logger.info(f"TypeError: {e}")
+            self.get_logger().info(f"TypeError: {e}")
             print("Closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
@@ -152,7 +152,7 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
-        self.get_logger.info(f"[Arm Anchor] {msg.data}", end="")
+        self.get_logger().info(f"[Arm Anchor] {msg.data}", end="")
         #self.send_cmd(msg.data)
 
 
