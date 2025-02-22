@@ -165,6 +165,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'arm': #if in standalone mode, send to MCU directly
+            self.get_logger().info(f"[Arm to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
