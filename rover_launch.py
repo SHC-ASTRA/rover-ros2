@@ -5,6 +5,12 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
+
+
+#Prevent making __pycache__ directories
+from sys import dont_write_bytecode
+dont_write_bytecode = True
+
 def launch_setup(context, *args, **kwargs):
     # Retrieve the resolved value of the launch argument 'mode'
     mode = LaunchConfiguration('mode').perform(context)
