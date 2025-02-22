@@ -131,16 +131,16 @@ class SerialRelay(Node):
         self.send_cmd(command)
         
         #Send controls for end effector
-        command = "can_relay_tovic_digit,35," + str(msg.effector_roll) + "\n"
+        command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
         self.send_cmd(command)
         
-        command = "can_relay_tovic_digit,36,0," + str(msg.effector_yaw) + "\n"
+        command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
         self.send_cmd(command)
 
-        command = "can_relay_tovic_digit,26," + str(msg.gripper) + "\n"
+        command = "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
         self.send_cmd(command)
 
-        command = "can_relay_tovic_digit,28," + str(msg.laser) + "\n"
+        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
         self.send_cmd(command)
         
         
