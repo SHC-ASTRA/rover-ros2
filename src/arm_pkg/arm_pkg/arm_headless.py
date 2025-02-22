@@ -113,18 +113,17 @@ class Headless(Node):
             input.gripper = 1
 
         # Toggle Laser
-        if self.gamepad.get_button(0):#Start
+        if self.gamepad.get_button(7):#Start
             self.laser_status = 1
-        elif self.gamepad.get_button(1):#Back
+        elif self.gamepad.get_button(6):#Back
             self.laser_status = 0
         input.laser = self.laser_status
-        
 
         if self.gamepad.get_button(5):#right bumper, control effector
 
             # Left stick X-axis for effector yaw
             if self.gamepad.get_axis(0) > 0:
-                input.effeector_yaw = 1
+                input.effector_yaw = 1
             elif self.gamepad.get_axis(0) < 0:
                 input.effector_yaw = -1
 
