@@ -125,10 +125,26 @@ class SerialRelay(Node):
         axis1 = msg.axis1
         axis2 = msg.axis2
         axis3 = msg.axis3
+
         #Send controls for arm
         command = "can_relay_tovic,arm,40," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
-        
         self.send_cmd(command)
+        
+        #Send controls for end effector
+        command = "can_relay_tovic_digit,35," + str(msg.effector_roll) + "\n"
+        self.send_cmd(command)
+        
+        command = "can_relay_tovic_digit,36,0," + str(msg.effector_yaw) + "\n"
+        self.send_cmd(command)
+
+        command = "can_relay_tovic_digit,26," + str(msg.gripper) + "\n"
+        self.send_cmd(command)
+
+        command = "can_relay_tovic_digit,28," + str(msg.laser) + "\n"
+        self.send_cmd(command)
+        
+        
+        
         #print(f"[Wrote] {command}", end="")
 
     #Not yet finished, needs embedded implementation for new commands
