@@ -141,9 +141,18 @@ class Headless(Node):
             elif dpad_input[0] == -1:
                 input.axis0 = -1
 
-            input.axis1 = -1 * round(self.gamepad.get_axis(0))#left x-axis
-            input.axis2 = -1 * round(self.gamepad.get_axis(1))#left y-axis
-            input.axis3 = -1 * round(self.gamepad.get_axis(4))#right y-axis
+            if self.gamepad.get_axis(0) > .15 or self.gamepad.get_axis(0) < -.15:
+                input.axis1 = -1 * round(self.gamepad.get_axis(0))
+
+            if self.gamepad.get_axis(1) > .15 or self.gamepad.get_axis(1) < -.15:
+                input.axis2 = -1 * round(self.gamepad.get_axis(1))
+
+            if self.gamepad.get_axis(4) > .15 or self.gamepad.get_axis(4) < -.15:
+                input.axis3 = -1 * round(self.gamepad.get_axis(4))
+
+            # input.axis1 = -1 * round(self.gamepad.get_axis(0))#left x-axis
+            # input.axis2 = -1 * round(self.gamepad.get_axis(1))#left y-axis
+            # input.axis3 = -1 * round(self.gamepad.get_axis(4))#right y-axis
 
 
         #Button Mappings
