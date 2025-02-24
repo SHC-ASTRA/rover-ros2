@@ -23,46 +23,55 @@ class SerialRelay(Node):
         # Initalize node with name
         super().__init__("core_node")#previously 'serial_publisher'
 
-        # Create publishers for feedback and telemetry
+        # Get launch mode parameter
+        self.declare_parameter('launch_mode', 'core')
+        self.launch_mode = self.get_parameter('launch_mode').value
+        self.get_logger().info(f"core launch_mode is: {self.launch_mode}")
+
+        # Create publishers 
         self.debug_pub = self.create_publisher(String, '/core/debug', 10) 
         self.feedback_pub = self.create_publisher(CoreFeedback, '/core/feedback', 10)
-
-        # Create a subscriber to listen to any commands sent for the MCU
+        # Create a subscriber 
         self.control_sub = self.create_subscription(CoreControl, '/core/control', self.send_controls, 10)
-        
 
         # Create a service server for pinging the rover
         self.ping_service = self.create_service(Empty, '/astra/core/ping', self.ping_callback)
 
-        # Loop through all serial devices on the computer to check for the MCU
-        self.port = None
-        ports = SerialRelay.list_serial_ports()
-        for i in range(2):
-            for port in ports:
-                try:
-                    # connect and send a ping command
-                    ser = serial.Serial(port, 115200, timeout=1)
-                    print(f"Checking port {port}...")
-                    ser.write(b"ping\n")
-                    response = ser.read_until("\n")
+        if self.launch_mode == 'anchor':
+            self.anchor_sub = self.create_subscription(String, '/anchor/core/feedback', self.anchor_feedback, 10)
+            self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
-                    # if pong is in response, then we are talking with the MCU
-                    if b"pong" in response:
-                        self.port = port
-                        print(f"Found MCU at {self.port}!")
-                        break
-                except:
-                    pass
-            if self.port is not None:
-                break
+
+        if self.launch_mode == 'core':
+            # Loop through all serial devices on the computer to check for the MCU
+            self.port = None
+            ports = SerialRelay.list_serial_ports()
+            for i in range(2):
+                for port in ports:
+                    try:
+                        # connect and send a ping command
+                        ser = serial.Serial(port, 115200, timeout=1)
+                        #(f"Checking port {port}...")
+                        ser.write(b"ping\n")
+                        response = ser.read_until("\n")
+
+                        # if pong is in response, then we are talking with the MCU
+                        if b"pong" in response:
+                            self.port = port
+                            self.get_logger().info(f"Found MCU at {self.port}!")
+                            break
+                    except:
+                        pass
+                if self.port is not None:
+                    break
         
-        if self.port is None:
-            print("Unable to find MCU...")
-            time.sleep(1)
-            sys.exit(1)
+            if self.port is None:
+                self.get_logger().info("Unable to find MCU...")
+                time.sleep(1)
+                sys.exit(1)
         
-        self.ser = serial.Serial(self.port, 115200)
-        atexit.register(self.cleanup)
+            self.ser = serial.Serial(self.port, 115200)
+            atexit.register(self.cleanup)
 
 
     def run(self):
@@ -71,9 +80,11 @@ class SerialRelay(Node):
         thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
         thread.start()
         
+    
         try:
             while rclpy.ok():
-                self.read_MCU() # Check the MCU for updates
+                if self.launch_mode == 'core':
+                    self.read_MCU() # Check the MCU for updates
         except KeyboardInterrupt:
             sys.exit(0)
 
@@ -83,7 +94,7 @@ class SerialRelay(Node):
             
             if output:
                 # All output over debug temporarily
-                print(f"[MCU] {output}", end="")
+                print(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)
@@ -157,10 +168,24 @@ class SerialRelay(Node):
         command = "can_relay_tovic,core,19," + self.scale_duty(left_stick_neg, msg.max_speed) + ',' + self.scale_duty(msg.right_stick, msg.max_speed) + '\n'
         #print(f"[Sys] {command}", end="")
         
-        self.ser.write(bytes(command, "utf8"))# Send command to MCU
-        self.get_logger().debug(f"wrote: {command}")
+        #self.ser.write(bytes(command, "utf8"))# Send command to MCU
+        #self.get_logger().debug(f"wrote: {command}")
+        
+        self.send_cmd(command)
+        
         #print(f"[Sys] Relaying: {command}")
+    def send_cmd(self, msg):
+        if self.launch_mode == 'anchor':
+            #self.get_logger().info(f"[Core to Anchor Relay] {msg}")
+            output = String()#Convert to std_msg string
+            output.data = msg
+            self.anchor_pub.publish(output)
+        elif self.launch_mode == 'core':
+            self.get_logger().info(f"[Core to MCU] {msg}")
+            self.ser.write(bytes(msg, "utf8"))
 
+    def anchor_feedback(self, msg):
+        self.get_logger().info(f"[Arm Anchor] {msg}")
 
     def ping_callback(self, request, response):
         return response

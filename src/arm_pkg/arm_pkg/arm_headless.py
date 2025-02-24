@@ -45,8 +45,7 @@ class Headless(Node):
         self.debug_sub = self.create_subscription(String, '/arm/feedback/debug', self.read_feedback, 10)
 
 
-        #self.lastMsg = String() #Used to ignore sending controls repeatedly when they do not change
-
+        self.laser_status = 0
 
         # Initialize pygame
         pygame.init()
@@ -106,23 +105,69 @@ class Headless(Node):
                 exit()
         input = ArmManual()
 
-        dpad_input = self.gamepad.get_hat(0)
-        input.axis0 = 0
-        if dpad_input[0] == 1:
-            input.axis0 = 1
-        elif dpad_input[0] == -1:
-            input.axis0 = -1
 
-        input.axis1 = round(self.gamepad.get_axis(0))#left x-axis
-        input.axis2 = round(self.gamepad.get_axis(1))#left y-axis
-        input.axis3 = round(self.gamepad.get_axis(4))#right y-axis
+        # Triggers for gripper control
+        if self.gamepad.get_axis(2) > 0:#left trigger
+            input.gripper = -1
+        elif self.gamepad.get_axis(5) > 0:#right trigger
+            input.gripper = 1
 
-        #Temporary, not controlling digit. Awaiting embedded implementation
-        input.effector_yaw = 0
-        input.effector_roll = 0
-        input.gripper = 0
+        # Toggle Laser
+        if self.gamepad.get_button(7):#Start
+            self.laser_status = 1
+        elif self.gamepad.get_button(6):#Back
+            self.laser_status = 0
+        input.laser = self.laser_status
+
+        if self.gamepad.get_button(5):#right bumper, control effector
+
+            # Left stick X-axis for effector yaw
+            if self.gamepad.get_axis(0) > 0:
+                input.effector_yaw = 1
+            elif self.gamepad.get_axis(0) < 0:
+                input.effector_yaw = -1
+
+            # Right stick X-axis for effector roll
+            if self.gamepad.get_axis(3) > 0:
+                input.effector_roll = 1
+            elif self.gamepad.get_axis(3) < 0:
+                input.effector_roll = -1
+
+        else:   # Control arm axis
+            dpad_input = self.gamepad.get_hat(0)
+            input.axis0 = 0
+            if dpad_input[0] == 1:
+                input.axis0 = 1
+            elif dpad_input[0] == -1:
+                input.axis0 = -1
+
+            if self.gamepad.get_axis(0) > .15 or self.gamepad.get_axis(0) < -.15:
+                input.axis1 = -1 * round(self.gamepad.get_axis(0))
+
+            if self.gamepad.get_axis(1) > .15 or self.gamepad.get_axis(1) < -.15:
+                input.axis2 = -1 * round(self.gamepad.get_axis(1))
+
+            if self.gamepad.get_axis(4) > .15 or self.gamepad.get_axis(4) < -.15:
+                input.axis3 = -1 * round(self.gamepad.get_axis(4))
+
+            # input.axis1 = -1 * round(self.gamepad.get_axis(0))#left x-axis
+            # input.axis2 = -1 * round(self.gamepad.get_axis(1))#left y-axis
+            # input.axis3 = -1 * round(self.gamepad.get_axis(4))#right y-axis
+
+
+        #Button Mappings
+        #axis2 -> LT
+        #axis5 -> RT
+        #Buttons0 -> A
+        #Buttons1 -> B
+        #Buttons2 -> X
+        #Buttons3 -> Y
+        #Buttons4 -> LB
+        #Buttons5 -> RB
+        #Buttons6 -> Back
+        #Buttons7 -> Start
+
         input.linear_actuator = 0
-        input.laser = 0
 
 
         if pygame.joystick.get_count() != 0:
