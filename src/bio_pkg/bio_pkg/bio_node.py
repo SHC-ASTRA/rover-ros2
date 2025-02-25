@@ -118,62 +118,38 @@ class SerialRelay(Node):
 
 
     def send_control(self, msg):
+        # Chem Pumps, only send if not zero
         if msg.pumpID != 0:
             command = "can_relay_tovic,citadel,27," + str(msg.pumpID) + "," + str(msg.pumpAmount) + "\n"
             self.send_cmd(command)
+        # Fans, only send if not zero
         if msg.fanID != 0:
             command = "can_relay_tovic,citadel,40," + str(msg.fanID) + "," + str(msg.fanDuration) + "\n"
             self.send_cmd(command)
+        # Servos, only send if not zero
         if msg.servoID != 0:
             command = "can_relay_tovic,citadel,25," + str(msg.servoID) + "," + str(msg.servoPosition) + "\n"
-            self.send_cmd(command)
-
-        #########
-        # To add LSS command here
-        #########
-
-        command = "can_relay_tovic,citadel,26," + str(msg.vibrationMotor) + "\n"
-        self.send_cmd(command)
-
-    def send_manual(self, msg):
-        axis0 = msg.axis0
-        axis1 = msg.axis1
-        axis2 = msg.axis2
-        axis3 = msg.axis3
-
-        #Send controls for arm
-        command = "can_relay_tovic,arm,40," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
-        self.send_cmd(command)
+            self.send_cmd(command)        
+        #Always update for turning on/off
         
-        #Send controls for end effector
-        command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+        # LSS
+        command = "can_relay_tovic,citadel,26," + str(msg.lssDirection) + "\n"
         self.send_cmd(command)
-        
-        command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
+        # Drill
+        command = "can_relay_tovic,citadel,19," + str(msg.drillDuty) + "\n"
+        self.send_cmd(command)
+        # Vibration Motor
+        command = "can_relay_tovic,citadel,37," + str(msg.vibrationMotor) + "\n"
+        self.send_cmd(command)
+        # Laser
+        command = "can_relay_tovic,citadel,28," + str(msg.laser) + "\n"
+        self.send_cmd(command)
+        # UV Light
+        command = "can_relay_tovic,citadel,38," + str(msg.uvLight) + "\n"
         self.send_cmd(command)
 
-        command = "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
-        self.send_cmd(command)
 
-        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
-        self.send_cmd(command)
-        
-        
-        
-        #print(f"[Wrote] {command}", end="")
 
-    #Not yet finished, needs embedded implementation for new commands
-        # ef_roll = msg.effector_roll
-        # ef_yaw = msg.effector_yaw
-        # gripper = msg.gripper
-        # actuator = msg.linear_actuator
-        # laser = msg.laser
-        # #Send controls for digit
-
-        # command = "can_relay_tovic,digit," + str(ef_roll) + "," + str(ef_yaw) + "," + str(gripper) + "," + str(actuator) + "," + str(laser) + "\n"
-
-        return
-    
     def send_cmd(self, msg):
         if self.launch_mode == 'anchor': #if in anchor mode, send to anchor node to relay
             output = String()
