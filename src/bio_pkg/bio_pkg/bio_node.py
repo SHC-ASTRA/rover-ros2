@@ -118,6 +118,10 @@ class SerialRelay(Node):
 
 
     def send_control(self, msg):
+        # CITADEL Control Commands
+        ################
+
+
         # Chem Pumps, only send if not zero
         if msg.pumpID != 0:
             command = "can_relay_tovic,citadel,27," + str(msg.pumpID) + "," + str(msg.pumpAmount) + "\n"
@@ -130,23 +134,32 @@ class SerialRelay(Node):
         if msg.servoID != 0:
             command = "can_relay_tovic,citadel,25," + str(msg.servoID) + "," + str(msg.servoPosition) + "\n"
             self.send_cmd(command)        
-        #Always update for turning on/off
         
+
         # LSS
-        command = "can_relay_tovic,citadel,26," + str(msg.lssDirection) + "\n"
-        self.send_cmd(command)
-        # Drill
-        command = "can_relay_tovic,citadel,19," + str(msg.drillDuty) + "\n"
+        command = "can_relay_tovic,citadel,24," + str(msg.lssDirection) + "\n"
         self.send_cmd(command)
         # Vibration Motor
-        command = "can_relay_tovic,citadel,37," + str(msg.vibrationMotor) + "\n"
+        command = "can_relay_tovic,citadel,26," + str(msg.vibrationMotor) + "\n"
         self.send_cmd(command)
-        # Laser
-        command = "can_relay_tovic,citadel,28," + str(msg.laser) + "\n"
-        self.send_cmd(command)
-        # UV Light
-        command = "can_relay_tovic,citadel,38," + str(msg.uvLight) + "\n"
-        self.send_cmd(command)
+        
+
+        # FAERIE Control Commands 
+        ################
+        
+        # To be reviewed before use#
+
+        # # Laser
+        # command = "can_relay_tovic,faerie,28," + str(msg.laser) + "\n"
+        # self.send_cmd(command)
+        
+        # # UV Light
+        # command = "can_relay_tovic,faerie,38," + str(msg.uvLight) + "\n"
+        # self.send_cmd(command)
+
+        # # Drill
+        # command = "can_relay_tovic,faerie,19," + str(msg.drillDuty) + "\n"
+        # self.send_cmd(command)
 
 
 
