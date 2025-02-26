@@ -76,16 +76,16 @@ def launch_setup(context, *args, **kwargs):
                     parameters=[{'launch_mode': mode}]
                 )
             )
-        # elif mode == 'bio':
-        #     nodes.append(
-        #         Node(
-        #             package='bio_pkg',
-        #             executable='bio',
-        #             name='bio',
-        #             output='both',
-        #             parameters=[{'launch_mode': mode}]
-        #         )
-        #     )
+        elif mode == 'bio':
+            nodes.append(
+                Node(
+                    package='bio_pkg',
+                    executable='bio',
+                    name='bio',
+                    output='both',
+                    parameters=[{'launch_mode': mode}]
+                )
+            )
     else:
         # If an invalid mode is provided, print an error.
         # (You might want to raise an exception or handle it differently.)
