@@ -36,15 +36,15 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[{'launch_mode': mode}]
             )
         )
-        # nodes.append(
-        #     Node(
-        #         package='bio_pkg',
-        #         executable='bio',  # change as needed
-        #         name='bio',
-        #         output='both',
-        #         parameters=[{'launch_mode': mode}]
-        #     )
-        # )
+        nodes.append(
+            Node(
+                package='bio_pkg',
+                executable='bio',  # change as needed
+                name='bio',
+                output='both',
+                parameters=[{'launch_mode': mode}]
+            )
+        )
         nodes.append(
             Node(
                 package='anchor_pkg',
