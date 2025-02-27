@@ -149,9 +149,9 @@ class SerialRelay(Node):
         
         # To be reviewed before use#
 
-        # # Laser
-        # command = "can_relay_tovic,faerie,28," + str(msg.laser) + "\n"
-        # self.send_cmd(command)
+        # Laser
+        command = "can_relay_tovic,faerie,28," + str(msg.laser) + "\n"
+        self.send_cmd(command)
         
         # # UV Light
         # command = "can_relay_tovic,faerie,38," + str(msg.uvLight) + "\n"
