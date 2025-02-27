@@ -158,7 +158,7 @@ class SerialRelay(Node):
         # self.send_cmd(command)
 
         # Drill
-        command = "can_relay_tovic,faerie,19," + str(msg.drill_duty) + "\n"
+        command = f"can_relay_tovic,faerie,19,{msg.drill_duty:.2f}\n"
         print(msg.drill_duty)
         self.send_cmd(command)
 
