@@ -123,24 +123,24 @@ class SerialRelay(Node):
 
 
         # Chem Pumps, only send if not zero
-        if msg.pumpID != 0:
-            command = "can_relay_tovic,citadel,27," + str(msg.pumpID) + "," + str(msg.pumpAmount) + "\n"
+        if msg.pump_id != 0:
+            command = "can_relay_tovic,citadel,27," + str(msg.pump_id) + "," + str(msg.pump_amount) + "\n"
             self.send_cmd(command)
         # Fans, only send if not zero
-        if msg.fanID != 0:
-            command = "can_relay_tovic,citadel,40," + str(msg.fanID) + "," + str(msg.fanDuration) + "\n"
+        if msg.fan_id != 0:
+            command = "can_relay_tovic,citadel,40," + str(msg.fan_id) + "," + str(msg.fan_duration) + "\n"
             self.send_cmd(command)
         # Servos, only send if not zero
-        if msg.servoID != 0:
-            command = "can_relay_tovic,citadel,25," + str(msg.servoID) + "," + str(msg.servoPosition) + "\n"
+        if msg.servo_id != 0:
+            command = "can_relay_tovic,citadel,25," + str(msg.servo_id) + "," + str(msg.servo_position) + "\n"
             self.send_cmd(command)        
         
 
         # LSS
-        command = "can_relay_tovic,citadel,24," + str(msg.lssDirection) + "\n"
+        command = "can_relay_tovic,citadel,24," + str(msg.lss_direction) + "\n"
         self.send_cmd(command)
         # Vibration Motor
-        command = "can_relay_tovic,citadel,26," + str(msg.vibrationMotor) + "\n"
+        command = "can_relay_tovic,citadel,26," + str(msg.vibration_motor) + "\n"
         self.send_cmd(command)
         
 
@@ -157,9 +157,10 @@ class SerialRelay(Node):
         # command = "can_relay_tovic,faerie,38," + str(msg.uvLight) + "\n"
         # self.send_cmd(command)
 
-        # # Drill
-        # command = "can_relay_tovic,faerie,19," + str(msg.drillDuty) + "\n"
-        # self.send_cmd(command)
+        # Drill
+        command = "can_relay_tovic,faerie,19," + str(msg.drill_duty) + "\n"
+        print(msg.drill_duty)
+        self.send_cmd(command)
 
 
 
