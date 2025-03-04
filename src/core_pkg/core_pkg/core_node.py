@@ -185,7 +185,7 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
-        self.get_logger().info(f"[Arm Anchor] {msg}")
+        self.get_logger().info(f"[Core Anchor] {msg}")
 
     def ping_callback(self, request, response):
         return response
