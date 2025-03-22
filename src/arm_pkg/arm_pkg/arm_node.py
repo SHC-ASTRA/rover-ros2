@@ -12,6 +12,18 @@ from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import ArmIK
 from ros2_interfaces_pkg.msg import SocketFeedback
 
+
+# IK-Related imports
+import numpy as np
+import time, math, os
+from math import sin, cos, pi
+from ament_index_python.packages import get_package_share_directory
+from ikpy.chain import Chain
+from ikpy.link import OriginLink, URDFLink
+#import pygame as pyg
+from scipy.spatial.transform import Rotation as R
+
+
 serial_pub = None
 thread = None
 
@@ -37,8 +49,39 @@ class SerialRelay(Node):
             self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
+        ########
+        # Feedback and IK vars
+        ########
+        # Misc
+        degree = pi / 180.0
 
+        urdf_file_name = 'arm11.urdf'
+        ik_tolerance = 1e-3 #Tolerance (in meters) to determine if solution is valid
+
+        # URDF file path
+        urdf = os.path.join(get_package_share_directory('ik_pkg'), urdf_file_name)
+        # IKpy Chain        
+        arm_chain = Chain.from_urdf_file(urdf)
+        
+        # Arrays for joint states
+        # Some links in the URDF are static (non-joints), these will remain zero for IK
+        # Indexes: Ignore, Ignore, Ax_0, Ax_1, Ax2, Ax_3, Wrist, Ignore
+        zero_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        current_angles = zero_angles
+        last_angles = zero_angles
+        ik_angles = zero_angles
+
+        target_position = [0.0, 0.0, 0.0] 
+        target_orientation = [] # Effector orientation desired at target position. 
+                                # Generally orientation for the effector is modified manually by the operator. 
+
+        
+
+        ########
+        # Interface with MCU 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
+        ########
+
         if self.launch_mode == 'arm':
             # Loop through all serial devices on the computer to check for the MCU
             self.port = None
@@ -117,8 +160,6 @@ class SerialRelay(Node):
                 self.ser.close()
             pass
 
-    def send_ik(self, msg):
-        pass
 
     def send_manual(self, msg):
         axis0 = msg.axis0
@@ -171,6 +212,20 @@ class SerialRelay(Node):
     def anchor_feedback(self, msg):
         self.get_logger().info(f"[Arm Anchor] {msg.data}")
         #self.send_cmd(msg.data)
+
+
+    def send_ik(self, msg):
+        pass
+
+    # Given the FK_Matix for the arm's current pose, update the orientation array
+    def update_orientation(self, fk_matrix):
+        self.target_orientation = fk_matrix[:3, :3]
+        return
+    
+    def update_joints(self, ax_0, ax_1, ax_2, ax_3, wrist):
+        self.current_angles = [0.0, 0.0, ax_0, ax_1, ax_2, ax_3, wrist, 0.0]
+        return
+
 
 
     @staticmethod
