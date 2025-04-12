@@ -17,7 +17,7 @@ def convert_angles(angles):
     return [0.0, 0.0, angles[0], angles[1], angles[2], angles[3], angles[4], 0.0]
 
 
-class arm:
+class Arm:
     def __init__(self, urdf_name):
         self.ik_tolerance = 1e-3 #Tolerance (in meters) to determine if solution is valid
         # URDF file path
@@ -43,6 +43,22 @@ class arm:
         #self.step = 0.03 # Max movement increment
 
 
+    def perform_ik(self, target_position):
+        self.target_position = target_position
+        # Update the target orientation to the current orientation
+        self.update_orientation()
+        try:
+            self.ik_angles = self.chain.inverse_kinematics(
+                target_position=self.target_position,
+                target_orientation=self.target_orientation,
+                initial_position=self.current_angles,
+                max_iterations=1000,
+                tolerance=self.ik_tolerance
+            )
+        except Exception as e:
+            print(f"IK failed: {e}")
+            return False
+    
     # Get current orientation of the end effector and update target_orientation
     def update_orientation(self):
 
