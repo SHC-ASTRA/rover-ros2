@@ -52,9 +52,18 @@ class Arm:
                 target_position=self.target_position,
                 target_orientation=self.target_orientation,
                 initial_position=self.current_angles,
-                max_iterations=1000,
-                tolerance=self.ik_tolerance
+                orientation_mode="all"
             )
+            # Check if the solution is within the tolerance
+            fk_matrix = self.chain.forward_kinematics(self.ik_angles)
+            fk_position = fk_matrix[:3, 3]
+            error = np.linalg.norm(target_position - fk_position)
+            if error > self.ik_tolerance:
+                self.get_logger().info(f"No VALID IK Solution within tolerance. Error: {error}")
+                return False
+            else:
+                self.get_logger().info(f"IK Solution Found. Error: {error}")
+                return True
         except Exception as e:
             print(f"IK failed: {e}")
             return False
