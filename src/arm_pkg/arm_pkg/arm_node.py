@@ -155,47 +155,11 @@ class SerialRelay(Node):
             output = str(self.ser.readline(), "utf8")
             if output:
                 if output.startswith("can_relay_tovic,arm,55"):
-                    # Angle feedbacks
-                    parts = output.split(",")
-                    if len(parts) >= 7:
-                        # Extract the angles from the string
-                        angles_in = parts[3:7]
-                        # Convert the angles to floats divide by 10.0
-                        angles = [float(angle) / 10.0 for angle in angles_in]
-                        angles[0] = 0.0
-                        # Update the arm's current angles
-                        self.arm.update_angles(angles)
-                    else:
-                        self.get_logger().info("Invalid angle feedback input format")
+                    self.recordAngleFeedback(output)
                 elif output.startswith("can_relay_tovic,arm,54"):
-                    # Bus Voltage feedbacks
-                    parts = output.split(",")
-                    if len(parts) >= 7:
-                        # Extract the voltage from the string
-                        voltages_in = parts[3:7]
-                        # Convert the voltages to floats
-                        v_bat = float(voltages_in[0]) / 100.0
-                        v_12 = float(voltages_in[1]) / 100.0
-                        v_5 = float(voltages_in[2]) / 100.0
-                        v_3 = float(voltages_in[3]) / 100.0
-                        # Update the arm's current voltages
-                        self.arm_feedback.updateBusVoltages([v_bat, v_12, v_5, v_3])
-                    else:
-                        self.get_logger().info("Invalid voltage feedback input format")
+                    self.recordBusVoltage(output)
                 elif output.startswith("can_relay_tovic,arm,53"):
-                    # Motor voltage/current/temperature feedback
-                    parts = output.split(",")
-                    if len(parts) >= 7:
-                        # Extract the voltage/current/temperature from the string
-                        values_in = parts[3:7]
-                        # Convert the voltages to floats
-                        for i in range(4):
-                            self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-                            self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-                            self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
-                    else:
-                        self.get_logger().info("Invalid motor feedback input format")
-                
+                    self.recordMotorFeedback(output)
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
@@ -218,6 +182,50 @@ class SerialRelay(Node):
                 self.ser.close()
             pass
 
+
+    def recordAngleFeedback(self, msg):
+        # Angle feedbacks
+        parts = msg.split(",")
+        if len(parts) >= 7:
+            # Extract the angles from the string
+            angles_in = parts[3:7]
+            # Convert the angles to floats divide by 10.0
+            angles = [float(angle) / 10.0 for angle in angles_in]
+            angles[0] = 0.0
+            # Update the arm's current angles
+            self.arm.update_angles(angles)
+        else:
+            self.get_logger().info("Invalid angle feedback input format")
+
+    def recordBusVoltage(self, msg):
+        # Bus Voltage feedbacks
+        parts = msg.split(",")
+        if len(parts) >= 7:
+            # Extract the voltage from the string
+            voltages_in = parts[3:7]
+            # Convert the voltages to floats
+            v_bat = float(voltages_in[0]) / 100.0
+            v_12 = float(voltages_in[1]) / 100.0
+            v_5 = float(voltages_in[2]) / 100.0
+            v_3 = float(voltages_in[3]) / 100.0
+            # Update the arm's current voltages
+            self.arm_feedback.updateBusVoltages([v_bat, v_12, v_5, v_3])
+        else:
+            self.get_logger().info("Invalid voltage feedback input format")
+
+    def recordMotorFeedback(self, msg):
+        # Motor voltage/current/temperature feedback
+        parts = msg.split(",")
+        if len(parts) >= 7:
+            # Extract the voltage/current/temperature from the string
+            values_in = parts[3:7]
+            # Convert the voltages to floats
+            for i in range(4):
+                self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
+                self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
+                self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
+        else:
+            self.get_logger().info("Invalid motor feedback input format")
 
     def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
