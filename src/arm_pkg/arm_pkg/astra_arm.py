@@ -21,7 +21,7 @@ class Arm:
     def __init__(self, urdf_name):
         self.ik_tolerance = 1e-3 #Tolerance (in meters) to determine if solution is valid
         # URDF file path
-        self.urdf = os.path.join(get_package_share_directory('ik_pkg'), urdf_name)
+        self.urdf = os.path.join(get_package_share_directory('arm_pkg'), urdf_name)
         # IKpy Chain        
         self.chain = Chain.from_urdf_file(self.urdf)   
 
