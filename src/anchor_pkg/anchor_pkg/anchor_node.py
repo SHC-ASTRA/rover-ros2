@@ -45,6 +45,7 @@ class SerialRelay(Node):
                     #(f"Checking port {port}...")
                     ser.write(b"ping\n")
                     response = ser.read_until("\n")
+                    ser.write(b"can_relay_mode,on\n")
 
                     # if pong is in response, then we are talking with the MCU
                     if b"pong" in response:
