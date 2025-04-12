@@ -24,7 +24,7 @@ from ament_index_python.packages import get_package_share_directory
 # #import pygame as pyg
 # from scipy.spatial.transform import Rotation as R
 
-import astra_arm
+from . import astra_arm
 
 serial_pub = None
 thread = None
