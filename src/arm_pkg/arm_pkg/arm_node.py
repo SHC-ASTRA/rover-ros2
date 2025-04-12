@@ -194,6 +194,7 @@ class SerialRelay(Node):
             angles[0] = 0.0
             # Update the arm's current angles
             self.arm.update_angles(angles)
+            self.get_logger().info(f"Angles: {angles}")
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
