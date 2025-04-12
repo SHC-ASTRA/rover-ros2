@@ -61,7 +61,7 @@ class SocketFeedback:
         self.joint_angles = angles
 
 
-arm_feedback = SocketFeedback()
+
 
 class SerialRelay(Node):
     def __init__(self):
@@ -91,6 +91,7 @@ class SerialRelay(Node):
         self.arm_feedback = SocketFeedback()
         self.digit_feedback = DigitFeedback()
         self.arm = astra_arm.Arm('arm11.urdf')
+        self.arm_feedback = SocketFeedback()
 
         ########
         # Interface with MCU 
@@ -178,7 +179,7 @@ class SerialRelay(Node):
                         v_5 = float(voltages_in[2]) / 100.0
                         v_3 = float(voltages_in[3]) / 100.0
                         # Update the arm's current voltages
-                        arm_feedback.updateBusVoltages([v_bat, v_12, v_5, v_3])
+                        self.arm_feedback.updateBusVoltages([v_bat, v_12, v_5, v_3])
                     else:
                         self.get_logger().info("Invalid voltage feedback input format")
                 elif output.startswith("can_relay_tovic,arm,53"):
@@ -189,9 +190,9 @@ class SerialRelay(Node):
                         values_in = parts[3:7]
                         # Convert the voltages to floats
                         for i in range(4):
-                            arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-                            arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-                            arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
+                            self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
+                            self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
+                            self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
                     else:
                         self.get_logger().info("Invalid motor feedback input format")
                 
@@ -372,14 +373,14 @@ class SerialRelay(Node):
     def socket_pub_callback(self):
         # Create a SocketFeedback message and publish it
         msg = SocketFeedback()
-        msg.bat_voltage = arm_feedback.bat_voltage
-        msg.voltage_12 = arm_feedback.voltage_12
-        msg.voltage_5 = arm_feedback.voltage_5
-        msg.voltage_3 = arm_feedback.voltage_3
-        msg.joint_angles = arm_feedback.joint_angles
-        msg.joint_temps = arm_feedback.joint_temps
-        msg.joint_voltages = arm_feedback.joint_voltages
-        msg.joint_currents = arm_feedback.joint_currents
+        msg.bat_voltage = self.arm_feedback.bat_voltage
+        msg.voltage_12 = self.arm_feedback.voltage_12
+        msg.voltage_5 = self.arm_feedback.voltage_5
+        msg.voltage_3 = self.arm_feedback.voltage_3
+        msg.joint_angles = self.arm_feedback.joint_angles
+        msg.joint_temps = self.arm_feedback.joint_temps
+        msg.joint_voltages = self.arm_feedback.joint_voltages
+        msg.joint_currents = self.arm_feedback.joint_currents
 
         self.socket_pub.publish(msg)
 
