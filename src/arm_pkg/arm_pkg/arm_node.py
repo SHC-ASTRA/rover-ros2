@@ -68,6 +68,9 @@ class SerialRelay(Node):
         # Initialize node
         super().__init__("arm_node")
 
+        #output to console
+        self.get_logger().info("Starting arm node...")
+
         # Get launch mode parameter
         self.declare_parameter('launch_mode', 'arm')
         self.launch_mode = self.get_parameter('launch_mode').value
@@ -87,6 +90,10 @@ class SerialRelay(Node):
         if self.launch_mode == 'anchor':
             self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
+
+
+        # output to console
+        self.get_logger().info("Creating arm object...")
 
         self.arm_feedback = SocketFeedback()
         self.digit_feedback = DigitFeedback()
