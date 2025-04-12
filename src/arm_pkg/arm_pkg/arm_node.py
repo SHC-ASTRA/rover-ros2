@@ -390,9 +390,49 @@ class SerialRelay(Node):
         msg.joint_voltages = self.arm_feedback.joint_voltages
         msg.joint_currents = self.arm_feedback.joint_currents
 
-        self.socket_pub.publish(msg)
+        self.socket_pub.publish(msg) #Publish feedback from arm
+
+        self.arm.update_position() #Run FK and update the current position of the arm, using FK
+
+
 
     def send_ik(self, msg):
+        input_raw = msg.movement_vector # [x, y, z]
+
+        # normalize the vector
+        input_norm = np.linalg.norm(input_raw) / 2.0
+
+        #Target position is current position + normalized vector
+        target_position = self.arm.get_position() + input_norm
+
+        if(self.arm.perform_ik(self.arm.get_position()+input_norm)):
+            #send command to control
+            command = "can_relay_tovic,arm,32," + str(self.arm.ik_angles[0]) + "," + str(self.arm.ik_angles[1]) + "," + str(self.arm.ik_angles[2]) + "," + str(self.arm.ik_angles[3]) + "\n"
+            self.send_cmd(command)
+            self.get_logger().info(f"IK Success: {target_position}")
+        else:
+            self.get_logger().info("IK Fail")
+
+
+        # Manual control for Wrist/Effector
+        command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+        self.send_cmd(command)
+        
+        command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
+        self.send_cmd(command)
+
+        command = "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
+        self.send_cmd(command)
+
+        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+        self.send_cmd(command)
+
+        # Placeholder need control for linear actuator
+        #command = ""
+        #self.send_cmd()
+
+
+
         pass
 
     # Given the FK_Matix for the arm's current pose, update the orientation array
