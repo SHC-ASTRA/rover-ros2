@@ -25,11 +25,9 @@ from ament_index_python.packages import get_package_share_directory
 # from scipy.spatial.transform import Rotation as R
 
 from . import astra_arm
-#from . import socket_feedback
 
 serial_pub = None
 thread = None
-
 
 
 
@@ -169,6 +167,10 @@ class SerialRelay(Node):
             angles[0] = 0.0
             # Update the arm's current angles
             self.arm.update_angles(angles)
+            self.arm_feedback.axis0_angle = angles[0]
+            self.arm_feedback.axis1_angle = angles[1]
+            self.arm_feedback.axis2_angle = angles[2]
+            self.arm_feedback.axis3_angle = angles[3]
             self.get_logger().info(f"Angles: {angles}")
         else:
             self.get_logger().info("Invalid angle feedback input format")
@@ -180,12 +182,10 @@ class SerialRelay(Node):
             # Extract the voltage from the string
             voltages_in = parts[3:7]
             # Convert the voltages to floats
-            v_bat = float(voltages_in[0]) / 100.0
-            v_12 = float(voltages_in[1]) / 100.0
-            v_5 = float(voltages_in[2]) / 100.0
-            v_3 = float(voltages_in[3]) / 100.0
-            # Update the arm's current voltages
-            self.arm_feedback.updateBusVoltages([v_bat, v_12, v_5, v_3])
+            self.arm_feedback.bat_voltage = float(voltages_in[0]) / 100.0
+            self.arm_feedback.voltage_12 = float(voltages_in[1]) / 100.0
+            self.arm_feedback.voltage_5 = float(voltages_in[2]) / 100.0
+            self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
         else:
             self.get_logger().info("Invalid voltage feedback input format")
 
@@ -197,10 +197,12 @@ class SerialRelay(Node):
             values_in = parts[3:7]
             # Convert the voltages to floats
             for i in range(4):
-                self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-                self.
-                self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-                self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
+                #update arm_feedback's axisX_temp for each axis0_temp, axis1_temp, etc...
+                pass
+
+                # self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
+                # self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
+                # self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
         else:
             self.get_logger().info("Invalid motor feedback input format")
 
@@ -357,17 +359,17 @@ class SerialRelay(Node):
 
     def socket_pub_callback(self):
         # Create a SocketFeedback message and publish it
-        msg = SocketFeedback()
-        msg.bat_voltage = self.arm_feedback.bat_voltage
-        msg.voltage_12 = self.arm_feedback.voltage_12
-        msg.voltage_5 = self.arm_feedback.voltage_5
-        msg.voltage_3 = self.arm_feedback.voltage_3
-        msg.joint_angles = self.arm_feedback.joint_angles
-        msg.joint_temps = self.arm_feedback.joint_temps
-        msg.joint_voltages = self.arm_feedback.joint_voltages
-        msg.joint_currents = self.arm_feedback.joint_currents
+        # msg = SocketFeedback()
+        # msg.bat_voltage = self.arm_feedback.bat_voltage
+        # msg.voltage_12 = self.arm_feedback.voltage_12
+        # msg.voltage_5 = self.arm_feedback.voltage_5
+        # msg.voltage_3 = self.arm_feedback.voltage_3
+        # msg.joint_angles = self.arm_feedback.joint_angles
+        # msg.joint_temps = self.arm_feedback.joint_temps
+        # msg.joint_voltages = self.arm_feedback.joint_voltages
+        # msg.joint_currents = self.arm_feedback.joint_currents
 
-        self.socket_pub.publish(msg) #Publish feedback from arm
+        self.socket_pub.publish(self.arm_feedback) #Publish feedback from arm
 
         self.arm.update_position() #Run FK and update the current position of the arm, using FK
 
