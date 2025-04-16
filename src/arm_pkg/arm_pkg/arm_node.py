@@ -95,9 +95,10 @@ class SerialRelay(Node):
                     break
             
             if self.port is None:
-                self.get_logger().info("Unable to find MCU... please make sure it is connected.")
-                time.sleep(1)
-                sys.exit(1)
+                self.get_logger().info("Unable to find MCU...")
+                #kill the node/process entirely
+                os.kill(os.getpid(), signal.SIGKILL)
+                sys.exit(0)
             
             self.ser = serial.Serial(self.port, 115200)
             atexit.register(self.cleanup)

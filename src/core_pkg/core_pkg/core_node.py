@@ -7,6 +7,7 @@ import time
 import atexit
 
 import serial
+import os
 import sys
 import threading
 import glob
@@ -74,8 +75,9 @@ class SerialRelay(Node):
         
             if self.port is None:
                 self.get_logger().info("Unable to find MCU...")
-                time.sleep(1)
-                sys.exit(1)
+                #kill the node/process entirely
+                os.kill(os.getpid(), signal.SIGKILL)
+                sys.exit(0)
         
             self.ser = serial.Serial(self.port, 115200)
             atexit.register(self.cleanup)
