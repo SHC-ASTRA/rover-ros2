@@ -161,6 +161,24 @@ class SerialRelay(Node):
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
             angles[0] = 0.0
+            #
+            #
+            #
+            #THIS NEEDS TO BE REMOVED LATER
+            #PLACEHOLDER FOR WRIST VALUE 
+            #
+            ##
+            #
+            #
+            #
+            angles.append(0.0)
+            #
+            #
+            #
+            #
+            #
+            ##
+            #
             # Update the arm's current angles
             self.arm.update_angles(angles)
             self.arm_feedback.axis0_angle = angles[0]
@@ -262,7 +280,6 @@ class SerialRelay(Node):
         msg.data = output
         self.debug_pub.publish(msg)
         self.get_logger().info(f"[Arm Anchor] {msg.data}")
-        #self.send_cmd(msg.data)
 
     def socket_pub_callback(self):
         # Create a SocketFeedback message and publish it
