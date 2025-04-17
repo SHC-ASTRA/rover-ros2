@@ -128,11 +128,11 @@ class SerialRelay(Node):
         try:
             output = str(self.ser.readline(), "utf8")
             if output:
-                if output.startswith("can_relay_tovic,arm,55"):
+                if output.startswith("can_relay_fromvic,arm,55"):
                     self.recordAngleFeedback(output)
-                elif output.startswith("can_relay_tovic,arm,54"):
+                elif output.startswith("can_relay_fromvic,arm,54"):
                     self.recordBusVoltage(output)
-                elif output.startswith("can_relay_tovic,arm,53"):
+                elif output.startswith("can_relay_fromvic,arm,53"):
                     self.recordMotorFeedback(output)
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
