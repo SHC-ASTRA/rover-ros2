@@ -166,6 +166,24 @@ class SerialRelay(Node):
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
             angles[0] = 0.0
+            #
+            #
+            #
+            #THIS NEEDS TO BE REMOVED LATER
+            #PLACEHOLDER FOR WRIST VALUE 
+            #
+            ##
+            #
+            #
+            #
+            angles.append(0.0)
+            #
+            #
+            #
+            #
+            #
+            ##
+            #
             # Update the arm's current angles
             self.arm.update_angles(angles)
             self.arm_feedback.axis0_angle = angles[0]
