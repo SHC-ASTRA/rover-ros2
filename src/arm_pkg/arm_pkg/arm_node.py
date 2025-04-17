@@ -388,7 +388,6 @@ class SerialRelay(Node):
         # msg.joint_voltages = self.arm_feedback.joint_voltages
         # msg.joint_currents = self.arm_feedback.joint_currents
         #debug print 
-        self.get_logger().info(f"ARM NODE SENDING: Socket Feedback")
         self.socket_pub.publish(self.arm_feedback) #Publish feedback from arm
 
         self.arm.update_position() #Run FK and update the current position of the arm, using FK
