@@ -136,7 +136,7 @@ class SerialRelay(Node):
                     self.recordMotorFeedback(output)
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
-                msg.data = output
+                msg.data = "From MCU Got: " + output
                 self.debug_pub.publish(msg)
         except serial.SerialException:
             self.get_logger().info("SerialException caught... closing serial port.")
@@ -397,19 +397,39 @@ class SerialRelay(Node):
     def send_ik(self, msg):
         input_raw = msg.movement_vector # [x, y, z]
 
+        # Debug output
+        msg = String()
+        msg.data = "From IK Control Got Vector: " + str(input_raw)
+        self.debug_pub.publish(msg)
+
         # normalize the vector
         input_norm = np.linalg.norm(input_raw) / 2.0
 
+
+
+
         #Target position is current position + normalized vector
         target_position = self.arm.get_position() + input_norm
+        msg.data = "Target Position: " + str(target_position)
+        self.debug_pub.publish(msg)
 
         if(self.arm.perform_ik(self.arm.get_position()+input_norm)):
             #send command to control
             command = "can_relay_tovic,arm,32," + str(self.arm.ik_angles[0]) + "," + str(self.arm.ik_angles[1]) + "," + str(self.arm.ik_angles[2]) + "," + str(self.arm.ik_angles[3]) + "\n"
             self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
+
+            msg = String()
+            msg.data = "IK Success: " + str(target_position)
+            self.debug_pub.publish(msg)
+            msg.data = "Sending: " + str(command)
+            self.debug_pub.publish(msg)
+       
         else:
             self.get_logger().info("IK Fail")
+            msg = String()
+            msg.data = "IK Fail"
+            self.debug_pub.publish(msg)
 
 
         # Manual control for Wrist/Effector
