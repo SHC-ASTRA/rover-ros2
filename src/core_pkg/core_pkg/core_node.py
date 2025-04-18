@@ -187,6 +187,34 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
+        output = msg.data
+        if output.startswith("can_relay_fromvic,core,"):
+            
+            packet = output.strip().split(',') #divide the string into parts 
+            packet = packet[2:] #remove first 2 elements
+            if output.startswith("can_relay_fromvic,core,48"):
+                #GPS Latitude
+                pass
+                #update latitude
+            elif output.startswith("can_relay_fromvic,core,49"):
+                #GPS Longtitude
+                pass
+                #update longitude
+            elif output.startswith("can_relay_fromvic,core,50"):
+                #GPS Sattelites
+                pass
+                #self.recordMotorFeedback(output)
+            elif output.startswith("can_relay_fromvic,core,51"):
+                #IMU Gyro: x, y, z
+                pass
+                #self.recordMotorFeedback(output)
+            elif output.startswith("can_relay_fromvic,core,52"):
+                #IMU Accel/Heading: x, y, z, heading(*10)
+                pass
+                #self.recordMotorFeedback(output)
+        msg = String()
+        msg.data = output
+        self.debug_pub.publish(msg)
         self.get_logger().info(f"[Core Anchor] {msg}")
 
     def ping_callback(self, request, response):
