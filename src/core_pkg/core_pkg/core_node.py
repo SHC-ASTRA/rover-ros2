@@ -191,7 +191,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'core':
-            self.get_logger().info(f"[Core to MCU] {msg}")
+            self.get_logger().info(f"[Core to MCU] {msg.data}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg: String):
