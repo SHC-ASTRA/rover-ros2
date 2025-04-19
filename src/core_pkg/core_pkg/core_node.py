@@ -183,7 +183,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'core':
-            self.get_logger().info(f"[Core to MCU] {msg}")
+            self.get_logger().info(f"[Core to MCU] {msg.data}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
@@ -215,7 +215,7 @@ class SerialRelay(Node):
         msg = String()
         msg.data = output
         self.debug_pub.publish(msg)
-        self.get_logger().info(f"[Core Anchor] {msg}")
+        self.get_logger().info(f"[Core Anchor] {msg.data}")
 
     def ping_callback(self, request, response):
         return response
