@@ -396,11 +396,15 @@ class SerialRelay(Node):
 
     def send_ik(self, msg):
         input_raw = msg.movement_vector # [x, y, z]
+        #input_x = input_raw[0]
+        #input_y = input_raw[1]
+        #input_z = input_raw[2]
 
         # Debug output
-        msg = String()
-        msg.data = "From IK Control Got Vector: " + str(input_raw)
-        self.debug_pub.publish(msg)
+        tempMsg = String()
+        tempMsg.data = "From IK Control Got Vector: " + str(input_raw)
+        #self.get_logger().info(f"[IK Control] {tempMsg.data}")
+        self.debug_pub.publish(tempMsg)
 
         # normalize the vector
         input_norm = np.linalg.norm(input_raw) / 2.0
@@ -410,8 +414,8 @@ class SerialRelay(Node):
 
         #Target position is current position + normalized vector
         target_position = self.arm.get_position() + input_norm
-        msg.data = "Target Position: " + str(target_position)
-        self.debug_pub.publish(msg)
+        tempMsg.data = "Target Position: " + str(target_position)
+        self.debug_pub.publish(tempMsg)
 
         if(self.arm.perform_ik(self.arm.get_position()+input_norm)):
             #send command to control
