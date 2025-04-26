@@ -395,32 +395,25 @@ class SerialRelay(Node):
 
 
     def send_ik(self, msg):
-        input_raw = msg.movement_vector # [x, y, z]
-        #input_x = input_raw[0]
-        #input_y = input_raw[1]
-        #input_z = input_raw[2]
+        input_raw = np.array(msg.movement_vector)  # Convert input to a NumPy array
 
         # Debug output
         tempMsg = String()
         tempMsg.data = "From IK Control Got Vector: " + str(input_raw)
-        #self.get_logger().info(f"[IK Control] {tempMsg.data}")
         self.debug_pub.publish(tempMsg)
 
-        # normalize the vector
-        #input_norm = np.linalg.norm(input_raw) / 2.0
+        # Target position is current position + input vector
+        current_position = self.arm.get_position_vector()
+        target_position = current_position + input_raw
 
-
-
-
-        #Target position is current position + normalized vector
-        #target_position = self.arm.get_position_vector() + input_raw
-        target_position = map(sum, zip(self.arm.get_position_vector(), input_raw))
+        # Debug output for target position
         tempMsg.data = "Target Position: " + str(target_position)
         self.debug_pub.publish(tempMsg)
 
-        if(self.arm.perform_ik(self.arm.get_position()+input_norm)):
-            #send command to control
-            command = "can_relay_tovic,arm,32," + str(self.arm.ik_angles[0]) + "," + str(self.arm.ik_angles[1]) + "," + str(self.arm.ik_angles[2]) + "," + str(self.arm.ik_angles[3]) + "\n"
+        # Perform IK with the target position
+        if self.arm.perform_ik(target_position):
+            # Send command to control
+            command = "can_relay_tovic,arm,32," + ",".join(map(str, self.arm.ik_angles[:4])) + "\n"
             self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
 
@@ -429,13 +422,11 @@ class SerialRelay(Node):
             self.debug_pub.publish(msg)
             msg.data = "Sending: " + str(command)
             self.debug_pub.publish(msg)
-       
         else:
             self.get_logger().info("IK Fail")
             msg = String()
             msg.data = "IK Fail"
             self.debug_pub.publish(msg)
-
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
