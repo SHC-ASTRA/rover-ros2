@@ -413,7 +413,7 @@ class SerialRelay(Node):
 
 
         #Target position is current position + normalized vector
-        target_position = self.arm.get_position() + input_raw
+        target_position = self.arm.get_position_vector() + input_raw
         tempMsg.data = "Target Position: " + str(target_position)
         self.debug_pub.publish(tempMsg)
 
