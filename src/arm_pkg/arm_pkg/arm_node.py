@@ -407,13 +407,13 @@ class SerialRelay(Node):
         self.debug_pub.publish(tempMsg)
 
         # normalize the vector
-        input_norm = np.linalg.norm(input_raw) / 2.0
+        #input_norm = np.linalg.norm(input_raw) / 2.0
 
 
 
 
         #Target position is current position + normalized vector
-        target_position = self.arm.get_position() + input_norm
+        target_position = self.arm.get_position() + input_raw
         tempMsg.data = "Target Position: " + str(target_position)
         self.debug_pub.publish(tempMsg)
 
