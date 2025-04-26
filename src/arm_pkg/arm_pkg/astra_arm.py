@@ -114,13 +114,8 @@ class Arm:
         # Get the position of the end effector from the FK matrix
         position = fk_matrix[:3, 3]
 
-        # Convert position to Vector3
-        position_vector = Vector3()
-        position_vector.x = position[0]
-        position_vector.y = position[1]
-        position_vector.z = position[2]
-        
-        return position_vector
+        # Return position as a NumPy array
+        return np.array(position)
 
     
     def update_position(self):
