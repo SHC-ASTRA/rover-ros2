@@ -191,6 +191,10 @@ class SerialRelay(Node):
             self.arm_feedback.axis2_angle = angles[2]
             self.arm_feedback.axis3_angle = angles[3]
             self.get_logger().info(f"Angles: {angles}")
+            #debug publish angles
+            tempMsg = String()
+            tempMsg.data = "Angles: " + str(angles)
+            self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
@@ -395,7 +399,10 @@ class SerialRelay(Node):
 
 
     def send_ik(self, msg):
-        input_raw = np.array(msg.movement_vector)  # Convert input to a NumPy array
+        # Convert Vector3 to a NumPy array
+        input_raw = np.array([msg.movement_vector.x, msg.movement_vector.y, msg.movement_vector.z])  # Convert input to a NumPy array
+        # decrease input vector by 90%
+        input_raw = input_raw * 0.2
 
         # Debug output
         tempMsg = String()
@@ -405,6 +412,11 @@ class SerialRelay(Node):
         # Target position is current position + input vector
         current_position = self.arm.get_position_vector()
         target_position = current_position + input_raw
+
+
+        # Debug output for current position
+        tempMsg.data = "Current Position: " + str(current_position)
+        self.debug_pub.publish(tempMsg)
 
         # Debug output for target position
         tempMsg.data = "Target Position: " + str(target_position)
@@ -417,16 +429,16 @@ class SerialRelay(Node):
             self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
 
-            msg = String()
-            msg.data = "IK Success: " + str(target_position)
-            self.debug_pub.publish(msg)
-            msg.data = "Sending: " + str(command)
-            self.debug_pub.publish(msg)
+            tempMsg = String()
+            tempMsg.data = "IK Success: " + str(target_position)
+            self.debug_pub.publish(tempMsg)
+            tempMsg.data = "Sending: " + str(command)
+            self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("IK Fail")
-            msg = String()
-            msg.data = "IK Fail"
-            self.debug_pub.publish(msg)
+            tempMsg = String()
+            tempMsg.data = "IK Fail"
+            self.debug_pub.publish(tempMsg)
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
@@ -449,14 +461,7 @@ class SerialRelay(Node):
 
         pass
 
-    # Given the FK_Matix for the arm's current pose, update the orientation array
-    def update_orientation(self, fk_matrix):
-        self.target_orientation = fk_matrix[:3, :3]
-        return
-    
-    def update_joints(self, ax_0, ax_1, ax_2, ax_3, wrist):
-        self.current_angles = [0.0, 0.0, ax_0, ax_1, ax_2, ax_3, wrist, 0.0]
-        return
+
 
 
 

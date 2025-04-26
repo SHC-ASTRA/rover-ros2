@@ -48,7 +48,11 @@ class Arm:
         self.target_position = target_position
         # Update the target orientation to the current orientation
         self.update_orientation()
+        print(f"[IK FOR] Target Position: {self.target_position}")
         try:
+            print(f"[TRY] Current Angles: {self.current_angles}")
+            print(f"[TRY] Target Position: {self.target_position}")
+            print(f"[TRY] Target Orientation: {self.target_orientation}")
             self.ik_angles = self.chain.inverse_kinematics(
                 target_position=self.target_position,
                 target_orientation=self.target_orientation,
@@ -57,18 +61,31 @@ class Arm:
             )
             # Check if the solution is within the tolerance
             fk_matrix = self.chain.forward_kinematics(self.ik_angles)
+
             fk_position = fk_matrix[:3, 3]
+            
+            print(f"[TRY] FK Position for Solution: {fk_position}")
+
             error = np.linalg.norm(target_position - fk_position)
             if error > self.ik_tolerance:
-                self.get_logger().info(f"No VALID IK Solution within tolerance. Error: {error}")
+                print(f"No VALID IK Solution within tolerance. Error: {error}")
                 return False
             else:
-                self.get_logger().info(f"IK Solution Found. Error: {error}")
+                print(f"IK Solution Found. Error: {error}")
                 return True
         except Exception as e:
-            print(f"IK failed: {e}")
+            print(f"IK failed for exception: {e}")
             return False
     
+    # # Given the FK_Matix for the arm's current pose, update the orientation array
+    # def update_orientation(self, fk_matrix):
+    #     self.target_orientation = fk_matrix[:3, :3]
+    #     return
+    
+    # def update_joints(self, ax_0, ax_1, ax_2, ax_3, wrist):
+    #     self.current_angles = [0.0, 0.0, ax_0, ax_1, ax_2, ax_3, wrist, 0.0]
+    #     return
+
     # Get current orientation of the end effector and update target_orientation
     def update_orientation(self):
 
