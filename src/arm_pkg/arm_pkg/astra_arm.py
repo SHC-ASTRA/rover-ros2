@@ -6,6 +6,7 @@ from ikpy.chain import Chain
 from ikpy.link import OriginLink, URDFLink
 #import pygame as pyg
 from scipy.spatial.transform import Rotation as R
+from geometry_msgs.msg import Vector3  
 
 
 # Misc
@@ -104,6 +105,23 @@ class Arm:
         position = fk_matrix[:3, 3]
         
         return position
+
+    # Get current X,Y,Z position of end effector
+    def get_position_vector(self):
+        # FK matrix for arm's current pose
+        fk_matrix = self.chain.forward_kinematics(self.current_angles)
+        
+        # Get the position of the end effector from the FK matrix
+        position = fk_matrix[:3, 3]
+
+        # Convert position to Vector3
+        position_vector = Vector3()
+        position_vector.x = position[0]
+        position_vector.y = position[1]
+        position_vector.z = position[2]
+        
+        return position_vector
+
     
     def update_position(self):
         # FK matrix for arm's current pose
@@ -113,5 +131,4 @@ class Arm:
         self.current_position = fk_matrix[:3, 3]
 
 
-        
-        
+
