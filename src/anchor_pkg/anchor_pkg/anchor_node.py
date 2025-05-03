@@ -84,6 +84,21 @@ class SerialRelay(Node):
             if output:
                 # All output over debug temporarily
                 self.get_logger().info(f"[MCU] {output}")
+                if output.startswith("can_relay_fromvic,arm"):
+                    # Publish the message to the arm topic
+                    msg = String()
+                    msg.data = output
+                    self.arm_pub.publish(msg)
+                elif output.startswith("can_relay_fromvic,core"):
+                    # Publish the message to the core topic
+                    msg = String()
+                    msg.data = output
+                    self.core_pub.publish(msg)
+                elif output.startswith("can_relay_fromvic,bio"):
+                    # Publish the message to the bio topic
+                    msg = String()
+                    msg.data = output
+                    self.bio_pub.publish(msg)
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)
