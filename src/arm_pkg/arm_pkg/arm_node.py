@@ -225,6 +225,9 @@ class SerialRelay(Node):
         #Send controls for arm
         command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
         self.send_cmd(command)
+        tempMsg = String()
+        tempMsg.data = "Sending: " + str(command)
+        self.debug_pub.publish(tempMsg)
         
         #Send controls for end effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
@@ -339,6 +342,7 @@ class SerialRelay(Node):
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+
         self.send_cmd(command)
         
         command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
