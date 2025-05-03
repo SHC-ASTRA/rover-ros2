@@ -29,8 +29,8 @@ class Arm:
 
         # Arrays for joint states
         # Some links in the URDF are static (non-joints), these will remain zero for IK
-        # Indexes: Fixed_base, Ax_0, Ax_1, seg1, Ax_2, seg2, ax_3, seg3, continuous, wrist
-        self.zero_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        # Indexes: Fixed_base, Ax_0, Ax_1, seg1, Ax_2, seg2, ax_3, seg3, continuous, wrist, Effector
+        self.zero_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.current_angles = self.zero_angles
         self.last_angles = self.zero_angles
         self.ik_angles = self.zero_angles
