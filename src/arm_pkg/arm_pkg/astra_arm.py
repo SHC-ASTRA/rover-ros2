@@ -15,7 +15,7 @@ degree = pi / 180.0
 
 def convert_angles(angles):
     # Converts angles to the format used for the urdf (contains some dummy joints)
-    return [0.0, angles[0]*degree, angles[1]*degree, 0.0, angles[2]*degree, 0.0, angles[3]*degree, 0.0, angles[4]*degree, angles[5]*degree]
+    return [0.0, angles[0]*degree, angles[1]*degree, 0.0, angles[2]*degree, 0.0, angles[3]*degree, 0.0, angles[4]*degree, angles[5]*degree, 0.0]
 
 
 class Arm:
