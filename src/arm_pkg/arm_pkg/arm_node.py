@@ -206,10 +206,10 @@ class SerialRelay(Node):
                 # Extract the voltage from the string
                 voltages_in = parts[3:7]
                 # Convert the voltages to floats
-                # self.arm_feedback.bat_voltage = float(voltages_in[0]) / 100.0
-                # self.arm_feedback.voltage_12 = float(voltages_in[1]) / 100.0
-                # self.arm_feedback.voltage_5 = float(voltages_in[2]) / 100.0
-                # self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
+                self.arm_feedback.bat_voltage = float(voltages_in[0]) / 100.0
+                self.arm_feedback.voltage_12 = float(voltages_in[1]) / 100.0
+                self.arm_feedback.voltage_5 = float(voltages_in[2]) / 100.0
+                self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
             else:
                 self.get_logger().info("Invalid voltage feedback input format")
                 
