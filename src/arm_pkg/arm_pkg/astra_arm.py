@@ -15,7 +15,7 @@ degree = pi / 180.0
 
 def convert_angles(angles):
     # Converts angles to the format used for the urdf (contains some dummy joints)
-    return [0.0, 0.0, angles[0], angles[1], angles[2], angles[3], angles[4], 0.0]
+    return [0.0, angles[0]*degree, angles[1]*degree, 0.0, angles[2]*degree, 0.0, angles[3]*degree, 0.0, angles[4]*degree, angles[5]*degree]
 
 
 class Arm:
@@ -29,8 +29,8 @@ class Arm:
 
         # Arrays for joint states
         # Some links in the URDF are static (non-joints), these will remain zero for IK
-        # Indexes: Ignore, Ignore, Ax_0, Ax_1, Ax2, Ax_3, Wrist, Ignore
-        self.zero_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        # Indexes: Fixed_base, Ax_0, Ax_1, seg1, Ax_2, seg2, ax_3, seg3, continuous, wrist
+        self.zero_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.current_angles = self.zero_angles
         self.last_angles = self.zero_angles
         self.ik_angles = self.zero_angles
@@ -48,11 +48,11 @@ class Arm:
         self.target_position = target_position
         # Update the target orientation to the current orientation
         self.update_orientation()
-        print(f"[IK FOR] Target Position: {self.target_position}")
+        # print(f"[IK FOR] Target Position: {self.target_position}")
         try:
-            print(f"[TRY] Current Angles: {self.current_angles}")
-            print(f"[TRY] Target Position: {self.target_position}")
-            print(f"[TRY] Target Orientation: {self.target_orientation}")
+            # print(f"[TRY] Current Angles: {self.current_angles}")
+            # print(f"[TRY] Target Position: {self.target_position}")
+            # print(f"[TRY] Target Orientation: {self.target_orientation}")
             self.ik_angles = self.chain.inverse_kinematics(
                 target_position=self.target_position,
                 target_orientation=self.target_orientation,
@@ -64,7 +64,7 @@ class Arm:
 
             fk_position = fk_matrix[:3, 3]
             
-            print(f"[TRY] FK Position for Solution: {fk_position}")
+            # print(f"[TRY] FK Position for Solution: {fk_position}")
 
             error = np.linalg.norm(target_position - fk_position)
             if error > self.ik_tolerance:
