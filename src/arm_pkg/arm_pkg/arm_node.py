@@ -172,7 +172,8 @@ class SerialRelay(Node):
             #PLACEHOLDER FOR WRIST VALUE 
             #
             #
-            angles.append(0.0)
+            angles.append(0.0)#placeholder for wrist_continuous
+            angles.append(0.0)#placeholder for wrist
             #
             #
             # Update the arm's current angles
