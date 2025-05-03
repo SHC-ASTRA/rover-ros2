@@ -54,7 +54,7 @@ class SerialRelay(Node):
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
-            self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
+            #self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
 
