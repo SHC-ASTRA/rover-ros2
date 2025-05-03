@@ -63,7 +63,7 @@ class SerialRelay(Node):
 
         self.arm_feedback = SocketFeedback()
         self.digit_feedback = DigitFeedback()
-        self.arm = astra_arm.Arm('arm11.urdf')
+        self.arm = astra_arm.Arm('arm12.urdf')
         self.arm_feedback = SocketFeedback()
 
         ########
@@ -168,21 +168,12 @@ class SerialRelay(Node):
             angles[0] = 0.0
             #
             #
-            #
             #THIS NEEDS TO BE REMOVED LATER
             #PLACEHOLDER FOR WRIST VALUE 
-            #
-            ##
-            #
             #
             #
             angles.append(0.0)
             #
-            #
-            #
-            #
-            #
-            ##
             #
             # Update the arm's current angles
             self.arm.update_angles(angles)
