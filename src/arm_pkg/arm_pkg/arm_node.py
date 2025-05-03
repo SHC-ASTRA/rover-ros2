@@ -45,7 +45,7 @@ class SerialRelay(Node):
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
         self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
         #run socket_pubc every second
-        self.socket_pub_timer = self.create_timer(0.5, self.socket_pub_callback)
+        #self.socket_pub_timer = self.create_timer(0.5, self.socket_pub_callback)
 
 
         # Create subscribers
