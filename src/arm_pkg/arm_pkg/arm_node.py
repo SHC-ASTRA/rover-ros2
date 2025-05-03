@@ -169,73 +169,8 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
-        output = msg.data
-        if output.startswith("can_relay_fromvic,arm,55"):
-            parts = msg.split(",")
-            if len(parts) >= 7:
-                # Extract the angles from the string
-                angles_in = parts[3:7]
-                # Convert the angles to floats divide by 10.0
-                angles = [float(angle) / 10.0 for angle in angles_in]
-                angles[0] = 0.0
-                #
-                #
-                #THIS NEEDS TO BE REMOVED LATER
-                #PLACEHOLDER FOR WRIST VALUE 
-                #
-                #
-                angles.append(0.0)#placeholder for wrist_continuous
-                angles.append(0.0)#placeholder for wrist
-                #
-                #
-                # Update the arm's current angles
-                # self.arm.update_angles(angles)
-                # self.arm_feedback.axis0_angle = angles[0]
-                # self.arm_feedback.axis1_angle = angles[1]
-                # self.arm_feedback.axis2_angle = angles[2]
-                # self.arm_feedback.axis3_angle = angles[3]
-                self.get_logger().info(f"Angles: {angles}")
-            else:
-                self.get_logger().info("Invalid voltage feedback input format")
-                
-            #self.recordAngleFeedback(output)
-        elif output.startswith("can_relay_fromvic,arm,54"):
-
-            parts = msg.split(",")
-            if len(parts) >= 7:
-                # Extract the voltage from the string
-                voltages_in = parts[3:7]
-                # Convert the voltages to floats
-                self.arm_feedback.bat_voltage = float(voltages_in[0]) / 100.0
-                self.arm_feedback.voltage_12 = float(voltages_in[1]) / 100.0
-                self.arm_feedback.voltage_5 = float(voltages_in[2]) / 100.0
-                self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
-            else:
-                self.get_logger().info("Invalid voltage feedback input format")
-                
-            #self.recordBusVoltage(output)
-        elif output.startswith("can_relay_fromvic,arm,53"):
-            # Motor voltage/current/temperature feedback
-            parts = msg.split(",")
-            if len(parts) >= 7:
-                # Extract the voltage/current/temperature from the string
-                values_in = parts[3:7]
-                # Convert the voltages to floats
-                for i in range(4):
-                    #update arm_feedback's axisX_temp for each axis0_temp, axis1_temp, etc...
-                    pass
-
-                    # self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-                    # self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-                    # self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
-            else:
-                self.get_logger().info("Invalid motor feedback input format")
-            #self.recordMotorFeedback(output)
-        msg = String()
-        msg.data = "From Anchor Got: " + output
-        #self.debug_pub.publish(msg)
         self.get_logger().info(f"[Arm Anchor] {msg.data}")
-
+        #self.send_cmd(msg.data)
 
 
     @staticmethod
