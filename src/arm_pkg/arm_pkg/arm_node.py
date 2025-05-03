@@ -129,11 +129,14 @@ class SerialRelay(Node):
             output = str(self.ser.readline(), "utf8")
             if output:
                 if output.startswith("can_relay_fromvic,arm,55"):
-                    self.recordAngleFeedback(output)
+                    pass
+                    #self.recordAngleFeedback(output)
                 elif output.startswith("can_relay_fromvic,arm,54"):
-                    self.recordBusVoltage(output)
+                    pass
+                    #self.recordBusVoltage(output)
                 elif output.startswith("can_relay_fromvic,arm,53"):
-                    self.recordMotorFeedback(output)
+                    pass
+                    #self.recordMotorFeedback(output)
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = "From MCU Got: " + output
@@ -176,17 +179,17 @@ class SerialRelay(Node):
             angles.append(0.0)#placeholder for wrist
             #
             #
-            # Update the arm's current angles
-            self.arm.update_angles(angles)
-            self.arm_feedback.axis0_angle = angles[0]
-            self.arm_feedback.axis1_angle = angles[1]
-            self.arm_feedback.axis2_angle = angles[2]
-            self.arm_feedback.axis3_angle = angles[3]
-            self.get_logger().info(f"Angles: {angles}")
-            #debug publish angles
-            tempMsg = String()
-            tempMsg.data = "Angles: " + str(angles)
-            #self.debug_pub.publish(tempMsg)
+            # # Update the arm's current angles
+            # self.arm.update_angles(angles)
+            # self.arm_feedback.axis0_angle = angles[0]
+            # self.arm_feedback.axis1_angle = angles[1]
+            # self.arm_feedback.axis2_angle = angles[2]
+            # self.arm_feedback.axis3_angle = angles[3]
+            # self.get_logger().info(f"Angles: {angles}")
+            # #debug publish angles
+            # tempMsg = String()
+            # tempMsg.data = "Angles: " + str(angles)
+            # #self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
