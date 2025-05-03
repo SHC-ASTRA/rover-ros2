@@ -186,7 +186,7 @@ class SerialRelay(Node):
             #debug publish angles
             tempMsg = String()
             tempMsg.data = "Angles: " + str(angles)
-            self.debug_pub.publish(tempMsg)
+            #self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
@@ -399,7 +399,7 @@ class SerialRelay(Node):
         # Debug output
         tempMsg = String()
         tempMsg.data = "From IK Control Got Vector: " + str(input_raw)
-        self.debug_pub.publish(tempMsg)
+        #self.debug_pub.publish(tempMsg)
 
         # Target position is current position + input vector
         current_position = self.arm.get_position_vector()
@@ -408,11 +408,11 @@ class SerialRelay(Node):
 
         # Debug output for current position
         tempMsg.data = "Current Position: " + str(current_position)
-        self.debug_pub.publish(tempMsg)
+        #self.debug_pub.publish(tempMsg)
 
         # Debug output for target position
         tempMsg.data = "Target Position: " + str(target_position)
-        self.debug_pub.publish(tempMsg)
+        #self.debug_pub.publish(tempMsg)
 
         # Perform IK with the target position
         if self.arm.perform_ik(target_position):
@@ -423,14 +423,14 @@ class SerialRelay(Node):
 
             tempMsg = String()
             tempMsg.data = "IK Success: " + str(target_position)
-            self.debug_pub.publish(tempMsg)
+            #self.debug_pub.publish(tempMsg)
             tempMsg.data = "Sending: " + str(command)
-            self.debug_pub.publish(tempMsg)
+            #self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("IK Fail")
             tempMsg = String()
             tempMsg.data = "IK Fail"
-            self.debug_pub.publish(tempMsg)
+            #self.debug_pub.publish(tempMsg)
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
