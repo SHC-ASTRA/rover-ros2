@@ -222,12 +222,15 @@ class SerialRelay(Node):
         axis2 = msg.axis2
         axis3 = msg.axis3
 
+        tempMsg = String()
+        tempMsg.data = "Sending manual"
+        self.debug_pub.publish(tempMsg)
+
+
         #Send controls for arm
         command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
         self.send_cmd(command)
-        tempMsg = String()
-        tempMsg.data = "Sending: " + str(command)
-        self.debug_pub.publish(tempMsg)
+
         
         #Send controls for end effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
