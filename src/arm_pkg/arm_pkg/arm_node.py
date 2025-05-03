@@ -434,6 +434,7 @@ class SerialRelay(Node):
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+
         self.send_cmd(command)
         
         command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
