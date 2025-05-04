@@ -45,16 +45,18 @@ class SerialRelay(Node):
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
         self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
         #run socket_pubc every second
-        #self.socket_pub_timer = self.create_timer(0.5, self.socket_pub_callback)
+        self.socket_pub_timer = self.create_timer(0.5, self.publish_feedback)
 
 
         # Create subscribers
         self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 10) 
         self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
 
+        self.ik_debug = self.create_publisher(String, '/arm/debug/ik', 10)
+
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
-            #self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
+            self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
 
@@ -125,13 +127,13 @@ class SerialRelay(Node):
             if output:
                 if output.startswith("can_relay_fromvic,arm,55"):
                     pass
-                    #self.recordAngleFeedback(output)
+                    #self.updateAngleFeedback(output)
                 elif output.startswith("can_relay_fromvic,arm,54"):
                     pass
-                    #self.recordBusVoltage(output)
+                    #self.updateBusVoltage(output)
                 elif output.startswith("can_relay_fromvic,arm,53"):
                     pass
-                    #self.recordMotorFeedback(output)
+                    #self.updateMotorFeedback(output)
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = "From MCU Got: " + output
@@ -155,7 +157,7 @@ class SerialRelay(Node):
             pass
 
 
-    def recordAngleFeedback(self, msg):
+    def updateAngleFeedback(self, msg):
         # Angle feedbacks
         parts = msg.data.split(",")
         if len(parts) >= 7:
@@ -176,10 +178,10 @@ class SerialRelay(Node):
             #
             # # Update the arm's current angles
             # self.arm.update_angles(angles)
-            # self.arm_feedback.axis0_angle = angles[0]
-            # self.arm_feedback.axis1_angle = angles[1]
-            # self.arm_feedback.axis2_angle = angles[2]
-            # self.arm_feedback.axis3_angle = angles[3]
+            self.arm_feedback.axis0_angle = angles[0]
+            self.arm_feedback.axis1_angle = angles[1]
+            self.arm_feedback.axis2_angle = angles[2]
+            self.arm_feedback.axis3_angle = angles[3]
             # self.get_logger().info(f"Angles: {angles}")
             # #debug publish angles
             # tempMsg = String()
@@ -188,7 +190,7 @@ class SerialRelay(Node):
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
-    def recordBusVoltage(self, msg):
+    def updateBusVoltage(self, msg):
         # Bus Voltage feedbacks
         parts = msg.data.split(",")
         if len(parts) >= 7:
@@ -202,7 +204,7 @@ class SerialRelay(Node):
         else:
             self.get_logger().info("Invalid voltage feedback input format")
 
-    def recordMotorFeedback(self, msg):
+    def updateMotorFeedback(self, msg):
         # Motor voltage/current/temperature feedback
         parts = msg.data.split(",")
         if len(parts) >= 7:
@@ -225,9 +227,9 @@ class SerialRelay(Node):
         axis2 = msg.axis2
         axis3 = msg.axis3
 
-        tempMsg = String()
-        tempMsg.data = "Sending manual"
-        self.debug_pub.publish(tempMsg)
+        # tempMsg = String()
+        # tempMsg.data = "Sending manual"
+        # self.debug_pub.publish(tempMsg)
 
 
         #Send controls for arm
@@ -276,20 +278,20 @@ class SerialRelay(Node):
     def anchor_feedback(self, msg):
         output = msg.data
         if output.startswith("can_relay_fromvic,arm,55"):
-            pass
-            #self.recordAngleFeedback(output)
+            #pass
+            self.updateAngleFeedback(output)
         elif output.startswith("can_relay_fromvic,arm,54"):
-            pass
-            #self.recordBusVoltage(output)
+            #pass
+            self.updateBusVoltage(output)
         elif output.startswith("can_relay_fromvic,arm,53"):
-            pass
-            #self.recordMotorFeedback(output)
-        msg = String()
-        msg.data = "From Anchor Got: " + output
+            #pass
+            self.updateMotorFeedback(output)
+        # msg = String()
+        # msg.data = "From Anchor Got: " + output
         #self.debug_pub.publish(msg)
-        self.get_logger().info(f"[Arm Anchor] {msg.data}")
+        #self.get_logger().info(f"[Arm Anchor] {msg.data}")
 
-    def socket_pub_callback(self):
+    def publish_feedback(self):
         # Create a SocketFeedback message and publish it
         # msg = SocketFeedback()
         # msg.bat_voltage = self.arm_feedback.bat_voltage
@@ -303,7 +305,7 @@ class SerialRelay(Node):
         #debug print 
         self.socket_pub.publish(self.arm_feedback) #Publish feedback from arm
 
-        self.arm.update_position() #Run FK and update the current position of the arm, using FK
+        #self.arm.update_position() #Run FK and update the current position of the arm, using FK
 
 
 
@@ -323,12 +325,17 @@ class SerialRelay(Node):
         target_position = current_position + input_raw
 
 
+        #Print for IK DEBUG
+        tempMsg = String()
+        tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position)
+        self.ik_debug.publish(tempMsg)
+
         # Debug output for current position
-        tempMsg.data = "Current Position: " + str(current_position)
+        #tempMsg.data = "Current Position: " + str(current_position)
         #self.debug_pub.publish(tempMsg)
 
         # Debug output for target position
-        tempMsg.data = "Target Position: " + str(target_position)
+        #tempMsg.data = "Target Position: " + str(target_position)
         #self.debug_pub.publish(tempMsg)
 
         # Perform IK with the target position
@@ -338,20 +345,19 @@ class SerialRelay(Node):
             self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
 
-            tempMsg = String()
-            tempMsg.data = "IK Success: " + str(target_position)
-            #self.debug_pub.publish(tempMsg)
-            tempMsg.data = "Sending: " + str(command)
+            # tempMsg = String()
+            # tempMsg.data = "IK Success: " + str(target_position)
+            # #self.debug_pub.publish(tempMsg)
+            # tempMsg.data = "Sending: " + str(command)
             #self.debug_pub.publish(tempMsg)
         else:
             self.get_logger().info("IK Fail")
-            tempMsg = String()
-            tempMsg.data = "IK Fail"
+            # tempMsg = String()
+            # tempMsg.data = "IK Fail"
             #self.debug_pub.publish(tempMsg)
 
         # Manual control for Wrist/Effector
         command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
-
         self.send_cmd(command)
         
         command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
