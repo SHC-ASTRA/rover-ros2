@@ -163,8 +163,11 @@ class SerialRelay(Node):
 
 
     def updateAngleFeedback(self, msg):
-        # Angle feedbacks
-        parts = msg.data.split(",")
+        # Angle feedbacks,
+        #split the msg.data by commas
+        msg_str = msg.data
+        parts = msg_str.split(",")
+        
         if len(parts) >= 7:
             # Extract the angles from the string
             angles_in = parts[3:7]
@@ -197,7 +200,8 @@ class SerialRelay(Node):
 
     def updateBusVoltage(self, msg):
         # Bus Voltage feedbacks
-        parts = msg.data.split(",")
+        msg_str = msg.data
+        parts = msg_str.split(",")
         if len(parts) >= 7:
             # Extract the voltage from the string
             voltages_in = parts[3:7]
@@ -211,7 +215,8 @@ class SerialRelay(Node):
 
     def updateMotorFeedback(self, msg):
         # Motor voltage/current/temperature feedback
-        parts = msg.data.split(",")
+        msg_str = msg.data
+        parts = msg_str.split(",")
         if len(parts) >= 7:
             # Extract the voltage/current/temperature from the string
             values_in = parts[3:7]
