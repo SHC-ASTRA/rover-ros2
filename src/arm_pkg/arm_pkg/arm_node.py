@@ -184,7 +184,7 @@ class SerialRelay(Node):
             #
             #
             # # Update the arm's current angles
-            # self.arm.update_angles(angles)
+            self.arm.update_angles(angles)
             self.arm_feedback.axis0_angle = angles[0]
             self.arm_feedback.axis1_angle = angles[1]
             self.arm_feedback.axis2_angle = angles[2]
