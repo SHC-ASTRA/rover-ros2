@@ -422,6 +422,7 @@ class SerialRelay(Node):
         tempMsg = String()
         tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position) + "\nAngles: " + str(self.arm.current_angles)
         self.ik_debug.publish(tempMsg)
+        self.get_logger().info(f"[IK] {tempMsg.data}")
 
         # Debug output for current position
         #tempMsg.data = "Current Position: " + str(current_position)
