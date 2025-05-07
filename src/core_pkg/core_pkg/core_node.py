@@ -215,7 +215,7 @@ class SerialRelay(Node):
         msg = String()
         msg.data = output
         self.debug_pub.publish(msg)
-        self.get_logger().info(f"[Core Anchor] {msg.data}")
+        #self.get_logger().info(f"[Core Anchor] {msg.data}")
 
     def ping_callback(self, request, response):
         return response
