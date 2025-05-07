@@ -131,8 +131,8 @@ class SerialRelay(Node):
             output = str(self.ser.readline(), "utf8")
             if output:
                 if output.startswith("can_relay_fromvic,arm,55"):
-                    #pass
-                    self.updateAngleFeedback(output)
+                    pass
+                    #self.updateAngleFeedback(output)
                 elif output.startswith("can_relay_fromvic,arm,54"):
                     pass
                     #self.updateBusVoltage(output)
