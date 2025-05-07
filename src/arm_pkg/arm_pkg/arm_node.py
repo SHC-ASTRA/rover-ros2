@@ -124,15 +124,15 @@ class SerialRelay(Node):
 
     def send_ik_test(self, msg):
         #convert from radians to degrees
-        axis0 = msg.position[0] * 180 / 3.14159
-        axis1 = msg.position[1] * 180 / 3.14159
-        axis2 = msg.position[2] * 180 / 3.14159
-        axis3 = msg.position[3] * 180 / 3.14159
+        axis0 = round((msg.position[0] * 180 / 3.14159) * 10.0, 2)
+        axis1 = round((msg.position[1] * 180 / 3.14159) * 10.0, 2)
+        axis2 = round((msg.position[2] * 180 / 3.14159) * 10.0, 2)
+        axis3 = round((msg.position[3] * 180 / 3.14159) * 10.0, 2)
         #Send controls for arm
-        command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
+        command = "can_relay_tovic,arm,32," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
         self.send_cmd(command)
         self.get_logger().info(f"[Send Angles] {axis0}, {axis1}, {axis2}, {axis3}")
-        
+
 
         return
 
