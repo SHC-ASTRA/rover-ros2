@@ -8,6 +8,7 @@ import time
 import atexit
 import signal
 from std_msgs.msg import String
+from sensor_msgs.msg import JointState
 from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import ArmIK
 from ros2_interfaces_pkg.msg import SocketFeedback
@@ -31,6 +32,7 @@ class SerialRelay(Node):
         # Create subscribers
         self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 10) 
         self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
+        self.test_ik_sub = self.create_subscription(JointState, 'joint_states', self.send_ik_test, 10)
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
@@ -119,6 +121,20 @@ class SerialRelay(Node):
 
     def send_ik(self, msg):
         pass
+
+    def send_ik_test(self, msg):
+        #convert from radians to degrees
+        axis0 = msg.position[0] * 180 / 3.14159
+        axis1 = msg.position[1] * 180 / 3.14159
+        axis2 = msg.position[2] * 180 / 3.14159
+        axis3 = msg.position[3] * 180 / 3.14159
+        #Send controls for arm
+        command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
+        self.send_cmd(command)
+        self.get_logger().info(f"[Send Angles] {axis0}, {axis1}, {axis2}, {axis3}")
+        
+
+        return
 
     def send_manual(self, msg):
         axis0 = msg.axis0
