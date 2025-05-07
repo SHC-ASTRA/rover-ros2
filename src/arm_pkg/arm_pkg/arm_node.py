@@ -420,7 +420,7 @@ class SerialRelay(Node):
 
         #Print for IK DEBUG
         tempMsg = String()
-        tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position)
+        tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position) + "\nAngles: " + str(self.arm.current_angles)
         self.ik_debug.publish(tempMsg)
 
         # Debug output for current position
