@@ -436,7 +436,7 @@ class SerialRelay(Node):
             # Send command to control
             
             #command = "can_relay_tovic,arm,32," + ",".join(map(str, self.arm.ik_angles[:4])) + "\n"
-            self.send_cmd(command)
+            #self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
 
             # tempMsg = String()
