@@ -131,8 +131,8 @@ class SerialRelay(Node):
             output = str(self.ser.readline(), "utf8")
             if output:
                 if output.startswith("can_relay_fromvic,arm,55"):
-                    pass
-                    #self.updateAngleFeedback(output)
+                    #pass
+                    self.updateAngleFeedback(output)
                 elif output.startswith("can_relay_fromvic,arm,54"):
                     pass
                     #self.updateBusVoltage(output)
@@ -172,7 +172,7 @@ class SerialRelay(Node):
             angles_in = parts[3:7]
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
-            angles[0] = 0.0
+            angles[0] = 0.0 #override axis0 to zero
             #
             #
             #THIS NEEDS TO BE REMOVED LATER
@@ -434,7 +434,8 @@ class SerialRelay(Node):
         # Perform IK with the target position
         if self.arm.perform_ik(target_position):
             # Send command to control
-            command = "can_relay_tovic,arm,32," + ",".join(map(str, self.arm.ik_angles[:4])) + "\n"
+            
+            #command = "can_relay_tovic,arm,32," + ",".join(map(str, self.arm.ik_angles[:4])) + "\n"
             self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
 
