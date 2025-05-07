@@ -45,7 +45,7 @@ class SerialRelay(Node):
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
         self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
         #run socket_pubc every second
-        self.socket_pub_timer = self.create_timer(0.5, self.publish_feedback)
+        self.socket_pub_timer = self.create_timer(1.0, self.publish_feedback)
 
 
         # Create subscribers
@@ -126,8 +126,8 @@ class SerialRelay(Node):
             output = str(self.ser.readline(), "utf8")
             if output:
                 if output.startswith("can_relay_fromvic,arm,55"):
-                    #pass
-                    self.updateAngleFeedback(output)
+                    pass
+                    #self.updateAngleFeedback(output)
                 elif output.startswith("can_relay_fromvic,arm,54"):
                     pass
                     #self.updateBusVoltage(output)
@@ -224,6 +224,7 @@ class SerialRelay(Node):
             self.get_logger().info("Invalid motor feedback input format")
 
     def send_manual(self, msg):
+        self.get_logger().info(f"[Manual Command] Queue size: {self.man_sub.get_subscription_count()}")
         axis0 = msg.axis0
         axis1 = msg.axis1
         axis2 = msg.axis2
@@ -288,6 +289,9 @@ class SerialRelay(Node):
         elif output.startswith("can_relay_fromvic,arm,53"):
             #pass
             self.updateMotorFeedback(output)
+        else:
+            return
+        
         # msg = String()
         # msg.data = "From Anchor Got: " + output
         #self.debug_pub.publish(msg)
