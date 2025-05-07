@@ -224,7 +224,6 @@ class SerialRelay(Node):
             self.get_logger().info("Invalid motor feedback input format")
 
     def send_manual(self, msg):
-        self.get_logger().info(f"[Manual Command] Queue size: {self.man_sub.get_subscription_count()}")
         axis0 = msg.axis0
         axis1 = msg.axis1
         axis2 = msg.axis2
