@@ -50,6 +50,8 @@ class SerialRelay(Node):
                     if b"pong" in response:
                         self.port = port
                         self.get_logger().info(f"Found MCU at {self.port}!")
+                        self.get_logger().info(f"Enabling Relay Mode")
+                        ser.write(b"can_relay_mode,on\n")
                         break
                 except:
                     pass
