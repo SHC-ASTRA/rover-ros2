@@ -26,16 +26,16 @@ class SerialRelay(Node):
         self.get_logger().info(f"arm launch_mode is: {self.launch_mode}")
 
         # Create publishers
-        self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
-        self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
+        self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 2)
+        self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 2)
         # Create subscribers
-        self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 10) 
-        self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
+        self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 2) 
+        self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 2)
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
-            self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
-            self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
+            self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 2)
+            self.anchor_pub = self.create_publisher(String, '/anchor/relay', 2)
 
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
