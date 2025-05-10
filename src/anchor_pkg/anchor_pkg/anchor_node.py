@@ -70,12 +70,13 @@ class SerialRelay(Node):
     def run(self):
         # This thread makes all the update processes run in the background
         global thread
-        thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
+        thread = threading.Thread(target=rclpy.spin, args={self})
         thread.start()
         
         try:
             while rclpy.ok():
-                self.read_MCU() # Check the MCU for updates
+                if self.ser.in_waiting:
+                    self.read_MCU()
         except KeyboardInterrupt:
             sys.exit(0)
 
