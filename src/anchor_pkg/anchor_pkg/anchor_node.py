@@ -75,8 +75,7 @@ class SerialRelay(Node):
         
         try:
             while rclpy.ok():
-                if self.ser.in_waiting:
-                    self.read_MCU()
+                self.read_MCU()
         except KeyboardInterrupt:
             sys.exit(0)
 
