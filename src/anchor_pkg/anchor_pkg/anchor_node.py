@@ -86,7 +86,15 @@ class SerialRelay(Node):
                 self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
-                self.debug_pub.publish(msg)
+                if output.startswith("can_relay_fromvic,core"):
+                    self.core_pub.publish(msg)
+                elif output.startswith("can_relay_fromvic,arm"):
+                    self.arm_pub.publish(msg)
+                elif output.startswith("can_relay_fromvic,bio"):
+                    self.bio_pub.publish(msg)
+                # msg = String()
+                # msg.data = output
+                # self.debug_pub.publish(msg)
                 return
         except serial.SerialException as e:
             print(f"SerialException: {e}")
@@ -140,4 +148,3 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))  # Catch termination signals and exit cleanly
     main()
-
