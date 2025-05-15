@@ -95,7 +95,7 @@ class SerialRelay(Node):
         try:
             output = str(self.ser.readline(), "utf8")
             if output:
-                self.get_logger().info(f"[MCU] {output}")
+                #self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
                 self.debug_pub.publish(msg)
@@ -128,19 +128,19 @@ class SerialRelay(Node):
 
         #Send controls for arm
         command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
-        self.send_cmd(command)
+        #self.send_cmd(command)
         
         #Send controls for end effector
-        command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
-        self.send_cmd(command)
+        command += "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+        #self.send_cmd(command)
         
-        command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
-        self.send_cmd(command)
+        command += "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
+        #self.send_cmd(command)
 
-        command = "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
-        self.send_cmd(command)
+        command += "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
+        #self.send_cmd(command)
 
-        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+        command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
         self.send_cmd(command)
         
         
@@ -169,7 +169,8 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
-        self.get_logger().info(f"[Arm Anchor] {msg.data}")
+        pass
+        #self.get_logger().info(f"[Arm Anchor] {msg.data}")
         #self.send_cmd(msg.data)
 
 

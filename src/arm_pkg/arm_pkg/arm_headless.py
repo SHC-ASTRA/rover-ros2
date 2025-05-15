@@ -28,7 +28,7 @@ class Headless(Node):
         # Depricated, kept temporarily for reference
         # self.create_timer(0.20, self.send_controls)#read and send controls
 
-        self.create_timer(0.20, self.send_manual)
+        self.create_timer(0.1, self.send_manual)
 
 
         # Create a publisher to publish any output the pico sends
