@@ -198,7 +198,7 @@ class SerialRelay(Node):
             angles_in = parts[3:7]
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
-            angles[0] = 0.0 #override axis0 to zero
+            #angles[0] = 0.0 #override axis0 to zero
             #
             #
             #THIS NEEDS TO BE REMOVED LATER
