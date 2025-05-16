@@ -125,7 +125,7 @@ class SerialRelay(Node):
 
     def send_manual(self, msg):
         axis0 = msg.axis0
-        axis1 = msg.axis1
+        axis1 = -1 * msg.axis1
         axis2 = msg.axis2
         axis3 = msg.axis3
 
