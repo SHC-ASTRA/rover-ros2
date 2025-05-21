@@ -171,13 +171,10 @@ class SerialRelay(Node):
 
     def send_controls(self, msg):
         #can_relay_tovic,core,19, left_stick, right_stick 
-        if(msg.turn_to_enable)
-        {
+        if(msg.turn_to_enable):
             command = "can_relay_tovic,core,41," + msg.turn_to + ',' + msg.turn_to_timeout + '\n' 
-        }else
-        {
+        else:
             command = "can_relay_tovic,core,19," + self.scale_duty(msg.left_stick, msg.max_speed) + ',' + self.scale_duty(msg.right_stick, msg.max_speed) + '\n'
-        }
         
         self.send_cmd(command)
         
