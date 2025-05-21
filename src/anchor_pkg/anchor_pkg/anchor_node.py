@@ -85,7 +85,7 @@ class SerialRelay(Node):
             
             if output:
                 # All output over debug temporarily
-                self.get_logger().info(f"[MCU] {output}")
+                #self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
                 if output.startswith("can_relay_fromvic,core"):

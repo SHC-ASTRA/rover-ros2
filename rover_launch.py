@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -24,7 +24,8 @@ def launch_setup(context, *args, **kwargs):
                 executable='arm',  # change as needed
                 name='arm',
                 output='both',
-                parameters=[{'launch_mode': mode}]
+                parameters=[{'launch_mode': mode}],
+                on_exit=Shutdown()
             )
         )
         nodes.append(
@@ -33,7 +34,8 @@ def launch_setup(context, *args, **kwargs):
                 executable='core',  # change as needed
                 name='core',
                 output='both',
-                parameters=[{'launch_mode': mode}]
+                parameters=[{'launch_mode': mode}],
+                on_exit=Shutdown()
             )
         )
         nodes.append(
@@ -42,7 +44,8 @@ def launch_setup(context, *args, **kwargs):
                 executable='bio',  # change as needed
                 name='bio',
                 output='both',
-                parameters=[{'launch_mode': mode}]
+                parameters=[{'launch_mode': mode}],
+                on_exit=Shutdown()
             )
         )
         nodes.append(
@@ -51,7 +54,8 @@ def launch_setup(context, *args, **kwargs):
                 executable='anchor',  # change as needed
                 name='anchor',
                 output='both',
-                parameters=[{'launch_mode': mode}]
+                parameters=[{'launch_mode': mode}],
+                on_exit=Shutdown()
             )
         )
     elif mode in ['arm', 'core', 'bio']:
@@ -63,7 +67,8 @@ def launch_setup(context, *args, **kwargs):
                     executable='arm',
                     name='arm',
                     output='both',
-                    parameters=[{'launch_mode': mode}]
+                    parameters=[{'launch_mode': mode}],
+                    on_exit=Shutdown()
                 )
             )
         elif mode == 'core':
@@ -73,7 +78,8 @@ def launch_setup(context, *args, **kwargs):
                     executable='core',
                     name='core',
                     output='both',
-                    parameters=[{'launch_mode': mode}]
+                    parameters=[{'launch_mode': mode}],
+                    on_exit=Shutdown()
                 )
             )
         elif mode == 'bio':
@@ -83,7 +89,8 @@ def launch_setup(context, *args, **kwargs):
                     executable='bio',
                     name='bio',
                     output='both',
-                    parameters=[{'launch_mode': mode}]
+                    parameters=[{'launch_mode': mode}],
+                    on_exit=Shutdown()
                 )
             )
     else:
