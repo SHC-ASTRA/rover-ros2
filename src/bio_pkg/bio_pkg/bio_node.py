@@ -184,7 +184,7 @@ class SerialRelay(Node):
         parts = str(output.strip()).split(",")
         self.get_logger().info(f"[Bio Anchor] {msg.data}")
 
-        if output.startswith("can_relay_fromvic,citadel,54"):#bat, 12, 5, 3, Voltage readings * 100
+        if output.startswith("can_relay_fromvic,citadel,54"):  # bat, 12, 5, Voltage readings * 100
             self.bio_feedback.bat_voltage = float(parts[3]) / 100.0
             self.bio_feedback.voltage_12 = float(parts[4]) / 100.0
             self.bio_feedback.voltage_5 = float(parts[5]) / 100.0
