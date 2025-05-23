@@ -26,16 +26,21 @@ class SerialRelay(Node):
 
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/bio/feedback/debug', 10)
-        self.bio_pub = self.create_publisher(BioFeedback, '/bio/feedback', 10)
+        self.feedback_pub = self.create_publisher(BioFeedback, '/bio/feedback', 10)
 
 
         # Create subscribers
         self.control_sub = self.create_subscription(BioControl, '/bio/control', self.send_control, 10)
+        
+        # Create a publisher for telemetry
+        self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
             self.anchor_sub = self.create_subscription(String, '/anchor/bio/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
+
+        self.bio_feedback = BioFeedback()
 
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
@@ -175,9 +180,20 @@ class SerialRelay(Node):
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg):
+        output = msg.data
+        parts = str(output.strip()).split(",")
         self.get_logger().info(f"[Bio Anchor] {msg.data}")
-        #self.send_cmd(msg.data)
 
+        if output.startswith("can_relay_fromvic,citadel,54"):#bat, 12, 5, 3, Voltage readings * 100
+            self.bio_feedback.bat_voltage = float(parts[3]) / 100.0
+            self.bio_feedback.voltage_12 = float(parts[4]) / 100.0
+            self.bio_feedback.voltage_5 = float(parts[5]) / 100.0
+        if output.startswith("can_relay_fromvic,digit,57"):
+            self.bio_feedback.drill_temp = float(parts[3])
+            self.bio_feedback.drill_humidity = float(parts[4])
+
+    def publish_feedback(self):
+        self.feedback_pub.publish(self.bio_feedback)
 
     @staticmethod
     def list_serial_ports():
