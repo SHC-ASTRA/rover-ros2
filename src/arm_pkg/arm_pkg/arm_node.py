@@ -10,7 +10,7 @@ import signal
 from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import ArmIK
-from ros2_interfaces_pkg.msg import SocketFeedback
+from ros2_interfaces_pkg.msg import ArmFeedback
 
 serial_pub = None
 thread = None
@@ -27,7 +27,7 @@ class SerialRelay(Node):
 
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
-        self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
+        self.socket_pub = self.create_publisher(ArmFeedback, '/arm/feedback/socket', 10)
         self.feedback_timer = self.create_timer(1.0, self.publish_feedback)
 
         # Create subscribers
@@ -39,7 +39,7 @@ class SerialRelay(Node):
             self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
-        self.arm_feedback = SocketFeedback()
+        self.arm_feedback = ArmFeedback()
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
         if self.launch_mode == 'arm':
@@ -182,6 +182,16 @@ class SerialRelay(Node):
         elif output.startswith("can_relay_fromvic,arm,53"):
             #pass
             self.updateMotorFeedback(output)
+        elif output.startswith("can_relay_fromvic,digit,54"):
+            parts = msg.split(",")
+            if len(parts) >= 7:
+                # Extract the voltage from the string
+                voltages_in = parts[3:7]
+                # Convert the voltages to floats
+                self.arm_feedback.digit_bat_voltage = float(voltages_in[0]) / 100.0
+                self.arm_feedback.digit_voltage_12 = float(voltages_in[1]) / 100.0
+                self.arm_feedback.digit_voltage_5 = float(voltages_in[2]) / 100.0
+                self.arm_feedback.digit_voltage_3 = float(voltages_in[3]) / 100.0
         else:
             return
 
