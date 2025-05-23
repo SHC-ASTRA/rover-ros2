@@ -9,6 +9,7 @@ import atexit
 import signal
 from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import BioControl
+from ros2_interfaces_pkg.msg import BioFeedback
 
 serial_pub = None
 thread = None
@@ -25,10 +26,10 @@ class SerialRelay(Node):
 
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/bio/feedback/debug', 10)
-        #self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
+        self.bio_pub = self.create_publisher(BioFeedback, '/bio/feedback', 10)
 
 
-        # Create subscribers\
+        # Create subscribers
         self.control_sub = self.create_subscription(BioControl, '/bio/control', self.send_control, 10)
 
         # Topics used in anchor mode
@@ -136,7 +137,7 @@ class SerialRelay(Node):
             self.send_cmd(command)        
         
 
-        # LSS
+        # LSS (SCYTHE)
         command = "can_relay_tovic,citadel,24," + str(msg.lss_direction) + "\n"
         self.send_cmd(command)
         # Vibration Motor
@@ -150,16 +151,16 @@ class SerialRelay(Node):
         # To be reviewed before use#
 
         # Laser
-        command = "can_relay_tovic,faerie,28," + str(msg.laser) + "\n"
+        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
         self.send_cmd(command)
-        
-        # # UV Light
-        # command = "can_relay_tovic,faerie,38," + str(msg.uvLight) + "\n"
-        # self.send_cmd(command)
 
-        # Drill
-        command = f"can_relay_tovic,faerie,19,{msg.drill_duty:.2f}\n"
+        # Drill (SCABBARD)
+        command = f"can_relay_tovic,digit,19,{msg.drill_duty:.2f}\n"
         print(msg.drill_duty)
+        self.send_cmd(command)
+
+        # Bio linear actuator
+        command = "can_relay_tovic,digit,42," + str(msg.drill_arm) + "\n"
         self.send_cmd(command)
 
 

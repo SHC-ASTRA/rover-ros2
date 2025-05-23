@@ -90,9 +90,9 @@ class SerialRelay(Node):
                 msg.data = output
                 if output.startswith("can_relay_fromvic,core"):
                     self.core_pub.publish(msg)
-                elif output.startswith("can_relay_fromvic,arm"):
+                elif output.startswith("can_relay_fromvic,arm") or output.startswith("can_relay_fromvic,digit"):  # digit for voltage readings
                     self.arm_pub.publish(msg)
-                elif output.startswith("can_relay_fromvic,bio"):
+                elif output.startswith("can_relay_fromvic,citadel") or output.startswith("can_relay_fromvic,digit"):  # digit for SHT sensor
                     self.bio_pub.publish(msg)
                 # msg = String()
                 # msg.data = output
@@ -135,16 +135,16 @@ def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)
     if serial_pub:
         serial_pub.cleanup()
-      
+
 
 def main(args=None):
-   rclpy.init(args=args)
-   sys.excepthook = myexcepthook
+    rclpy.init(args=args)
+    sys.excepthook = myexcepthook
 
-   global serial_pub
+    global serial_pub
 
-   serial_pub = SerialRelay()
-   serial_pub.run()
+    serial_pub = SerialRelay()
+    serial_pub.run()
 
 if __name__ == '__main__':
     signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
