@@ -138,8 +138,8 @@ class SerialRelay(Node):
             self.send_cmd(command)
         # Servos, only send if not zero
         if msg.servo_id != 0:
-            command = "can_relay_tovic,citadel,25," + str(msg.servo_id) + "," + str(msg.servo_position) + "\n"
-            self.send_cmd(command)        
+            command = "can_relay_tovic,citadel,25," + str(msg.servo_id) + "," + str(int(msg.servo_state)) + "\n"
+            self.send_cmd(command)
         
 
         # LSS (SCYTHE)
