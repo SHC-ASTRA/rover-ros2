@@ -186,7 +186,7 @@ class SerialRelay(Node):
             #pass
             self.updateMotorFeedback(output)
         elif output.startswith("can_relay_fromvic,digit,54"):
-            parts = msg.split(",")
+            parts = msg.data.split(",")
             if len(parts) >= 7:
                 # Extract the voltage from the string
                 voltages_in = parts[3:7]
@@ -195,7 +195,7 @@ class SerialRelay(Node):
                 self.digit_feedback.voltage_12 = float(voltages_in[1]) / 100.0
                 self.digit_feedback.voltage_5 = float(voltages_in[2]) / 100.0
         elif output.startswith("can_relay_fromvic,digit,55"):
-            parts = msg.split(",")
+            parts = msg.data.split(",")
             if len(parts) >= 4:
                 self.digit_feedback.wrist_angle = float(parts[3])
         else:
@@ -205,10 +205,10 @@ class SerialRelay(Node):
         self.socket_pub.publish(self.arm_feedback)
         self.digit_pub.publish(self.digit_feedback)
 
-    def updateAngleFeedback(self, msg):
+    def updateAngleFeedback(self, msg: String):
                 # Angle feedbacks,
         #split the msg.data by commas
-        parts = msg.split(",")
+        parts = msg.data.split(",")
         
         if len(parts) >= 7:
             # Extract the angles from the string
@@ -241,9 +241,9 @@ class SerialRelay(Node):
             self.get_logger().info("Invalid angle feedback input format")
 
 
-    def updateBusVoltage(self, msg):
+    def updateBusVoltage(self, msg: String):
         # Bus Voltage feedbacks
-        parts = msg.split(",")
+        parts = msg.data.split(",")
         if len(parts) >= 7:
             # Extract the voltage from the string
             voltages_in = parts[3:7]
@@ -259,7 +259,7 @@ class SerialRelay(Node):
     def updateMotorFeedback(self, msg):
         # Motor voltage/current/temperature feedback
         return
-        # parts = msg.split(",")
+        # parts = msg.data.split(",")
         # if len(parts) >= 7:
         #     # Extract the voltage/current/temperature from the string
         #     values_in = parts[3:7]
