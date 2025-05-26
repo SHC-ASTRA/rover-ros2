@@ -160,8 +160,8 @@ class SerialRelay(Node):
         self.send_cmd(command)
 
         # Drill (SCABBARD)
-        command = f"can_relay_tovic,digit,19,{msg.drill_duty:.2f}\n"
-        print(msg.drill_duty)
+        command = f"can_relay_tovic,digit,19,{msg.drill:.2f}\n"
+        print(msg.drill)
         self.send_cmd(command)
 
         # Bio linear actuator
