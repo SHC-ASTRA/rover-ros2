@@ -192,7 +192,7 @@ class SerialRelay(Node):
             self.get_logger().info(f"[Core to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
-    def anchor_feedback(self, msg):
+    def anchor_feedback(self, msg: String):
         output = msg.data
         parts = str(output.strip()).split(",")
         #self.get_logger().info(f"[ANCHOR FEEDBACK parts] {parts}")
@@ -206,7 +206,7 @@ class SerialRelay(Node):
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
             self.core_feedback.bno_gyro.z = float(parts[5])
-            self.core_feedback.imu_calib = int(parts[6])
+            self.core_feedback.imu_calib = round(float(parts[6]))
         elif output.startswith("can_relay_fromvic,core,52"):#Accel x,y,z, heading *10
             self.core_feedback.bno_accel.x = float(parts[3])
             self.core_feedback.bno_accel.y = float(parts[4])
