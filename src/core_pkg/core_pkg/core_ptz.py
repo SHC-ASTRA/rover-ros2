@@ -46,7 +46,7 @@ class PtzNode(Node):
         self.feedback_pub = self.create_publisher(PtzFeedback, '/ptz/feedback', 10)
         self.debug_pub = self.create_publisher(String, '/ptz/debug', 10)
         #create timer to publish feedback at a regular interval
-        self.create_timer(1.0, self.publish_feedback)
+        #self.create_timer(1.0, self.publish_feedback)
         
         # Create subscribers
         self.control_sub = self.create_subscription(
@@ -54,6 +54,8 @@ class PtzNode(Node):
             
         # Create timers
         self.connection_timer = self.create_timer(5.0, self.check_camera_connection)
+        self.last_data_time = time.time()
+        self.health_check_timer = self.create_timer(2.0, self.check_camera_health)
         
         # Create feedback message
         self.feedback_msg = PtzFeedback()
@@ -95,19 +97,21 @@ class PtzNode(Node):
             self.feedback_msg.connected = True
             self.feedback_msg.error_msg = ""
             
-            self.get_logger().info("Connected to PTZ camera")
+            #self.get_logger().info("Connected to PTZ camera")
             self.publish_debug("Camera connected successfully")
             
         except Exception as e:
-            self.camera_connected = False
+            #self.camera_connected = False
             self.feedback_msg.connected = False
             self.feedback_msg.error_msg = f"Connection error: {str(e)}"
-            self.get_logger().error(f"Failed to connect to camera: {e}")
+            #self.get_logger().error(f"Failed to connect to camera: {e}")
             self.publish_debug(f"Camera connection failed: {str(e)}")
 
     def camera_data_callback(self, cmd_id, data):
         """Handle data received from the camera."""
         if cmd_id == CommandID.ATTITUDE_DATA_RESPONSE and isinstance(data, AttitudeData):
+            self.last_data_time = time.time()  # Update timestamp on successful data
+            
             # Update feedback message with attitude data
             self.feedback_msg.yaw = data.yaw
             self.feedback_msg.pitch = data.pitch
@@ -126,15 +130,32 @@ class PtzNode(Node):
     def check_camera_connection(self):
         """Periodically check camera connection and attempt to reconnect if needed."""
         if not self.camera_connected and not self.shutdown_requested:
-            self.get_logger().info("Attempting to reconnect to camera...")
-            self.connect_task = self.thread_pool.submit(  # Changed from self.executor
+            #self.get_logger().info("Attempting to reconnect to camera...")
+            if self.camera:
+                # Fully clean up old connection first
+                try:
+                    self.run_async_func(self.camera.disconnect())
+                except Exception:
+                    pass  # Ignore errors during cleanup
+                self.camera = None
+                
+            self.connect_task = self.thread_pool.submit(
                 self.run_async_func, self.connect_to_camera()
             )
+
+    def check_camera_health(self):
+        """Check if we're still receiving data from the camera"""
+        if self.camera_connected:
+            time_since_last_data = time.time() - self.last_data_time
+            if time_since_last_data > 5.0:  # No data for 5 seconds
+                #self.get_logger().warning(f"No camera data for {time_since_last_data:.1f}s, connection may be stale")
+                self.camera_connected = False
+                # Force reconnection on next check_camera_connection timer
 
     def handle_control_command(self, msg):
         """Handle incoming control commands."""
         if not self.camera_connected:
-            self.get_logger().warning("Camera not connected, ignoring control command")
+            #self.get_logger().warning("Camera not connected, ignoring control command")
             return
             
         # Submit the control command to the async executor

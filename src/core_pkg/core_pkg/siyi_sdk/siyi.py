@@ -153,7 +153,7 @@ class SiyiGimbalCamera:
                 self.ip, self.port
             )
             self.is_connected = True
-            logger.info(f"Connected to {self.ip}:{self.port}")
+            #logger.info(f"Connected to {self.ip}:{self.port}")
             asyncio.create_task(self.heartbeat_loop())
             # Start the data stream listener in the background.
             asyncio.create_task(self._data_stream_listener())
@@ -168,14 +168,15 @@ class SiyiGimbalCamera:
             self.is_connected = False
             self.writer.close()
             await self.writer.wait_closed()
-            logger.info("Disconnected")
+            #logger.info("Disconnected")
         else:
-            logger.warning("Not connected, cannot disconnect.")
+            #logger.warning("Not connected, cannot disconnect.")
+            pass
 
     async def heartbeat_loop(self) -> None:
         """Periodically send heartbeat packets to maintain the TCP connection."""
         if not self.is_connected:
-            logger.warning("Heartbeat loop started before connection was established.")
+            #logger.warning("Heartbeat loop started before connection was established.")
             return
 
         try:
@@ -183,13 +184,13 @@ class SiyiGimbalCamera:
                 try:
                     self.writer.write(HEARTBEAT_PACKET)
                     await self.writer.drain()
-                    logger.debug("Sent heartbeat packet")
+                    #logger.debug("Sent heartbeat packet")
                     await asyncio.sleep(self.heartbeat_interval)
                 except (socket.error, BrokenPipeError) as e:
-                    logger.error(f"Connection error in heartbeat loop: {e}")
+                    #logger.error(f"Connection error in heartbeat loop: {e}")
                     break
         finally:
-            logger.info("Heartbeat loop stopped.")
+            #logger.info("Heartbeat loop stopped.")
             if self.is_connected:
                 await self.disconnect()
 
@@ -289,7 +290,7 @@ class SiyiGimbalCamera:
         packet = self._build_data_stream_packet(data_type, data_freq)
         self.writer.write(packet)
         await self.writer.drain()
-        logger.info(f"Sent data stream request: data_type {data_type}, data_freq {data_freq}")
+        #logger.info(f"Sent data stream request: data_type {data_type}, data_freq {data_freq}")
 
     async def _read_packet(self):
         """Read a full packet from the TCP stream following the protocol format."""
@@ -329,8 +330,14 @@ class SiyiGimbalCamera:
             try:
                 cmd_id_int, data = await self._read_packet()
                 cmd_id = CommandID(cmd_id_int)
+                # Process data as before...
+            except (ConnectionResetError, BrokenPipeError, ConnectionError) as e:
+                logger.error(f"Connection error: {e}")
+                self.is_connected = False
+                break  # Exit the loop to allow reconnection
             except Exception as e:
-                logger.error(f"Error reading packet: {e}")
+                #logger.error(f"Error reading packet: {e}")
+                ## Continue trying for other errors, but count failures
                 continue
 
             # Process attitude data packets if applicable.
