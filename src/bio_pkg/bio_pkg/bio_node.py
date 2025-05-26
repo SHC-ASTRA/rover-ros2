@@ -123,7 +123,7 @@ class SerialRelay(Node):
         pass
 
 
-    def send_control(self, msg):
+    def send_control(self, msg: BioControl):
         # CITADEL Control Commands
         ################
 
@@ -143,7 +143,7 @@ class SerialRelay(Node):
         
 
         # LSS (SCYTHE)
-        command = "can_relay_tovic,citadel,24," + str(msg.lss_direction) + "\n"
+        command = "can_relay_tovic,citadel,24," + str(msg.bio_arm) + "\n"
         self.send_cmd(command)
         # Vibration Motor
         command = "can_relay_tovic,citadel,26," + str(msg.vibration_motor) + "\n"
