@@ -27,27 +27,26 @@ class PtzNode(Node):
         super().__init__("core_ptz")
 
         # Declare parameters
-        self.declare_parameter('camera_ip', '192.168.1.17')
+        self.declare_parameter('camera_ip', '192.168.1.9')
         self.declare_parameter('camera_port', 37260)
-        #self.declare_parameter('launch_mode', 'core')
         
         # Get parameters
         self.camera_ip = self.get_parameter('camera_ip').value
         self.camera_port = self.get_parameter('camera_port').value
-        #self.launch_mode = self.get_parameter('launch_mode').value
         
-        #self.get_logger().info(f"PTZ mode: {self.launch_mode}")
         self.get_logger().info(f"PTZ camera IP: {self.camera_ip} Port: {self.camera_port}")
         
         # Create a camera instance
         self.camera = None
         self.camera_connected = False
         self.loop = None
-        self.executor = None
+        self.thread_pool = None  # Renamed from self.executor to avoid conflict
         
         # Create publishers
         self.feedback_pub = self.create_publisher(PtzFeedback, '/ptz/feedback', 10)
         self.debug_pub = self.create_publisher(String, '/ptz/debug', 10)
+        #create timer to publish feedback at a regular interval
+        self.create_timer(1.0, self.publish_feedback)
         
         # Create subscribers
         self.control_sub = self.create_subscription(
@@ -65,11 +64,11 @@ class PtzNode(Node):
         self.shutdown_requested = False
         
         # Set up asyncio event loop in a separate thread
-        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.thread_pool = ThreadPoolExecutor(max_workers=1)  # Renamed from self.executor
         self.loop = asyncio.new_event_loop()
         
         # Connect to camera on startup
-        self.connect_task = self.executor.submit(
+        self.connect_task = self.thread_pool.submit(  # Use thread_pool instead of executor
             self.run_async_func, self.connect_to_camera()
         )
 
@@ -128,7 +127,7 @@ class PtzNode(Node):
         """Periodically check camera connection and attempt to reconnect if needed."""
         if not self.camera_connected and not self.shutdown_requested:
             self.get_logger().info("Attempting to reconnect to camera...")
-            self.connect_task = self.executor.submit(
+            self.connect_task = self.thread_pool.submit(  # Changed from self.executor
                 self.run_async_func, self.connect_to_camera()
             )
 
@@ -139,7 +138,7 @@ class PtzNode(Node):
             return
             
         # Submit the control command to the async executor
-        self.executor.submit(
+        self.thread_pool.submit(  # Changed from self.executor
             self.run_async_func,
             self.process_control_command(msg)
         )
@@ -226,7 +225,7 @@ class PtzNode(Node):
 
     def cleanup(self):
         """Clean up resources."""
-        if self.loop and self.executor:
+        if self.loop and self.thread_pool:  # Changed from self.executor
             # Schedule the shutdown coroutine
             try:
                 self.run_async_func(self.shutdown())
@@ -234,7 +233,7 @@ class PtzNode(Node):
                 self.get_logger().error(f"Error during cleanup: {e}")
             
             # Shut down the executor
-            self.executor.shutdown()
+            self.thread_pool.shutdown()  # Changed from self.executor
             
             # Close the event loop
             self.loop.stop()

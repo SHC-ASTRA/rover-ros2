@@ -109,7 +109,7 @@ def launch_setup(context, *args, **kwargs):
                     package='core_pkg',
                     executable='ptz',
                     name='ptz',
-                    output='both'
+                    output='both',
                     on_exit=Shutdown(), #on fail, shutdown if this was the only node to be launched
                 )
             )
