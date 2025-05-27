@@ -170,7 +170,7 @@ class SerialRelay(Node):
 
 
 
-    def send_cmd(self, msg):
+    def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor': #if in anchor mode, send to anchor node to relay
             output = String()
             output.data = msg
@@ -179,7 +179,7 @@ class SerialRelay(Node):
             self.get_logger().info(f"[Bio to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
-    def anchor_feedback(self, msg):
+    def anchor_feedback(self, msg: String):
         output = msg.data
         parts = str(output.strip()).split(",")
         self.get_logger().info(f"[Bio Anchor] {msg.data}")
@@ -188,7 +188,7 @@ class SerialRelay(Node):
             self.bio_feedback.bat_voltage = float(parts[3]) / 100.0
             self.bio_feedback.voltage_12 = float(parts[4]) / 100.0
             self.bio_feedback.voltage_5 = float(parts[5]) / 100.0
-        if output.startswith("can_relay_fromvic,digit,57"):
+        elif output.startswith("can_relay_fromvic,digit,57"):
             self.bio_feedback.drill_temp = float(parts[3])
             self.bio_feedback.drill_humidity = float(parts[4])
 
