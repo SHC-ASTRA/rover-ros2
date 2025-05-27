@@ -11,6 +11,7 @@ from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import ArmIK
 from ros2_interfaces_pkg.msg import SocketFeedback
+from ros2_interfaces_pkg.msg import DigitFeedback
 
 serial_pub = None
 thread = None
@@ -28,6 +29,7 @@ class SerialRelay(Node):
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
         self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
+        self.digit_pub = self.create_publisher(DigitFeedback, '/arm/feedback/digit', 10)
         self.feedback_timer = self.create_timer(1.0, self.publish_feedback)
 
         # Create subscribers
@@ -40,6 +42,7 @@ class SerialRelay(Node):
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
         self.arm_feedback = SocketFeedback()
+        self.digit_feedback = DigitFeedback()
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
         if self.launch_mode == 'arm':
@@ -182,16 +185,30 @@ class SerialRelay(Node):
         elif output.startswith("can_relay_fromvic,arm,53"):
             #pass
             self.updateMotorFeedback(output)
+        elif output.startswith("can_relay_fromvic,digit,54"):
+            parts = msg.data.split(",")
+            if len(parts) >= 7:
+                # Extract the voltage from the string
+                voltages_in = parts[3:7]
+                # Convert the voltages to floats
+                self.digit_feedback.bat_voltage = float(voltages_in[0]) / 100.0
+                self.digit_feedback.voltage_12 = float(voltages_in[1]) / 100.0
+                self.digit_feedback.voltage_5 = float(voltages_in[2]) / 100.0
+        elif output.startswith("can_relay_fromvic,digit,55"):
+            parts = msg.data.split(",")
+            if len(parts) >= 4:
+                self.digit_feedback.wrist_angle = float(parts[3])
         else:
             return
 
     def publish_feedback(self):
         self.socket_pub.publish(self.arm_feedback)
+        self.digit_pub.publish(self.digit_feedback)
 
-    def updateAngleFeedback(self, msg):
+    def updateAngleFeedback(self, msg: String):
                 # Angle feedbacks,
         #split the msg.data by commas
-        parts = msg.split(",")
+        parts = msg.data.split(",")
         
         if len(parts) >= 7:
             # Extract the angles from the string
@@ -224,9 +241,9 @@ class SerialRelay(Node):
             self.get_logger().info("Invalid angle feedback input format")
 
 
-    def updateBusVoltage(self, msg):
+    def updateBusVoltage(self, msg: String):
         # Bus Voltage feedbacks
-        parts = msg.split(",")
+        parts = msg.data.split(",")
         if len(parts) >= 7:
             # Extract the voltage from the string
             voltages_in = parts[3:7]
@@ -242,7 +259,7 @@ class SerialRelay(Node):
     def updateMotorFeedback(self, msg):
         # Motor voltage/current/temperature feedback
         return
-        # parts = msg.split(",")
+        # parts = msg.data.split(",")
         # if len(parts) >= 7:
         #     # Extract the voltage/current/temperature from the string
         #     values_in = parts[3:7]

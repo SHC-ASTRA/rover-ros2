@@ -40,6 +40,16 @@ def launch_setup(context, *args, **kwargs):
         )
         nodes.append(
             Node(
+                package='core_pkg',
+                executable='ptz',  # change as needed
+                name='ptz',
+                output='both'
+                # Currently don't shutdown all nodes if the PTZ node fails, as it is not critical
+                # on_exit=Shutdown()  # Uncomment if you want to shutdown on PTZ failure
+            )
+        )
+        nodes.append(
+            Node(
                 package='bio_pkg',
                 executable='bio',  # change as needed
                 name='bio',
@@ -58,7 +68,7 @@ def launch_setup(context, *args, **kwargs):
                 on_exit=Shutdown()
             )
         )
-    elif mode in ['arm', 'core', 'bio']:
+    elif mode in ['arm', 'core', 'bio', 'ptz']:
         # Only launch the node corresponding to the provided mode.
         if mode == 'arm':
             nodes.append(
@@ -93,10 +103,19 @@ def launch_setup(context, *args, **kwargs):
                     on_exit=Shutdown()
                 )
             )
+        elif mode == 'ptz':
+            nodes.append(
+                Node(
+                    package='core_pkg',
+                    executable='ptz',
+                    name='ptz',
+                    output='both',
+                    on_exit=Shutdown(), #on fail, shutdown if this was the only node to be launched
+                )
+            )
     else:
         # If an invalid mode is provided, print an error.
-        # (You might want to raise an exception or handle it differently.)
-        print("Invalid mode provided. Choose one of: arm, core, bio, anchor.")
+        print("Invalid mode provided. Choose one of: arm, core, bio, anchor, ptz.")
 
     return nodes
 
@@ -104,7 +123,7 @@ def generate_launch_description():
     declare_arg = DeclareLaunchArgument(
         'mode',
         default_value='anchor',
-        description='Launch mode: arm, core, bio, or anchor'
+        description='Launch mode: arm, core, bio, anchor, or ptz'
     )
 
     return LaunchDescription([

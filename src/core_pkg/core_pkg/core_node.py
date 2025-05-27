@@ -152,7 +152,7 @@ class SerialRelay(Node):
                 self.ser.close()
             self.exit(1)
                 
-    def scale_duty(self, value, max_speed):
+    def scale_duty(self, value: float, max_speed: float):
         leftMin = -1
         leftMax = 1
         rightMin = -max_speed/100.0
@@ -172,12 +172,15 @@ class SerialRelay(Node):
     def send_controls(self, msg):
         #can_relay_tovic,core,19, left_stick, right_stick 
         if(msg.turn_to_enable):
-            command = "can_relay_tovic,core,41," + msg.turn_to + ',' + msg.turn_to_timeout + '\n' 
+            command = "can_relay_tovic,core,41," + str(msg.turn_to) + ',' + str(msg.turn_to_timeout) + '\n' 
         else:
             command = "can_relay_tovic,core,19," + self.scale_duty(msg.left_stick, msg.max_speed) + ',' + self.scale_duty(msg.right_stick, msg.max_speed) + '\n'
-        
         self.send_cmd(command)
-        
+
+        # Brake mode
+        command = "can_relay_tovic,core,18," + str(int(msg.brake)) + '\n'
+        self.send_cmd(command)
+
         #print(f"[Sys] Relaying: {command}")
     def send_cmd(self, msg):
         if self.launch_mode == 'anchor':
@@ -189,7 +192,7 @@ class SerialRelay(Node):
             self.get_logger().info(f"[Core to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
-    def anchor_feedback(self, msg):
+    def anchor_feedback(self, msg: String):
         output = msg.data
         parts = str(output.strip()).split(",")
         #self.get_logger().info(f"[ANCHOR FEEDBACK parts] {parts}")
@@ -203,6 +206,7 @@ class SerialRelay(Node):
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
             self.core_feedback.bno_gyro.z = float(parts[5])
+            self.core_feedback.imu_calib = round(float(parts[6]))
         elif output.startswith("can_relay_fromvic,core,52"):#Accel x,y,z, heading *10
             self.core_feedback.bno_accel.x = float(parts[3])
             self.core_feedback.bno_accel.y = float(parts[4])

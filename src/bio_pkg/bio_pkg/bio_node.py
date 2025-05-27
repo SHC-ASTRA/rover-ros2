@@ -9,6 +9,7 @@ import atexit
 import signal
 from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import BioControl
+from ros2_interfaces_pkg.msg import BioFeedback
 
 serial_pub = None
 thread = None
@@ -25,16 +26,21 @@ class SerialRelay(Node):
 
         # Create publishers
         self.debug_pub = self.create_publisher(String, '/bio/feedback/debug', 10)
-        #self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
+        self.feedback_pub = self.create_publisher(BioFeedback, '/bio/feedback', 10)
 
 
-        # Create subscribers\
+        # Create subscribers
         self.control_sub = self.create_subscription(BioControl, '/bio/control', self.send_control, 10)
+        
+        # Create a publisher for telemetry
+        self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
             self.anchor_sub = self.create_subscription(String, '/anchor/bio/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
+
+        self.bio_feedback = BioFeedback()
 
 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
@@ -117,7 +123,7 @@ class SerialRelay(Node):
         pass
 
 
-    def send_control(self, msg):
+    def send_control(self, msg: BioControl):
         # CITADEL Control Commands
         ################
 
@@ -132,12 +138,12 @@ class SerialRelay(Node):
             self.send_cmd(command)
         # Servos, only send if not zero
         if msg.servo_id != 0:
-            command = "can_relay_tovic,citadel,25," + str(msg.servo_id) + "," + str(msg.servo_position) + "\n"
-            self.send_cmd(command)        
+            command = "can_relay_tovic,citadel,25," + str(msg.servo_id) + "," + str(int(msg.servo_state)) + "\n"
+            self.send_cmd(command)
         
 
-        # LSS
-        command = "can_relay_tovic,citadel,24," + str(msg.lss_direction) + "\n"
+        # LSS (SCYTHE)
+        command = "can_relay_tovic,citadel,24," + str(msg.bio_arm) + "\n"
         self.send_cmd(command)
         # Vibration Motor
         command = "can_relay_tovic,citadel,26," + str(msg.vibration_motor) + "\n"
@@ -150,21 +156,21 @@ class SerialRelay(Node):
         # To be reviewed before use#
 
         # Laser
-        command = "can_relay_tovic,faerie,28," + str(msg.laser) + "\n"
-        self.send_cmd(command)
-        
-        # # UV Light
-        # command = "can_relay_tovic,faerie,38," + str(msg.uvLight) + "\n"
-        # self.send_cmd(command)
-
-        # Drill
-        command = f"can_relay_tovic,faerie,19,{msg.drill_duty:.2f}\n"
-        print(msg.drill_duty)
+        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
         self.send_cmd(command)
 
+        # Drill (SCABBARD)
+        command = f"can_relay_tovic,digit,19,{msg.drill:.2f}\n"
+        print(msg.drill)
+        self.send_cmd(command)
+
+        # Bio linear actuator
+        command = "can_relay_tovic,digit,42," + str(msg.drill_arm) + "\n"
+        self.send_cmd(command)
 
 
-    def send_cmd(self, msg):
+
+    def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor': #if in anchor mode, send to anchor node to relay
             output = String()
             output.data = msg
@@ -173,10 +179,21 @@ class SerialRelay(Node):
             self.get_logger().info(f"[Bio to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
-    def anchor_feedback(self, msg):
+    def anchor_feedback(self, msg: String):
+        output = msg.data
+        parts = str(output.strip()).split(",")
         self.get_logger().info(f"[Bio Anchor] {msg.data}")
-        #self.send_cmd(msg.data)
 
+        if output.startswith("can_relay_fromvic,citadel,54"):  # bat, 12, 5, Voltage readings * 100
+            self.bio_feedback.bat_voltage = float(parts[3]) / 100.0
+            self.bio_feedback.voltage_12 = float(parts[4]) / 100.0
+            self.bio_feedback.voltage_5 = float(parts[5]) / 100.0
+        elif output.startswith("can_relay_fromvic,digit,57"):
+            self.bio_feedback.drill_temp = float(parts[3])
+            self.bio_feedback.drill_humidity = float(parts[4])
+
+    def publish_feedback(self):
+        self.feedback_pub.publish(self.bio_feedback)
 
     @staticmethod
     def list_serial_ports():

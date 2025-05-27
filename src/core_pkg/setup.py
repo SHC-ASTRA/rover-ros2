@@ -20,7 +20,8 @@ setup(
     entry_points={
         'console_scripts': [
             "core = core_pkg.core_node:main",
-            "headless = core_pkg.core_headless:main"
+            "headless = core_pkg.core_headless:main",
+            "ptz = core_pkg.core_ptz:main"
         ],
     },
 )
