@@ -92,7 +92,7 @@ class SerialRelay(Node):
                     self.core_pub.publish(msg)
                 elif output.startswith("can_relay_fromvic,arm") or output.startswith("can_relay_fromvic,digit"):  # digit for voltage readings
                     self.arm_pub.publish(msg)
-                elif output.startswith("can_relay_fromvic,citadel") or output.startswith("can_relay_fromvic,digit"):  # digit for SHT sensor
+                if output.startswith("can_relay_fromvic,citadel") or output.startswith("can_relay_fromvic,digit"):  # digit for SHT sensor
                     self.bio_pub.publish(msg)
                 # msg = String()
                 # msg.data = output
