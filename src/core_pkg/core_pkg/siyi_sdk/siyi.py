@@ -9,11 +9,6 @@ from crccheck.crc import Crc16
 
 # Set up logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)  # You can adjust the logging level as needed
-handler = logging.StreamHandler()  # Output to console
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 # Global constant for the heartbeat packet (used in TCP keep-alive)
 HEARTBEAT_PACKET = bytes.fromhex("55 66 01 01 00 00 00 00 00 59 8B")
@@ -69,10 +64,11 @@ class CommandID(Enum):
     """
 
     ROTATION_CONTROL = 0x07
+    ABSOLUTE_ZOOM = 0x08
     ATTITUDE_ANGLES = 0x0E
     SINGLE_AXIS_CONTROL = 0x41
     DATA_STREAM_REQUEST = 0x25
-    ATTITUDE_DATA_RESPONSE = 0x0D  # Expected response packet for attitude data
+    ATTITUDE_DATA_RESPONSE = 0x0D
 
 
 @dataclass
@@ -96,7 +92,6 @@ class AttitudeData:
         """Create an AttitudeData instance from a byte string."""
         if len(data) != 12:
             raise ValueError("Attitude data should be exactly 12 bytes.")
-        # Unpack six little-endian int16 values
         values = struct.unpack("<hhhhhh", data)
         return cls(
             yaw=values[0] / 10.0,
@@ -111,51 +106,29 @@ class AttitudeData:
 class SiyiGimbalCamera:
     """
     Class to interface with the SIYI Gimbal Camera over TCP.
-
-    This class handles:
-      - Establishing a TCP connection.
-      - Sending periodic heartbeat packets.
-      - Building and sending commands (e.g. for rotation, setting attitudes,
-        single-axis control, and data stream requests).
-      - Continuously reading incoming packets in a background task.
-
-    Command identifiers and axis flags are represented as enums, and the parsed
-    attitude data is returned as an AttitudeData object.
-
-    The data stream listener is started as a background task when a connection is
-    established. Users can provide or update the callback used for processing data
-    stream packets by calling set_data_callback().
     """
 
-    def __init__(self, ip: str, port: int = 37260, *, heartbeat_interval: int = 2):
-        """
-        Initialize a new SiyiGimbalCamera instance.
+    MAX_A8_MINI_ZOOM = 6.0  # Maximum zoom for A8 mini
 
-        :param ip: The IP address (as a string) of the SIYI gimbal camera.
-        :param port: The TCP port (as an integer) used for the connection (default: 37260).
-        :param heartbeat_interval: Interval in seconds (int) between heartbeat packets.
-        """
+    def __init__(
+        self, ip: str, port: int = 37260, *, heartbeat_interval: int = 2
+    ):
         self.ip = ip
         self.port = port
         self.heartbeat_interval = heartbeat_interval
-        # These will be assigned after successfully connecting.
-        self.reader: asyncio.StreamReader
-        self.writer: asyncio.StreamWriter
+        self.reader: Optional[asyncio.StreamReader] = None
+        self.writer: Optional[asyncio.StreamWriter] = None
         self.is_connected = False
-        # Sequence counter (integer in the range 0 to 65535) for outgoing packets.
         self.seq: int = 0
-        self._data_callback: Optional[Callable[[CommandID, Any], None]] = None
+        self._data_callback: Optional[Callable[[CommandID | int, Any], None]] = None
 
     async def connect(self) -> None:
-        """Establish a TCP connection with the gimbal camera."""
         try:
             self.reader, self.writer = await asyncio.open_connection(
                 self.ip, self.port
             )
             self.is_connected = True
-            #logger.info(f"Connected to {self.ip}:{self.port}")
             asyncio.create_task(self.heartbeat_loop())
-            # Start the data stream listener in the background.
             asyncio.create_task(self._data_stream_listener())
         except (socket.gaierror, ConnectionRefusedError) as e:
             self.is_connected = False
@@ -163,104 +136,113 @@ class SiyiGimbalCamera:
             raise
 
     async def disconnect(self) -> None:
-        """Gracefully disconnect from the gimbal camera."""
-        if self.is_connected:
+        if self.is_connected and self.writer:
             self.is_connected = False
             self.writer.close()
             await self.writer.wait_closed()
-            #logger.info("Disconnected")
         else:
-            #logger.warning("Not connected, cannot disconnect.")
             pass
 
     async def heartbeat_loop(self) -> None:
-        """Periodically send heartbeat packets to maintain the TCP connection."""
-        if not self.is_connected:
-            #logger.warning("Heartbeat loop started before connection was established.")
+        if not self.is_connected or not self.writer:
             return
-
         try:
             while self.is_connected:
                 try:
                     self.writer.write(HEARTBEAT_PACKET)
                     await self.writer.drain()
-                    #logger.debug("Sent heartbeat packet")
                     await asyncio.sleep(self.heartbeat_interval)
                 except (socket.error, BrokenPipeError) as e:
-                    #logger.error(f"Connection error in heartbeat loop: {e}")
                     break
         finally:
-            #logger.info("Heartbeat loop stopped.")
             if self.is_connected:
                 await self.disconnect()
 
-    def _build_rotation_packet(self, turn_yaw: int, turn_pitch: int) -> bytes:
-        """Build a full packet for the 0x07 Gimbal Rotation Control command."""
+    def _build_packet_header(
+        self, cmd_id: CommandID, data_len: int
+    ) -> bytearray:
+        """Helper to build the common packet header."""
         packet = bytearray()
-        packet.extend(b"\x55\x66")               # STX bytes
-        packet.append(0x01)                      # CTRL (request ACK)
-        packet.extend(struct.pack("<H", 2))      # Data length: 2 bytes
-        packet.extend(struct.pack("<H", self.seq))  # Sequence number
-        packet.append(CommandID.ROTATION_CONTROL.value)  # CMD_ID for rotation control
-        packet.extend(struct.pack("bb", turn_yaw, turn_pitch))  # Data: two int8 values
+        packet.extend(b"\x55\x66")  # STX
+        packet.append(0x01)  # CTRL (request ACK)
+        packet.extend(struct.pack("<H", data_len))
+        packet.extend(struct.pack("<H", self.seq))
+        packet.append(cmd_id.value)
+        return packet
+
+    def _finalize_packet(self, packet: bytearray) -> bytes:
+        """Helper to add CRC and increment sequence number."""
         crc_value = Crc16.calc(packet)
         packet.extend(struct.pack("<H", crc_value))
         self.seq = (self.seq + 1) % 0x10000
         return bytes(packet)
 
-    async def send_rotation_command(self, turn_yaw: int, turn_pitch: int) -> None:
-        """Send a rotation control command (0x07) with the given yaw and pitch values."""
-        if not self.is_connected:
-            raise RuntimeError("Socket is not connected, cannot send rotation command.")
+    def _build_rotation_packet(self, turn_yaw: int, turn_pitch: int) -> bytes:
+        data_len = 2
+        packet = self._build_packet_header(
+            CommandID.ROTATION_CONTROL, data_len
+        )
+        packet.extend(struct.pack("bb", turn_yaw, turn_pitch))
+        return self._finalize_packet(packet)
+
+    async def send_rotation_command(
+        self, turn_yaw: int, turn_pitch: int
+    ) -> None:
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot send rotation command."
+            )
         packet = self._build_rotation_packet(turn_yaw, turn_pitch)
         self.writer.write(packet)
         await self.writer.drain()
-        logger.debug(f"Sent rotation command with yaw {turn_yaw} and pitch {turn_pitch}")
+        logger.debug(
+            f"Sent rotation command with yaw_speed {turn_yaw} and pitch_speed {turn_pitch}"
+        )
 
-    def _build_attitude_angles_packet(self, yaw: float, pitch: float) -> bytes:
-        """Build a full packet for the 0x0E 'Set Gimbal Attitude Angles' command."""
-        packet = bytearray()
-        packet.extend(b"\x55\x66")
-        packet.append(0x01)  # CTRL (request ACK)
-        packet.extend(struct.pack("<H", 4))  # Data length: 4 bytes (2 for each angle)
-        packet.extend(struct.pack("<H", self.seq))
-        packet.append(CommandID.ATTITUDE_ANGLES.value)  # CMD_ID for set gimbal attitude angles
+    def _build_attitude_angles_packet(
+        self, yaw: float, pitch: float
+    ) -> bytes:
+        data_len = 4
+        packet = self._build_packet_header(
+            CommandID.ATTITUDE_ANGLES, data_len
+        )
         yaw_int = int(round(yaw * 10))
         pitch_int = int(round(pitch * 10))
         packet.extend(struct.pack("<hh", yaw_int, pitch_int))
-        crc_value = Crc16.calc(packet)
-        packet.extend(struct.pack("<H", crc_value))
-        self.seq = (self.seq + 1) % 0x10000
-        return bytes(packet)
+        return self._finalize_packet(packet)
 
-    async def send_attitude_angles_command(self, yaw: float, pitch: float) -> None:
-        """Send the 0x0E 'Set Gimbal Attitude Angles' command to set absolute angles."""
-        if not self.is_connected:
-            raise RuntimeError("Socket is not connected, cannot send attitude angles command.")
+    async def send_attitude_angles_command(
+        self, yaw: float, pitch: float
+    ) -> None:
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot send attitude angles command."
+            )
         packet = self._build_attitude_angles_packet(yaw, pitch)
         self.writer.write(packet)
         await self.writer.drain()
-        logger.debug(f"Sent attitude angles command with yaw {yaw}° and pitch {pitch}°")
+        logger.debug(
+            f"Sent attitude angles command with yaw {yaw}° and pitch {pitch}°"
+        )
 
-    def _build_single_axis_attitude_packet(self, angle: float, axis: SingleAxis) -> bytes:
-        """Build a full packet for the 0x41 'Single-Axis Attitude Control' command."""
-        packet = bytearray()
-        packet.extend(b"\x55\x66")
-        packet.append(0x01)  # CTRL
-        packet.extend(struct.pack("<H", 3))  # Data length: 3 bytes
-        packet.extend(struct.pack("<H", self.seq))
-        packet.append(CommandID.SINGLE_AXIS_CONTROL.value)  # CMD_ID for single-axis control
+    def _build_single_axis_attitude_packet(
+        self, angle: float, axis: SingleAxis
+    ) -> bytes:
+        data_len = 3
+        packet = self._build_packet_header(
+            CommandID.SINGLE_AXIS_CONTROL, data_len
+        )
         angle_int = int(round(angle * 10))
         packet.extend(struct.pack("<hB", angle_int, axis.value))
-        crc_value = Crc16.calc(packet)
-        packet.extend(struct.pack("<H", crc_value))
-        self.seq = (self.seq + 1) % 0x10000
-        return bytes(packet)
+        return self._finalize_packet(packet)
 
-    async def send_single_axis_attitude_command(self, angle: float, axis: SingleAxis) -> None:
-        """Send the 0x41 single-axis attitude control command."""
-        if not self.is_connected:
-            raise RuntimeError("Socket is not connected, cannot send single-axis attitude command.")
+    async def send_single_axis_attitude_command(
+        self, angle: float, axis: SingleAxis
+    ) -> None:
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot send single-axis attitude command."
+            )
         packet = self._build_single_axis_attitude_packet(angle, axis)
         self.writer.write(packet)
         await self.writer.drain()
@@ -268,103 +250,253 @@ class SiyiGimbalCamera:
             f"Sent single-axis attitude command for {axis.name.lower()} with angle {angle}°"
         )
 
-    def _build_data_stream_packet(self, data_type: DataStreamType, data_freq: DataStreamFrequency) -> bytes:
-        """Build a packet for the 0x25 'Request Gimbal to Send Data Stream' command."""
-        packet = bytearray()
-        packet.extend(b"\x55\x66")
-        packet.append(0x01)  # CTRL, request ACK
-        packet.extend(struct.pack("<H", 2))  # Data length: 2 bytes
-        packet.extend(struct.pack("<H", self.seq))
-        packet.append(CommandID.DATA_STREAM_REQUEST.value)  # CMD_ID for data stream request
-        packet.append(data_type.value)           # Data type (uint8)
-        packet.append(data_freq.value)           # Data frequency (uint8)
-        crc_value = Crc16.calc(packet)
-        packet.extend(struct.pack("<H", crc_value))
-        self.seq = (self.seq + 1) % 0x10000
-        return bytes(packet)
+    def _build_data_stream_packet(
+        self, data_type: DataStreamType, data_freq: DataStreamFrequency
+    ) -> bytes:
+        data_len = 2
+        packet = self._build_packet_header(
+            CommandID.DATA_STREAM_REQUEST, data_len
+        )
+        packet.append(data_type.value)
+        packet.append(data_freq.value)
+        return self._finalize_packet(packet)
 
-    async def send_data_stream_request(self, data_type: DataStreamType, data_freq: DataStreamFrequency) -> None:
-        """Send the 0x25 command to request a continuous data stream from the gimbal."""
-        if not self.is_connected:
-            raise RuntimeError("Socket is not connected, cannot request data stream.")
+    async def send_data_stream_request(
+        self, data_type: DataStreamType, data_freq: DataStreamFrequency
+    ) -> None:
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot request data stream."
+            )
         packet = self._build_data_stream_packet(data_type, data_freq)
         self.writer.write(packet)
         await self.writer.drain()
-        #logger.info(f"Sent data stream request: data_type {data_type}, data_freq {data_freq}")
+        logger.info(
+            f"Sent data stream request: data_type {data_type.name}, data_freq {data_freq.name}"
+        )
+
+    def _build_absolute_zoom_packet(self, zoom_level: float) -> bytes:
+        data_len = 2
+        packet = self._build_packet_header(CommandID.ABSOLUTE_ZOOM, data_len)
+        zoom_packet_value = int(round(zoom_level * 10))
+        if not (0 <= zoom_packet_value <= 65535): # Should be caught by clamping earlier
+            raise ValueError(
+                "Zoom packet value out of uint16_t range after conversion."
+            )
+        packet.extend(struct.pack("<H", zoom_packet_value))
+        return self._finalize_packet(packet)
+
+    async def send_absolute_zoom_command(self, zoom_level: float) -> None:
+        """
+        Send an absolute zoom command (0x08) to the gimbal.
+
+        :param zoom_level: The desired zoom level as a float (e.g., 1.0 for 1x,
+                           2.5 for 2.5x). For A8 mini, this will be clamped
+                           between 1.0 and MAX_A8_MINI_ZOOM (6.0).
+        """
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot send absolute zoom command."
+            )
+
+        original_requested_zoom = zoom_level  # For logging clarity
+
+        if zoom_level < 1.0:
+            logger.warning(
+                f"Requested zoom level {original_requested_zoom:.1f} is less than 1.0. Clamping to 1.0x."
+            )
+            zoom_level = 1.0
+        elif zoom_level > self.MAX_A8_MINI_ZOOM:  # Check against max zoom
+            logger.warning(
+                f"Requested zoom level {original_requested_zoom:.1f} exceeds maximum {self.MAX_A8_MINI_ZOOM:.1f}x for A8 mini. "
+                f"Clamping to {self.MAX_A8_MINI_ZOOM:.1f}x."
+            )
+            zoom_level = self.MAX_A8_MINI_ZOOM
+
+        packet = self._build_absolute_zoom_packet(zoom_level)
+        self.writer.write(packet)
+        await self.writer.drain()
+        logger.debug(
+            f"Sent absolute zoom command with level {zoom_level:.1f}x (original request: {original_requested_zoom:.1f}x)"
+        )
 
     async def _read_packet(self):
-        """Read a full packet from the TCP stream following the protocol format."""
+        if not self.reader:
+            raise RuntimeError("Reader is not initialized.")
         stx = await self.reader.readexactly(2)
         if stx != b"\x55\x66":
-            raise ValueError("Invalid packet start bytes.")
+            raise ValueError(f"Invalid packet start bytes: {stx.hex()}")
         ctrl = await self.reader.readexactly(1)
         data_len_bytes = await self.reader.readexactly(2)
         data_len = struct.unpack("<H", data_len_bytes)[0]
-        seq = await self.reader.readexactly(2)
+        seq_bytes = await self.reader.readexactly(2) # Renamed for clarity
+        # seq_val = struct.unpack("<H", seq_bytes)[0] # If you need the sequence value
         cmd_id_bytes = await self.reader.readexactly(1)
-        cmd_id = cmd_id_bytes[0]
+        cmd_id_val = cmd_id_bytes[0] # Renamed for clarity
+        
+        # Protect against excessively large data_len
+        if data_len > 2048: # Arbitrary reasonable limit
+            raise ValueError(f"Excessive data length received: {data_len}")
+
         data = await self.reader.readexactly(data_len)
         crc_bytes = await self.reader.readexactly(2)
         received_crc = struct.unpack("<H", crc_bytes)[0]
-        packet_without_crc = stx + ctrl + data_len_bytes + seq + cmd_id_bytes + data
+        
+        packet_without_crc = (
+            stx + ctrl + data_len_bytes + seq_bytes + cmd_id_bytes + data
+        )
         computed_crc = Crc16.calc(packet_without_crc)
+        
         if computed_crc != received_crc:
-            raise ValueError("CRC check failed for received packet.")
-        return cmd_id, data
+            raise ValueError(
+                f"CRC check failed. Expected {computed_crc:04X}, got {received_crc:04X}. "
+                f"Packet: {packet_without_crc.hex()}"
+            )
+        return cmd_id_val, data
 
     @staticmethod
     def parse_attitude_data(data: bytes) -> AttitudeData:
-        """Parse the attitude data (12 bytes) into human-readable values."""
         if len(data) != 12:
             raise ValueError("Attitude data should be exactly 12 bytes.")
         return AttitudeData.from_bytes(data)
 
     async def _data_stream_listener(self) -> None:
-        """
-        Continuously listen for incoming packets from the gimbal and process them.
-
-        If a data callback is set via set_data_callback(), the callback is called
-        with the CommandID and the corresponding data (parsed or raw).
-        """
         while self.is_connected:
             try:
                 cmd_id_int, data = await self._read_packet()
-                cmd_id = CommandID(cmd_id_int)
-                # Process data as before...
-            except (ConnectionResetError, BrokenPipeError, ConnectionError) as e:
-                logger.error(f"Connection error: {e}")
+                try:
+                    cmd_id_enum = CommandID(cmd_id_int)
+                except ValueError:
+                    logger.warning(
+                        f"Received unknown CMD_ID {cmd_id_int:02X}, data: {data.hex()}"
+                    )
+                    if self._data_callback:
+                        self._data_callback(cmd_id_int, data)
+                    continue
+
+                if (
+                    cmd_id_enum == CommandID.ATTITUDE_DATA_RESPONSE
+                    and len(data) == 12
+                ):
+                    try:
+                        parsed = AttitudeData.from_bytes(data)
+                        if self._data_callback:
+                            self._data_callback(cmd_id_enum, parsed)
+                        else:
+                            logger.info(f"Received attitude data: {parsed}")
+                    except Exception as e:
+                        logger.exception(
+                            f"Failed to parse attitude data: {e}"
+                        )
+                        if self._data_callback:
+                            self._data_callback(cmd_id_enum, data)
+                else:
+                    if self._data_callback:
+                        self._data_callback(cmd_id_enum, data)
+                    else:
+                        logger.info(
+                            f"Received packet with CMD_ID {cmd_id_enum.name} ({cmd_id_enum.value:02X}): {data.hex()}"
+                        )
+
+            except (
+                ConnectionResetError,
+                BrokenPipeError,
+                ConnectionError,
+                asyncio.IncompleteReadError,
+            ) as e:
+                logger.error(f"Connection error in listener: {e}")
                 self.is_connected = False
-                break  # Exit the loop to allow reconnection
+                break
+            except ValueError as e:
+                logger.error(f"Packet error in listener: {e}")
+                # Consider adding a small delay or a mechanism to resync if this happens frequently
+                await asyncio.sleep(0.1) # Small delay before trying to read again
+                continue
             except Exception as e:
-                #logger.error(f"Error reading packet: {e}")
-                ## Continue trying for other errors, but count failures
+                logger.exception(f"Unexpected error in data stream listener: {e}")
+                # Depending on the error, you might want to break or continue
+                await asyncio.sleep(0.1) # Small delay
                 continue
 
-            # Process attitude data packets if applicable.
-            if cmd_id == CommandID.ATTITUDE_DATA_RESPONSE and len(data) == 12:
-                try:
-                    parsed = AttitudeData.from_bytes(data)
-                except Exception as e:
-                    logger.exception(f"Failed to parse attitude data: {e}")
-                    parsed = None
-                if self._data_callback:
-                    self._data_callback(cmd_id, parsed)
-                else:
-                    logger.info(f"Received attitude data: {parsed}")
-            else:
-                if self._data_callback:
-                    self._data_callback(cmd_id, data)
-                else:
-                    logger.info(f"Received packet with CMD_ID {cmd_id}: {data}")
-
-    def set_data_callback(self, callback: Callable[[CommandID, Any], None]) -> None:
-        """
-        Change the callback function used by the data stream listener.
-
-        The callback should be a function that accepts two arguments:
-          - A CommandID indicating the type of packet received.
-          - The parsed data (for attitude data, an AttitudeData instance) or raw data.
-
-        :param callback: A callable to be used as the data callback.
-        """
+    def set_data_callback(
+        self, callback: Callable[[CommandID | int, Any], None]
+    ) -> None:
         self._data_callback = callback
+
+
+async def main_sdk_test(): # Renamed to avoid conflict if this file is imported
+    gimbal_ip = "192.168.144.25"
+    gimbal = SiyiGimbalCamera(gimbal_ip)
+
+    def my_data_handler(cmd_id, data):
+        if cmd_id == CommandID.ATTITUDE_DATA_RESPONSE and isinstance(data, AttitudeData):
+            print(
+                f"Attitude: Yaw={data.yaw:.1f}, Pitch={data.pitch:.1f}, Roll={data.roll:.1f}"
+            )
+        elif isinstance(cmd_id, CommandID):
+            print(
+                f"Received {cmd_id.name}: {data.hex() if isinstance(data, bytes) else data}"
+            )
+        else:
+            print(
+                f"Received Unknown CMD_ID {cmd_id:02X}: {data.hex() if isinstance(data, bytes) else data}"
+            )
+
+    gimbal.set_data_callback(my_data_handler)
+
+    try:
+        await gimbal.connect()
+        if gimbal.is_connected:
+            print("SDK Test: Successfully connected to the gimbal.")
+
+            print("SDK Test: Setting zoom to 1.0x")
+            await gimbal.send_absolute_zoom_command(1.0)
+            await asyncio.sleep(2)
+
+            print("SDK Test: Setting zoom to 3.5x")
+            await gimbal.send_absolute_zoom_command(3.5)
+            await asyncio.sleep(2)
+
+            print("SDK Test: Setting zoom to 6.0x (A8 mini max)")
+            await gimbal.send_absolute_zoom_command(6.0)
+            await asyncio.sleep(2)
+            
+            print("SDK Test: Attempting zoom to 7.0x (should be clamped to 6.0x)")
+            await gimbal.send_absolute_zoom_command(7.0)
+            await asyncio.sleep(2)
+
+            print("SDK Test: Attempting zoom to 0.5x (should be clamped to 1.0x)")
+            await gimbal.send_absolute_zoom_command(0.5)
+            await asyncio.sleep(2)
+
+            print("SDK Test: Requesting attitude data stream at 5Hz...")
+            await gimbal.send_data_stream_request(DataStreamType.ATTITUDE_DATA, DataStreamFrequency.HZ_5)
+            
+            print("SDK Test: Listening for data for 10 seconds...")
+            await asyncio.sleep(10)
+
+            print("SDK Test: Disabling attitude data stream...")
+            await gimbal.send_data_stream_request(DataStreamType.ATTITUDE_DATA, DataStreamFrequency.DISABLE)
+            await asyncio.sleep(1)
+
+
+    except ConnectionRefusedError:
+        print(
+            f"SDK Test: Connection to {gimbal_ip} was refused. Is the gimbal on and accessible?"
+        )
+    except Exception as e:
+        print(f"SDK Test: An error occurred: {e}")
+    finally:
+        if gimbal.is_connected:
+            print("SDK Test: Disconnecting...")
+            await gimbal.disconnect()
+        print("SDK Test: Program finished.")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    # To see debug logs from this SDK specifically:
+    # logger.setLevel(logging.DEBUG)
+    asyncio.run(main_sdk_test())
