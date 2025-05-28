@@ -144,10 +144,11 @@ class SerialRelay(Node):
 
         # LSS (SCYTHE)
         command = "can_relay_tovic,citadel,24," + str(msg.bio_arm) + "\n"
-        self.send_cmd(command)
+        #self.send_cmd(command)
+        
         # Vibration Motor
-        command = "can_relay_tovic,citadel,26," + str(msg.vibration_motor) + "\n"
-        self.send_cmd(command)
+        command += "can_relay_tovic,citadel,26," + str(msg.vibration_motor) + "\n"
+        #self.send_cmd(command)
         
 
         # FAERIE Control Commands 
@@ -156,16 +157,15 @@ class SerialRelay(Node):
         # To be reviewed before use#
 
         # Laser
-        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
-        self.send_cmd(command)
+        command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+        #self.send_cmd(command)
 
         # Drill (SCABBARD)
-        command = f"can_relay_tovic,digit,19,{msg.drill:.2f}\n"
-        print(msg.drill)
-        self.send_cmd(command)
+        command += f"can_relay_tovic,digit,19,{msg.drill:.2f}\n"
+        #self.send_cmd(command)
 
         # Bio linear actuator
-        command = "can_relay_tovic,digit,42," + str(msg.drill_arm) + "\n"
+        command += "can_relay_tovic,digit,42," + str(msg.drill_arm) + "\n"
         self.send_cmd(command)
 
 
@@ -182,7 +182,7 @@ class SerialRelay(Node):
     def anchor_feedback(self, msg: String):
         output = msg.data
         parts = str(output.strip()).split(",")
-        self.get_logger().info(f"[Bio Anchor] {msg.data}")
+        #self.get_logger().info(f"[Bio Anchor] {msg.data}")
 
         if output.startswith("can_relay_fromvic,citadel,54"):  # bat, 12, 5, Voltage readings * 100
             self.bio_feedback.bat_voltage = float(parts[3]) / 100.0
