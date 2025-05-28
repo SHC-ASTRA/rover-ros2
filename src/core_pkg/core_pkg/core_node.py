@@ -202,6 +202,9 @@ class SerialRelay(Node):
             self.core_feedback.gps_long = float(parts[3])
         elif output.startswith("can_relay_fromvic,core,50"):#GNSS Satellite Count
             self.core_feedback.gps_sats = round(float(parts[3]))
+            #if parts length is at least 5 then we should have altitude, this is a temporary check until fully implemented
+            if len(parts) >= 5:
+                self.core_feedback.gps_alt = round(float(parts[4]), 2)
         elif output.startswith("can_relay_fromvic,core,51"):#Gyro x,y,z
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
