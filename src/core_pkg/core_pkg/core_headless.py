@@ -20,7 +20,7 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a
 os.environ["SDL_AUDIODRIVER"] = "dummy"  # Force pygame to use a dummy audio driver before pygame.init()
 
 
-max_speed = 75 #Max speed as a duty cycle percentage (1-100)
+max_speed = 90 #Max speed as a duty cycle percentage (1-100)
 
 class Headless(Node):
     def __init__(self):
@@ -94,11 +94,11 @@ class Headless(Node):
 
         input.max_speed = max_speed
 
-        input.right_stick = round(self.gamepad.get_axis(4),2)#right y-axis
+        input.right_stick = -1 * round(self.gamepad.get_axis(4),2)#right y-axis
         if self.gamepad.get_axis(5) > 0:
             input.left_stick = input.right_stick
         else:
-            input.left_stick = round(self.gamepad.get_axis(1),2)#lext y-axis
+            input.left_stick = -1 * round(self.gamepad.get_axis(1),2)#lext y-axis
 
 
 
