@@ -165,7 +165,7 @@ class SerialRelay(Node):
 
         return
     
-    def send_cmd(self, msg):
+    def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor': #if in anchor mode, send to anchor node to relay
             output = String()
             output.data = msg
@@ -174,7 +174,7 @@ class SerialRelay(Node):
             self.get_logger().info(f"[Arm to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
-    def anchor_feedback(self, msg):
+    def anchor_feedback(self, msg: String):
         output = msg.data
         if output.startswith("can_relay_fromvic,arm,55"):
             #pass
@@ -205,10 +205,10 @@ class SerialRelay(Node):
         self.socket_pub.publish(self.arm_feedback)
         self.digit_pub.publish(self.digit_feedback)
 
-    def updateAngleFeedback(self, msg: String):
+    def updateAngleFeedback(self, msg: str):
                 # Angle feedbacks,
         #split the msg.data by commas
-        parts = msg.data.split(",")
+        parts = msg.split(",")
         
         if len(parts) >= 7:
             # Extract the angles from the string
@@ -241,9 +241,9 @@ class SerialRelay(Node):
             self.get_logger().info("Invalid angle feedback input format")
 
 
-    def updateBusVoltage(self, msg: String):
+    def updateBusVoltage(self, msg: str):
         # Bus Voltage feedbacks
-        parts = msg.data.split(",")
+        parts = msg.split(",")
         if len(parts) >= 7:
             # Extract the voltage from the string
             voltages_in = parts[3:7]
