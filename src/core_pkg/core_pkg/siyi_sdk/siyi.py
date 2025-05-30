@@ -64,6 +64,7 @@ class CommandID(Enum):
     """
 
     ROTATION_CONTROL = 0x07
+    MANUAL_ZOOM = 0x05  # Added manual zoom command
     ABSOLUTE_ZOOM = 0x08
     ATTITUDE_ANGLES = 0x0E
     SINGLE_AXIS_CONTROL = 0x41
@@ -319,6 +320,35 @@ class SiyiGimbalCamera:
         logger.debug(
             f"Sent absolute zoom command with level {zoom_level:.1f}x (original request: {original_requested_zoom:.1f}x)"
         )
+
+    def _build_manual_zoom_packet(self, zoom_direction: int) -> bytes:
+        """
+        Helper to build a manual zoom command packet.
+        
+        :param zoom_direction: Direction to zoom: 1 for in, -1 for out, 0 for stop.
+        :return: Complete packet bytes ready to send.
+        """
+        data_len = 1
+        packet = self._build_packet_header(CommandID.MANUAL_ZOOM, data_len)
+        # Ensure the direction is within valid range (-1, 0, 1)
+        direction_value = max(-1, min(1, zoom_direction))
+        packet.append(direction_value)
+        return self._finalize_packet(packet)
+
+    async def send_manual_zoom_command(self, zoom_direction: int) -> None:
+        """
+        Send a manual zoom command (0x05) to the gimbal.
+        
+        :param zoom_direction: 1 to zoom in, -1 to zoom out, 0 to stop zooming.
+        """
+        if not self.is_connected or not self.writer:
+            raise RuntimeError(
+                "Socket is not connected or writer is None, cannot send manual zoom command."
+            )
+        packet = self._build_manual_zoom_packet(zoom_direction)
+        self.writer.write(packet)
+        await self.writer.drain()
+        logger.debug(f"Sent manual zoom command with direction {zoom_direction}")
 
     async def _read_packet(self):
         if not self.reader:

@@ -202,9 +202,14 @@ class PtzNode(Node):
                 await self.camera.send_single_axis_attitude_command(angle, axis)
 
             elif msg.control_mode == 3: 
-                zoom_level = msg.zoom_level
-                self.get_logger().debug(f"Attempting absolute zoom: level={zoom_level}x")
-                await self.camera.send_absolute_zoom_command(zoom_level)
+                zoom_direction = 0
+                if msg.zoom_level > 0:
+                    zoom_direction = 1  # Zoom in
+                elif msg.zoom_level < 0:
+                    zoom_direction = -1  # Zoom out
+                
+                self.get_logger().debug(f"Attempting manual zoom: direction={zoom_direction}")
+                await self.camera.send_manual_zoom_command(zoom_direction)
                 
             if hasattr(msg, 'stream_type') and hasattr(msg, 'stream_freq'):
                 if msg.stream_type > 0 and msg.stream_freq >= 0: 
