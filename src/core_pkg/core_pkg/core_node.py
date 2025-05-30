@@ -169,7 +169,7 @@ class SerialRelay(Node):
         # Convert the 0-1 range into a value in the right range.
         return str(rightMin + (valueScaled * rightSpan))
 
-    def send_controls(self, msg):
+    def send_controls(self, msg: CoreControl):
         #can_relay_tovic,core,19, left_stick, right_stick 
         if(msg.turn_to_enable):
             command = "can_relay_tovic,core,41," + str(msg.turn_to) + ',' + str(msg.turn_to_timeout) + '\n' 
@@ -182,7 +182,7 @@ class SerialRelay(Node):
         self.send_cmd(command)
 
         #print(f"[Sys] Relaying: {command}")
-    def send_cmd(self, msg):
+    def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor':
             #self.get_logger().info(f"[Core to Anchor Relay] {msg}")
             output = String()#Convert to std_msg string
@@ -205,25 +205,43 @@ class SerialRelay(Node):
             #if parts length is at least 5 then we should have altitude, this is a temporary check until fully implemented
             if len(parts) >= 5:
                 self.core_feedback.gps_alt = round(float(parts[4]), 2)
-        elif output.startswith("can_relay_fromvic,core,51"):#Gyro x,y,z
+        elif output.startswith("can_relay_fromvic,core,51"):  #Gyro x,y,z
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
             self.core_feedback.bno_gyro.z = float(parts[5])
             self.core_feedback.imu_calib = round(float(parts[6]))
-        elif output.startswith("can_relay_fromvic,core,52"):#Accel x,y,z, heading *10
+        elif output.startswith("can_relay_fromvic,core,52"):  #Accel x,y,z, heading *10
             self.core_feedback.bno_accel.x = float(parts[3])
             self.core_feedback.bno_accel.y = float(parts[4])
             self.core_feedback.bno_accel.z = float(parts[5])
             self.core_feedback.orientation = float(parts[6]) / 10.0
-        elif output.startswith("can_relay_fromvic,core,53"):#Rev motor feedback
-            pass
-            #self.updateMotorFeedback(output)
-        elif output.startswith("can_relay_fromvic,core,54"):#bat, 12, 5, 3, Voltage readings * 100
+        elif output.startswith("can_relay_fromvic,core,53"):  #Rev motor feedback
+            motorId = int(parts[3])
+            temp = float(parts[4]) / 10.0
+            voltage = float(parts[5]) / 10.0
+            current = float(parts[6]) / 10.0
+            if motorId == 1:
+                self.core_feedback.fl_temp = temp
+                self.core_feedback.fl_voltage = voltage
+                self.core_feedback.fl_current = current
+            elif motorId == 2:
+                self.core_feedback.bl_temp = temp
+                self.core_feedback.bl_voltage = voltage
+                self.core_feedback.bl_current = current
+            elif motorId == 3:
+                self.core_feedback.fr_temp = temp
+                self.core_feedback.fr_voltage = voltage
+                self.core_feedback.fr_current = current
+            elif motorId == 4:
+                self.core_feedback.br_temp = temp
+                self.core_feedback.br_voltage = voltage
+                self.core_feedback.br_current = current
+        elif output.startswith("can_relay_fromvic,core,54"):  #bat, 12, 5, 3, Voltage readings * 100
             self.core_feedback.bat_voltage = float(parts[3]) / 100.0
             self.core_feedback.voltage_12 = float(parts[4]) / 100.0
             self.core_feedback.voltage_5 = float(parts[5]) / 100.0
             self.core_feedback.voltage_3 = float(parts[6]) / 100.0
-        elif output.startswith("can_relay_fromvic,core,56"):#BMP Temp, Altitude, Pressure
+        elif output.startswith("can_relay_fromvic,core,56"):  #BMP Temp, Altitude, Pressure
             self.core_feedback.bmp_temp = float(parts[3])
             self.core_feedback.bmp_alt = float(parts[4])
             self.core_feedback.bmp_pres = float(parts[5])
