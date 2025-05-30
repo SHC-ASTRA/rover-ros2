@@ -330,9 +330,20 @@ class SiyiGimbalCamera:
         """
         data_len = 1
         packet = self._build_packet_header(CommandID.MANUAL_ZOOM, data_len)
-        # Ensure the direction is within valid range (-1, 0, 1)
-        direction_value = max(-1, min(1, zoom_direction))
-        packet.append(direction_value)
+        
+        # Convert the direction to a valid byte value:
+        # -1 (zoom out) -> 2
+        # 0 (stop zoom) -> 0
+        # 1 (zoom in) -> 1
+        if zoom_direction < 0:
+            direction_byte = 2  # Zoom out
+        elif zoom_direction > 0:
+            direction_byte = 1  # Zoom in
+        else:
+            direction_byte = 0  # Stop zoom
+        
+        logger.debug(f"Manual zoom: input direction={zoom_direction}, mapped to byte={direction_byte}")
+        packet.append(direction_byte)
         return self._finalize_packet(packet)
 
     async def send_manual_zoom_command(self, zoom_direction: int) -> None:
@@ -346,6 +357,7 @@ class SiyiGimbalCamera:
                 "Socket is not connected or writer is None, cannot send manual zoom command."
             )
         packet = self._build_manual_zoom_packet(zoom_direction)
+        logger.debug(f"Manual zoom packet: {packet.hex()}")
         self.writer.write(packet)
         await self.writer.drain()
         logger.debug(f"Sent manual zoom command with direction {zoom_direction}")
