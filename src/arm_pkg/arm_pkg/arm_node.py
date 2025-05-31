@@ -126,14 +126,15 @@ class SerialRelay(Node):
     def send_ik(self, msg):
         pass
 
-    def send_manual(self, msg):
+    def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
         axis1 = -1 * msg.axis1
         axis2 = msg.axis2
         axis3 = msg.axis3
 
         #Send controls for arm
-        command = "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
+        command = "can_relay_tovic,arm,18," + str(msg.brake) + "\n"
+        command += "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
         #self.send_cmd(command)
         
         #Send controls for end effector
@@ -183,8 +184,27 @@ class SerialRelay(Node):
             #pass
             self.updateBusVoltage(output)
         elif output.startswith("can_relay_fromvic,arm,53"):
-            #pass
-            self.updateMotorFeedback(output)
+            parts = str(output.strip()).split(",")
+            motorId = round(float(parts[3]))
+            temp = float(parts[4]) / 10.0
+            voltage = float(parts[5]) / 10.0
+            current = float(parts[6]) / 10.0
+            if motorId == 1:
+                self.arm_feedback.axis1_temp = temp
+                self.arm_feedback.axis1_voltage = voltage
+                self.arm_feedback.axis1_current = current
+            elif motorId == 2:
+                self.arm_feedback.axis2_temp = temp
+                self.arm_feedback.axis2_voltage = voltage
+                self.arm_feedback.axis2_current = current
+            elif motorId == 3:
+                self.arm_feedback.axis3_temp = temp
+                self.arm_feedback.axis3_voltage = voltage
+                self.arm_feedback.axis3_current = current
+            elif motorId == 4:
+                self.arm_feedback.axis0_temp = temp
+                self.arm_feedback.axis0_voltage = voltage
+                self.arm_feedback.axis0_current = current
         elif output.startswith("can_relay_fromvic,digit,54"):
             parts = msg.data.split(",")
             if len(parts) >= 7:
@@ -254,25 +274,6 @@ class SerialRelay(Node):
             self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
         else:
             self.get_logger().info("Invalid voltage feedback input format")
-
-
-    def updateMotorFeedback(self, msg):
-        # Motor voltage/current/temperature feedback
-        return
-        # parts = msg.data.split(",")
-        # if len(parts) >= 7:
-        #     # Extract the voltage/current/temperature from the string
-        #     values_in = parts[3:7]
-        #     # Convert the voltages to floats
-        #     for i in range(4):
-        #         #update arm_feedback's axisX_temp for each axis0_temp, axis1_temp, etc...
-        #         pass
-
-        #         # self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-        #         # self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-        #         # self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
-        # else:
-        #     self.get_logger().info("Invalid motor feedback input format")
 
 
     @staticmethod
