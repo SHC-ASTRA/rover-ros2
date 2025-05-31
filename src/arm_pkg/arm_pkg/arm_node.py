@@ -148,6 +148,9 @@ class SerialRelay(Node):
         #self.send_cmd(command)
 
         command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+
+        command += "can_relay_tovic,digit,34," + str(msg.linear_actuator) + "\n"
+
         self.send_cmd(command)
         
         
