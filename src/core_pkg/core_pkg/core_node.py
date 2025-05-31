@@ -210,11 +210,11 @@ class SerialRelay(Node):
             self.core_feedback.bno_gyro.y = float(parts[4])
             self.core_feedback.bno_gyro.z = float(parts[5])
             self.core_feedback.imu_calib = round(float(parts[6]))
-        elif output.startswith("can_relay_fromvic,core,52"):  #Accel x,y,z, heading *10
+        elif output.startswith("can_relay_fromvic,core,52"):  #Accel x,y,z, heading
             self.core_feedback.bno_accel.x = float(parts[3])
             self.core_feedback.bno_accel.y = float(parts[4])
             self.core_feedback.bno_accel.z = float(parts[5])
-            self.core_feedback.orientation = float(parts[6]) / 10.0
+            self.core_feedback.orientation = float(parts[6])
         elif output.startswith("can_relay_fromvic,core,53"):  #Rev motor feedback
             motorId = int(parts[3])
             temp = float(parts[4]) / 10.0
