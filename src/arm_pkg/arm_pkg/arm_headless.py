@@ -42,7 +42,7 @@ class Headless(Node):
         # Depricated, kept temporarily for reference
         #self.subscriber = self.create_subscription(String, '/astra/arm/feedback', self.read_feedback, 10)
 
-        self.debug_sub = self.create_subscription(String, '/arm/feedback/debug', self.read_feedback, 10)
+        #self.debug_sub = self.create_subscription(String, '/arm/feedback/debug', self.read_feedback, 10)
 
 
         self.laser_status = 0
@@ -81,14 +81,14 @@ class Headless(Node):
             while rclpy.ok():
                 #Check the pico for updates
 
-                self.read_feedback()
+                #self.read_feedback()
                 if pygame.joystick.get_count() == 0: #if controller disconnected, wait for it to be reconnected
                     print(f"Gamepad disconnected: {self.gamepad.get_name()}")
                     
                     while pygame.joystick.get_count() == 0:
                         #self.send_controls() #depricated, kept for reference temporarily
                         self.send_manual()
-                        self.read_feedback()
+                        #self.read_feedback()
                     self.gamepad = pygame.joystick.Joystick(0)
                     self.gamepad.init() #re-initialized gamepad
                     print(f"Gamepad reconnected: {self.gamepad.get_name()}")
@@ -142,7 +142,7 @@ class Headless(Node):
                 input.axis0 = -1
 
             if self.gamepad.get_axis(0) > .15 or self.gamepad.get_axis(0) < -.15:
-                input.axis1 = -1 * round(self.gamepad.get_axis(0))
+                input.axis1 = round(self.gamepad.get_axis(0))
 
             if self.gamepad.get_axis(1) > .15 or self.gamepad.get_axis(1) < -.15:
                 input.axis2 = -1 * round(self.gamepad.get_axis(1))
@@ -268,22 +268,6 @@ class Headless(Node):
     #         pass
 
 
-            
-
-
-    def read_feedback(self, msg):
-        
-        # Create a string message object
-        #msg = String()
-
-        # Set message data
-        #msg.data = output
-
-        # Publish data
-        #self.publisher.publish(msg.data)
-        
-        print(f"[MCU] {msg.data}", end="")
-        #print(f"[Pico] Publishing: {msg}")
 
         
 
