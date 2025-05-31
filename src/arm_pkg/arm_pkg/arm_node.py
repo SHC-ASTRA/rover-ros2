@@ -30,7 +30,7 @@ class SerialRelay(Node):
         self.debug_pub = self.create_publisher(String, '/arm/feedback/debug', 10)
         self.socket_pub = self.create_publisher(SocketFeedback, '/arm/feedback/socket', 10)
         self.digit_pub = self.create_publisher(DigitFeedback, '/arm/feedback/digit', 10)
-        self.feedback_timer = self.create_timer(1.0, self.publish_feedback)
+        self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
 
         # Create subscribers
         self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 10) 
