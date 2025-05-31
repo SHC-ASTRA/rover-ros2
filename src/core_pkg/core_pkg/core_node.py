@@ -216,7 +216,7 @@ class SerialRelay(Node):
             self.core_feedback.bno_accel.z = float(parts[5])
             self.core_feedback.orientation = float(parts[6])
         elif output.startswith("can_relay_fromvic,core,53"):  #Rev motor feedback
-            motorId = int(parts[3])
+            motorId = round(float(parts[3]))
             temp = float(parts[4]) / 10.0
             voltage = float(parts[5]) / 10.0
             current = float(parts[6]) / 10.0
