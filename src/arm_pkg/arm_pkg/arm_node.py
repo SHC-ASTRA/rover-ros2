@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy import qos
 import serial
 import sys
 import threading
@@ -26,10 +27,19 @@ from ament_index_python.packages import get_package_share_directory
 
 from . import astra_arm
 
+control_qos = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=1,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    deadline=1000,
+    lifespan=500,
+    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    liveliness_lease_duration=5000
+)
+
 serial_pub = None
 thread = None
-
-
 
 
 class SerialRelay(Node):
@@ -49,7 +59,7 @@ class SerialRelay(Node):
         self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
 
         # Create subscribers
-        self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, 10) 
+        self.ik_sub = self.create_subscription(ArmIK, '/arm/control/ik', self.send_ik, qos_profile=control_qos)
         self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
 
         self.ik_debug = self.create_publisher(String, '/arm/debug/ik', 10)
@@ -59,20 +69,11 @@ class SerialRelay(Node):
             self.anchor_sub = self.create_subscription(String, '/anchor/arm/feedback', self.anchor_feedback, 10)
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
-
-        # output to console
-        self.get_logger().info("Creating arm object...")
-
-        self.arm_feedback = SocketFeedback()
-        self.digit_feedback = DigitFeedback()
         self.arm = astra_arm.Arm('arm12.urdf')
         self.arm_feedback = SocketFeedback()
+        self.digit_feedback = DigitFeedback()
 
-        ########
-        # Interface with MCU 
         # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
-        ########
-
         if self.launch_mode == 'arm':
             # Loop through all serial devices on the computer to check for the MCU
             self.port = None
@@ -84,7 +85,7 @@ class SerialRelay(Node):
                         ser = serial.Serial(port, 115200, timeout=1)
                         #print(f"Checking port {port}...")
                         ser.write(b"ping\n")
-                        response = ser.read_until("\n")
+                        response = ser.read_until("\n")  # type: ignore
 
                         # if pong is in response, then we are talking with the MCU
                         if b"pong" in response:
@@ -97,10 +98,9 @@ class SerialRelay(Node):
                     break
             
             if self.port is None:
-                self.get_logger().info("Unable to find MCU...")
-                #kill the node/process entirely
-                os.kill(os.getpid(), signal.SIGKILL)
-                sys.exit(0)
+                self.get_logger().info("Unable to find MCU... please make sure it is connected.")
+                time.sleep(1)
+                sys.exit(1)
             
             self.ser = serial.Serial(self.port, 115200)
             atexit.register(self.cleanup)
@@ -130,18 +130,9 @@ class SerialRelay(Node):
         try:
             output = str(self.ser.readline(), "utf8")
             if output:
-                if output.startswith("can_relay_fromvic,arm,55"):
-                    pass
-                    #self.updateAngleFeedback(output)
-                elif output.startswith("can_relay_fromvic,arm,54"):
-                    pass
-                    #self.updateBusVoltage(output)
-                elif output.startswith("can_relay_fromvic,arm,53"):
-                    pass
-                    #self.updateMotorFeedback(output)
-                self.get_logger().info(f"[MCU] {output}")
+                #self.get_logger().info(f"[MCU] {output}")
                 msg = String()
-                msg.data = "From MCU Got: " + output
+                msg.data = output
                 self.debug_pub.publish(msg)
         except serial.SerialException:
             self.get_logger().info("SerialException caught... closing serial port.")
@@ -162,9 +153,9 @@ class SerialRelay(Node):
             pass
 
 
-    def updateAngleFeedback(self, msg):
+    def updateAngleFeedback(self, msg: str):
         # Angle feedbacks,
-        #split the msg.data by commas
+        # split the msg.data by commas
         parts = msg.split(",")
         
         if len(parts) >= 7:
@@ -172,7 +163,7 @@ class SerialRelay(Node):
             angles_in = parts[3:7]
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
-            angles[0] = 0.0 #override axis0 to zero
+            # angles[0] = 0.0 #override axis0 to zero
             #
             #
             #THIS NEEDS TO BE REMOVED LATER
@@ -197,7 +188,8 @@ class SerialRelay(Node):
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
-    def updateBusVoltage(self, msg):
+
+    def updateBusVoltage(self, msg: str):
         # Bus Voltage feedbacks
         parts = msg.split(",")
         if len(parts) >= 7:
@@ -210,34 +202,35 @@ class SerialRelay(Node):
             self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
         else:
             self.get_logger().info("Invalid voltage feedback input format")
-
-    def updateMotorFeedback(self, msg):
-        # Motor voltage/current/temperature feedback
-        parts = msg.split(",")
-        if len(parts) >= 7:
-            # Extract the voltage/current/temperature from the string
-            values_in = parts[3:7]
-            # Convert the voltages to floats
-            for i in range(4):
-                #update arm_feedback's axisX_temp for each axis0_temp, axis1_temp, etc...
-                pass
-
-                # self.arm_feedback.updateJointVoltages(i, float(values_in[i]) / 10.0)
-                # self.arm_feedback.updateJointCurrents(i, float(values_in[i]) / 10.0)
-                # self.arm_feedback.updateJointTemperatures(i, float(values_in[i]) / 10.0)
-        else:
-            self.get_logger().info("Invalid motor feedback input format")
+    
+    def updateMotorFeedback(self, msg: str):
+        parts = str(msg.strip()).split(",")
+        motorId = round(float(parts[3]))
+        temp = float(parts[4]) / 10.0
+        voltage = float(parts[5]) / 10.0
+        current = float(parts[6]) / 10.0
+        if motorId == 1:
+            self.arm_feedback.axis1_temp = temp
+            self.arm_feedback.axis1_voltage = voltage
+            self.arm_feedback.axis1_current = current
+        elif motorId == 2:
+            self.arm_feedback.axis2_temp = temp
+            self.arm_feedback.axis2_voltage = voltage
+            self.arm_feedback.axis2_current = current
+        elif motorId == 3:
+            self.arm_feedback.axis3_temp = temp
+            self.arm_feedback.axis3_voltage = voltage
+            self.arm_feedback.axis3_current = current
+        elif motorId == 4:
+            self.arm_feedback.axis0_temp = temp
+            self.arm_feedback.axis0_voltage = voltage
+            self.arm_feedback.axis0_current = current
 
     def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
         axis1 = -1 * msg.axis1
         axis2 = msg.axis2
         axis3 = msg.axis3
-
-        # tempMsg = String()
-        # tempMsg.data = "Sending manual"
-        # self.debug_pub.publish(tempMsg)
-
 
         #Send controls for arm
         command = "can_relay_tovic,arm,18," + str(int(msg.brake)) + "\n"
@@ -293,27 +286,7 @@ class SerialRelay(Node):
             #pass
             self.updateBusVoltage(output)
         elif output.startswith("can_relay_fromvic,arm,53"):
-            parts = str(output.strip()).split(",")
-            motorId = round(float(parts[3]))
-            temp = float(parts[4]) / 10.0
-            voltage = float(parts[5]) / 10.0
-            current = float(parts[6]) / 10.0
-            if motorId == 1:
-                self.arm_feedback.axis1_temp = temp
-                self.arm_feedback.axis1_voltage = voltage
-                self.arm_feedback.axis1_current = current
-            elif motorId == 2:
-                self.arm_feedback.axis2_temp = temp
-                self.arm_feedback.axis2_voltage = voltage
-                self.arm_feedback.axis2_current = current
-            elif motorId == 3:
-                self.arm_feedback.axis3_temp = temp
-                self.arm_feedback.axis3_voltage = voltage
-                self.arm_feedback.axis3_current = current
-            elif motorId == 4:
-                self.arm_feedback.axis0_temp = temp
-                self.arm_feedback.axis0_voltage = voltage
-                self.arm_feedback.axis0_current = current
+            self.updateMotorFeedback(output)
         elif output.startswith("can_relay_fromvic,digit,54"):
             parts = msg.data.split(",")
             if len(parts) >= 7:
@@ -334,79 +307,17 @@ class SerialRelay(Node):
         self.socket_pub.publish(self.arm_feedback)
         self.digit_pub.publish(self.digit_feedback)
 
-    def updateAngleFeedback(self, msg: str):
-                # Angle feedbacks,
-        #split the msg.data by commas
-        parts = msg.split(",")
-        
-        if len(parts) >= 7:
-            # Extract the angles from the string
-            angles_in = parts[3:7]
-            # Convert the angles to floats divide by 10.0
-            angles = [float(angle) / 10.0 for angle in angles_in]
-            #angles[0] = 0.0 #override axis0 to zero
-            #
-            #
-            #THIS NEEDS TO BE REMOVED LATER
-            #PLACEHOLDER FOR WRIST VALUE 
-            #
-            #
-            angles.append(0.0)#placeholder for wrist_continuous
-            angles.append(0.0)#placeholder for wrist
-            #
-            #
-            # # Update the arm's current angles
-            #self.arm.update_angles(angles)
-            self.arm_feedback.axis0_angle = angles[0]
-            self.arm_feedback.axis1_angle = angles[1]
-            self.arm_feedback.axis2_angle = angles[2]
-            self.arm_feedback.axis3_angle = angles[3]
-            # self.get_logger().info(f"Angles: {angles}")
-            # #debug publish angles
-            # tempMsg = String()
-            # tempMsg.data = "Angles: " + str(angles)
-            # #self.debug_pub.publish(tempMsg)
-        else:
-            self.get_logger().info("Invalid angle feedback input format")
-
-
-    def updateBusVoltage(self, msg: str):
-        # Bus Voltage feedbacks
-        parts = msg.split(",")
-        if len(parts) >= 7:
-            # Extract the voltage from the string
-            voltages_in = parts[3:7]
-            # Convert the voltages to floats
-            self.arm_feedback.bat_voltage = float(voltages_in[0]) / 100.0
-            self.arm_feedback.voltage_12 = float(voltages_in[1]) / 100.0
-            self.arm_feedback.voltage_5 = float(voltages_in[2]) / 100.0
-            self.arm_feedback.voltage_3 = float(voltages_in[3]) / 100.0
-        else:
-            self.get_logger().info("Invalid voltage feedback input format")
-
-    def publish_feedback(self):
-        # Create a SocketFeedback message and publish it
-        # msg = SocketFeedback()
-        # msg.bat_voltage = self.arm_feedback.bat_voltage
-        # msg.voltage_12 = self.arm_feedback.voltage_12
-        # msg.voltage_5 = self.arm_feedback.voltage_5
-        # msg.voltage_3 = self.arm_feedback.voltage_3
-        # msg.joint_angles = self.arm_feedback.joint_angles
-        # msg.joint_temps = self.arm_feedback.joint_temps
-        # msg.joint_voltages = self.arm_feedback.joint_voltages
-        # msg.joint_currents = self.arm_feedback.joint_currents
-        #debug print 
-        self.socket_pub.publish(self.arm_feedback) #Publish feedback from arm
-
-        #self.arm.update_position() #Run FK and update the current position of the arm, using FK
-
-
-
     def send_ik(self, msg):
         # Convert Vector3 to a NumPy array
-        input_raw = np.array([msg.movement_vector.x, msg.movement_vector.y, msg.movement_vector.z])  # Convert input to a NumPy array
+        input_raw = np.array([-msg.movement_vector.x, msg.movement_vector.y, msg.movement_vector.z])  # Convert input to a NumPy array
         # decrease input vector by 90%
         input_raw = input_raw * 0.2
+
+        if input_raw[0] == 0.0 and input_raw[1] == 0.0 and input_raw[2] == 0.0:
+            self.get_logger().info("No input, stopping arm.")
+            command = "can_relay_tovic,arm,39,0,0,0,0\n"
+            self.send_cmd(command)
+            return
 
         # Debug output
         tempMsg = String()
@@ -420,7 +331,8 @@ class SerialRelay(Node):
 
         #Print for IK DEBUG
         tempMsg = String()
-        tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position) + "\nAngles: " + str(self.arm.current_angles)
+        # tempMsg.data = "Current Position: " + str(current_position) + "\nInput Vector" + str(input_raw) + "\nTarget Position: " + str(target_position) + "\nAngles: " + str(self.arm.current_angles)
+        tempMsg.data = "Current Angles: " + str(math.degrees(self.arm.current_angles[2])) + ", " + str(math.degrees(self.arm.current_angles[4])) + ", " + str(math.degrees(self.arm.current_angles[6]))
         self.ik_debug.publish(tempMsg)
         self.get_logger().info(f"[IK] {tempMsg.data}")
 
@@ -433,47 +345,40 @@ class SerialRelay(Node):
         #self.debug_pub.publish(tempMsg)
 
         # Perform IK with the target position
-        if self.arm.perform_ik(target_position):
+        if self.arm.perform_ik(target_position, self.get_logger()):
             # Send command to control
             
             #command = "can_relay_tovic,arm,32," + ",".join(map(str, self.arm.ik_angles[:4])) + "\n"
             #self.send_cmd(command)
             self.get_logger().info(f"IK Success: {target_position}")
+            self.get_logger().info(f"IK Angles: [{str(round(math.degrees(self.arm.ik_angles[2]), 2))}, {str(round(math.degrees(self.arm.ik_angles[4]), 2))}, {str(round(math.degrees(self.arm.ik_angles[6]), 2))}]")
 
             # tempMsg = String()
             # tempMsg.data = "IK Success: " + str(target_position)
             # #self.debug_pub.publish(tempMsg)
             # tempMsg.data = "Sending: " + str(command)
             #self.debug_pub.publish(tempMsg)
+
+            # Send the IK angles to the MCU
+            command = "can_relay_tovic,arm,32," + f"{math.degrees(self.arm.ik_angles[0])*10},{math.degrees(self.arm.ik_angles[2])*10},{math.degrees(self.arm.ik_angles[4])*10},{math.degrees(self.arm.ik_angles[6])*10}" + "\n"
+            # self.send_cmd(command)
+
+            # Manual control for Wrist/Effector
+            command += "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+            
+            command += "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
+
+            command += "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
+
+            command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+
+            self.send_cmd(command)
         else:
             self.get_logger().info("IK Fail")
+            self.get_logger().info(f"IK Angles: [{str(math.degrees(self.arm.ik_angles[2]))}, {str(math.degrees(self.arm.ik_angles[4]))}, {str(math.degrees(self.arm.ik_angles[6]))}]")
             # tempMsg = String()
             # tempMsg.data = "IK Fail"
             #self.debug_pub.publish(tempMsg)
-
-        # Manual control for Wrist/Effector
-        command = "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
-        self.send_cmd(command)
-        
-        command = "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
-        self.send_cmd(command)
-
-        command = "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
-        self.send_cmd(command)
-
-        command = "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
-        self.send_cmd(command)
-
-        # Placeholder need control for linear actuator
-        #command = ""
-        #self.send_cmd()
-
-
-
-        pass
-
-
-
 
 
     @staticmethod
@@ -483,8 +388,11 @@ class SerialRelay(Node):
 
     def cleanup(self):
         print("Cleaning up...")
-        if self.ser.is_open:
-            self.ser.close()
+        try:
+            if self.ser.is_open:
+                self.ser.close()
+        except Exception as e:
+            exit(0)
 
 def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)

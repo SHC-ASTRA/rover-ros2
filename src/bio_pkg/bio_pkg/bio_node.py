@@ -66,10 +66,9 @@ class SerialRelay(Node):
                     pass
             
             if self.port is None:
-                self.get_logger().info("Unable to find MCU...")
-                #kill the node/process entirely
-                os.kill(os.getpid(), signal.SIGKILL)
-                sys.exit(0)
+                self.get_logger().info("Unable to find MCU... please make sure it is connected.")
+                time.sleep(1)
+                sys.exit(1)
             
             self.ser = serial.Serial(self.port, 115200)
             atexit.register(self.cleanup)
@@ -204,8 +203,11 @@ class SerialRelay(Node):
 
     def cleanup(self):
         print("Cleaning up...")
-        if self.ser.is_open:
-            self.ser.close()
+        try:
+            if self.ser.is_open:
+                self.ser.close()
+        except Exception as e:
+            exit(0)
 
 def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)

@@ -62,9 +62,8 @@ class SerialRelay(Node):
         
         if self.port is None:
             self.get_logger().info("Unable to find MCU...")
-            #kill the node/process entirely
-            os.kill(os.getpid(), signal.SIGKILL)
-            sys.exit(0)
+            time.sleep(1)
+            sys.exit(1)
         
         self.ser = serial.Serial(self.port, 115200)
         atexit.register(self.cleanup)
@@ -89,23 +88,9 @@ class SerialRelay(Node):
             if output:
                 # All output over debug temporarily
                 #self.get_logger().info(f"[MCU] {output}")
-                if output.startswith("can_relay_fromvic,arm"):
-                    # Publish the message to the arm topic
-                    msg = String()
-                    msg.data = output
-                    self.arm_pub.publish(msg)
-                elif output.startswith("can_relay_fromvic,core"):
-                    # Publish the message to the core topic
-                    msg = String()
-                    msg.data = output
-                    self.core_pub.publish(msg)
-                elif output.startswith("can_relay_fromvic,bio"):
-                    # Publish the message to the bio topic
-                    msg = String()
-                    msg.data = output
-                    self.bio_pub.publish(msg)
                 msg = String()
                 msg.data = output
+                self.debug_pub.publish(msg)
                 if output.startswith("can_relay_fromvic,core"):
                     self.core_pub.publish(msg)
                 elif output.startswith("can_relay_fromvic,arm") or output.startswith("can_relay_fromvic,digit"):  # digit for voltage readings
@@ -121,19 +106,19 @@ class SerialRelay(Node):
             print("Closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
-            self.exit(1)
+            exit(1)
         except TypeError as e:
             print(f"TypeError: {e}")
             print("Closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
-            self.exit(1)
+            exit(1)
         except Exception as e:
             print(f"Exception: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            self.exit(1)
+            # print("Closing serial port.")
+            # if self.ser.is_open:
+            #     self.ser.close()
+            # exit(1)
 
     def send_cmd(self, msg):
         message = msg.data

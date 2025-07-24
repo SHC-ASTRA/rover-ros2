@@ -1,3 +1,5 @@
+import rclpy
+from rclpy.node import Node
 import numpy as np
 import time, math, os
 from math import sin, cos, pi
@@ -15,16 +17,16 @@ degree = pi / 180.0
 
 def convert_angles(angles):
     # Converts angles to the format used for the urdf (contains some dummy joints)
-    return [0.0, angles[0]*degree, angles[1]*degree, 0.0, angles[2]*degree, 0.0, angles[3]*degree, 0.0, angles[4]*degree, angles[5]*degree, 0.0]
+    return [0.0, math.radians(angles[0]), math.radians(angles[1]), 0.0, math.radians(angles[2]), 0.0, math.radians(angles[3]), 0.0, math.radians(angles[4]), math.radians(angles[5]), 0.0]
 
 
 class Arm:
     def __init__(self, urdf_name):
-        self.ik_tolerance = 1e-3 #Tolerance (in meters) to determine if solution is valid
+        self.ik_tolerance = 1e-1 #Tolerance (in meters) to determine if solution is valid
         # URDF file path
-        self.urdf = os.path.join(get_package_share_directory('arm_pkg'), urdf_name)
+        self.urdf = os.path.join(get_package_share_directory('arm_pkg'), 'urdf', urdf_name)
         # IKpy Chain        
-        self.chain = Chain.from_urdf_file(self.urdf)   
+        self.chain = Chain.from_urdf_file(self.urdf)
 
 
         # Arrays for joint states
@@ -35,16 +37,16 @@ class Arm:
         self.last_angles = self.zero_angles
         self.ik_angles = self.zero_angles
 
-        self.current_position = []
+        self.current_position: list[float] = []
         self.target_position = [0.0, 0.0, 0.0] 
-        self.target_orientation = [] # Effector orientation desired at target position. 
+        self.target_orientation: list = [] # Effector orientation desired at target position. 
                                 # Generally orientation for the effector is modified manually by the operator. 
         
         # Might not need, copied over from state_publisher.py in ik_test
         #self.step = 0.03 # Max movement increment
 
 
-    def perform_ik(self, target_position):
+    def perform_ik(self, target_position, logger):
         self.target_position = target_position
         # Update the target orientation to the current orientation
         self.update_orientation()
@@ -62,19 +64,19 @@ class Arm:
             # Check if the solution is within the tolerance
             fk_matrix = self.chain.forward_kinematics(self.ik_angles)
 
-            fk_position = fk_matrix[:3, 3]
+            fk_position = fk_matrix[:3, 3]  # type: ignore
             
             # print(f"[TRY] FK Position for Solution: {fk_position}")
 
             error = np.linalg.norm(target_position - fk_position)
             if error > self.ik_tolerance:
-                print(f"No VALID IK Solution within tolerance. Error: {error}")
+                logger.info(f"No VALID IK Solution within tolerance. Error: {error}")
                 return False
             else:
-                print(f"IK Solution Found. Error: {error}")
+                logger.info(f"IK Solution Found. Error: {error}")
                 return True
         except Exception as e:
-            print(f"IK failed for exception: {e}")
+            logger.info(f"IK failed for exception: {e}")
             return False
     
     # # Given the FK_Matix for the arm's current pose, update the orientation array
@@ -93,7 +95,7 @@ class Arm:
         fk_matrix = self.chain.forward_kinematics(self.current_angles)
         
         # Update target_orientation to the effector's current orientation
-        self.target_orientation = fk_matrix[:3, :3]
+        self.target_orientation = fk_matrix[:3, :3]  # type: ignore
 
     # Update current angles to those provided
     # Resetting last_angles to the new angles
@@ -119,7 +121,7 @@ class Arm:
         fk_matrix = self.chain.forward_kinematics(self.current_angles)
         
         # Get the position of the end effector from the FK matrix
-        position = fk_matrix[:3, 3]
+        position = fk_matrix[:3, 3]  # type: ignore
         
         return position
 
@@ -129,7 +131,7 @@ class Arm:
         fk_matrix = self.chain.forward_kinematics(self.current_angles)
         
         # Get the position of the end effector from the FK matrix
-        position = fk_matrix[:3, 3]
+        position = fk_matrix[:3, 3]  # type: ignore
 
         # Return position as a NumPy array
         return np.array(position)
@@ -140,7 +142,4 @@ class Arm:
         fk_matrix = self.chain.forward_kinematics(self.current_angles)
         
         # Get the position of the end effector from the FK matrix and update current pos
-        self.current_position = fk_matrix[:3, 3]
-
-
-
+        self.current_position = fk_matrix[:3, 3]  # type: ignore
