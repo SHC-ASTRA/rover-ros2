@@ -20,16 +20,16 @@ from ros2_interfaces_pkg.msg import CoreControl
 serial_pub = None
 thread = None
 
-control_qos = qos.QoSProfile(
-    history=qos.QoSHistoryPolicy.KEEP_LAST,
-    depth=1,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-    durability=qos.QoSDurabilityPolicy.VOLATILE,
-    deadline=1000,
-    lifespan=500,
-    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-    liveliness_lease_duration=5000
-)
+# control_qos = qos.QoSProfile(
+#     history=qos.QoSHistoryPolicy.KEEP_LAST,
+#     depth=1,
+#     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+#     durability=qos.QoSDurabilityPolicy.VOLATILE,
+#     deadline=1000,
+#     lifespan=500,
+#     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+#     liveliness_lease_duration=5000
+# )
 
 class SerialRelay(Node):
     def __init__(self):
@@ -45,7 +45,7 @@ class SerialRelay(Node):
         self.debug_pub = self.create_publisher(String, '/core/debug', 10) 
         self.feedback_pub = self.create_publisher(CoreFeedback, '/core/feedback', 10)
         # Create a subscriber 
-        self.control_sub = self.create_subscription(CoreControl, '/core/control', self.send_controls, qos_profile=control_qos)
+        self.control_sub = self.create_subscription(CoreControl, '/core/control', self.send_controls, 10)
         
         # Create a publisher for telemetry
         self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)
