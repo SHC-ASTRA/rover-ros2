@@ -2,7 +2,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, Shutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, ThisLaunchFileDir, PathJoinSubstitution
 from launch_ros.actions import Node
 
 
@@ -18,13 +18,18 @@ def launch_setup(context, *args, **kwargs):
 
     if mode == 'anchor':
         # Launch every node and pass "anchor" as the parameter
+        
+        # Arm
+        urdf_file = "/home/david/repos/rover-ros2/src/arm_pkg/urdf/arm12.urdf"
+        robot_description = {'robot_description': open(urdf_file).read()}
         nodes.append(
             Node(
                 package='arm_pkg',
                 executable='arm',  # change as needed
                 name='arm',
                 output='both',
-                parameters=[{'launch_mode': mode}],
+                parameters=[{'launch_mode': mode},
+                            {'robot_description': robot_description}],
                 on_exit=Shutdown()
             )
         )

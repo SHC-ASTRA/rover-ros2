@@ -13,6 +13,9 @@ from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import ArmIK
 from ros2_interfaces_pkg.msg import SocketFeedback
 from ros2_interfaces_pkg.msg import DigitFeedback
+from sensor_msgs.msg import JointState
+from tf2_ros import TransformBroadcaster, TransformStamped
+import math
 
 
 # IK-Related imports
@@ -20,10 +23,6 @@ import numpy as np
 import time, math, os
 from math import sin, cos, pi
 from ament_index_python.packages import get_package_share_directory
-# from ikpy.chain import Chain
-# from ikpy.link import OriginLink, URDFLink
-# #import pygame as pyg
-# from scipy.spatial.transform import Rotation as R
 
 from . import astra_arm
 
@@ -63,6 +62,19 @@ class SerialRelay(Node):
         self.man_sub = self.create_subscription(ArmManual, '/arm/control/manual', self.send_manual, 10)
 
         self.ik_debug = self.create_publisher(String, '/arm/debug/ik', 10)
+
+        # New messages
+        self.joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
+        self.tf_broadcaster = TransformBroadcaster(self)
+        self.joint_state = JointState()
+        self.joint_state.name = ['Axis_0', 'Axis_1_Joint', 'Axis_2_Joint', 'Axis_3_Joint', 'Continuous_Joint', 'Wrist_Joint']
+        self.joint_state.position = [0.0] * 6  # Initialize with zeros
+        self.odom_trans = TransformStamped()
+        self.odom_trans.header.frame_id = 'odom'
+        self.odom_trans.child_frame_id = 'base_footprint'
+        self.odom_trans.transform.translation.x = 0.0
+        self.odom_trans.transform.translation.y = 0.0
+        self.odom_trans.transform.translation.z = 0.0
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
@@ -302,7 +314,6 @@ class SerialRelay(Node):
             angles_in = parts[3:7]
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
-            # angles[0] = 0.0 #override axis0 to zero
             #
             #
             #THIS NEEDS TO BE REMOVED LATER
@@ -319,11 +330,19 @@ class SerialRelay(Node):
             self.arm_feedback.axis1_angle = angles[1]
             self.arm_feedback.axis2_angle = angles[2]
             self.arm_feedback.axis3_angle = angles[3]
-            # self.get_logger().info(f"Angles: {angles}")
-            # #debug publish angles
-            # tempMsg = String()
-            # tempMsg.data = "Angles: " + str(angles)
-            # #self.debug_pub.publish(tempMsg)
+
+            # Joint state publisher for URDF visualization
+            self.joint_state.position[0] = math.radians(angles[0])  # Axis 0
+            self.joint_state.position[1] = math.radians(angles[1])  # Axis 1
+            self.joint_state.position[2] = math.radians(angles[2])  # Axis 2
+            self.joint_state.position[3] = math.radians(angles[3])  # Axis 3
+            self.joint_state.position[4] = math.radians(angles[4])  # Wrist roll
+            self.joint_state.position[5] = math.radians(angles[5])  # Wrist yaw
+            self.joint_state.header.stamp = self.get_clock().now().to_msg()
+            self.joint_state_pub.publish(self.joint_state)
+
+            self.odom_trans.header.stamp = self.get_clock().now().to_msg()
+            self.tf_broadcaster.sendTransform(self.odom_trans)
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
