@@ -11,3 +11,5 @@ log/
 
 #Pycache folder
 __pycache__/
+
+.venv
