@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy import qos
 from std_srvs.srv import Empty
 
 import signal
@@ -7,6 +8,7 @@ import time
 import atexit
 
 import serial
+import os
 import sys
 import threading
 import glob
@@ -17,6 +19,17 @@ from ros2_interfaces_pkg.msg import CoreControl
 
 serial_pub = None
 thread = None
+
+# control_qos = qos.QoSProfile(
+#     history=qos.QoSHistoryPolicy.KEEP_LAST,
+#     depth=1,
+#     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+#     durability=qos.QoSDurabilityPolicy.VOLATILE,
+#     deadline=1000,
+#     lifespan=500,
+#     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+#     liveliness_lease_duration=5000
+# )
 
 class SerialRelay(Node):
     def __init__(self):
@@ -189,7 +202,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'core':
-            self.get_logger().info(f"[Core to MCU] {msg}")
+            self.get_logger().info(f"[Core to MCU] {msg.data}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg: String):
@@ -263,8 +276,11 @@ class SerialRelay(Node):
     
     def cleanup(self):
         print("Cleaning up before terminating...")
-        if self.ser.is_open:
-            self.ser.close()
+        try:
+            if self.ser.is_open:
+                self.ser.close()
+        except Exception as e:
+            exit(0)
 
 def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)
@@ -283,7 +299,7 @@ def main(args=None):
    serial_pub.run()
 
 if __name__ == '__main__':
-    signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
+    #signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))  # Catch termination signals and exit cleanly
     main()
 

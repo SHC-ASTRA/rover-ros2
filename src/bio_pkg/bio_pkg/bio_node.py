@@ -3,6 +3,7 @@ from rclpy.node import Node
 import serial
 import sys
 import threading
+import os
 import glob
 import time
 import atexit
@@ -202,8 +203,11 @@ class SerialRelay(Node):
 
     def cleanup(self):
         print("Cleaning up...")
-        if self.ser.is_open:
-            self.ser.close()
+        try:
+            if self.ser.is_open:
+                self.ser.close()
+        except Exception as e:
+            exit(0)
 
 def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)
@@ -219,6 +223,6 @@ def main(args=None):
     serial_pub.run()
 
 if __name__ == '__main__':
-    signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
+    #signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))  # Catch termination signals and exit cleanly
     main()

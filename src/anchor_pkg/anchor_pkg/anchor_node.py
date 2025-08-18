@@ -7,6 +7,7 @@ import time
 import atexit
 
 import serial
+import os
 import sys
 import threading
 import glob
@@ -45,6 +46,7 @@ class SerialRelay(Node):
                     #(f"Checking port {port}...")
                     ser.write(b"ping\n")
                     response = ser.read_until("\n")
+                    ser.write(b"can_relay_mode,on\n")
 
                     # if pong is in response, then we are talking with the MCU
                     if b"pong" in response:
@@ -88,6 +90,7 @@ class SerialRelay(Node):
                 #self.get_logger().info(f"[MCU] {output}")
                 msg = String()
                 msg.data = output
+                self.debug_pub.publish(msg)
                 if output.startswith("can_relay_fromvic,core"):
                     self.core_pub.publish(msg)
                 elif output.startswith("can_relay_fromvic,arm") or output.startswith("can_relay_fromvic,digit"):  # digit for voltage readings
@@ -103,19 +106,19 @@ class SerialRelay(Node):
             print("Closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
-            self.exit(1)
+            exit(1)
         except TypeError as e:
             print(f"TypeError: {e}")
             print("Closing serial port.")
             if self.ser.is_open:
                 self.ser.close()
-            self.exit(1)
+            exit(1)
         except Exception as e:
             print(f"Exception: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            self.exit(1)
+            # print("Closing serial port.")
+            # if self.ser.is_open:
+            #     self.ser.close()
+            # exit(1)
 
     def send_cmd(self, msg):
         message = msg.data
@@ -147,6 +150,6 @@ def main(args=None):
     serial_pub.run()
 
 if __name__ == '__main__':
-    signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
+    #signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))  # Catch termination signals and exit cleanly
     main()
