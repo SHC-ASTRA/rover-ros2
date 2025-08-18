@@ -1,0 +1,1 @@
+controller_joint_names: ['', 'Axis 0 Joint', 'Axis 1 Joint', 'Axis 2 Joint', 'Axis 3 Joint', 'Wrist Differential Joint', 'Wrist-EF Roll Joint', 'Gripper Slider Right', 'Gripper Slider Left', ]
