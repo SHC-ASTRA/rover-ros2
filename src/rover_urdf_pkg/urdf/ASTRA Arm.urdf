@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.1-11-gaed57c3-dirty  Build Version: 1.6.9361.3070
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="ASTRA Arm">
+
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.026661 -0.017083 -0.072681"
+        rpy="0 0 0" />
+      <mass
+        value="1.344" />
+      <inertia
+        ixx="0.0071986"
+        ixy="-1.8109E-06"
+        ixz="-4.371E-06"
+        iyy="0.0087125"
+        iyz="1.3418E-07"
+        izz="0.015884" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link
+    name="Axis 0 Plate">
+    <inertial>
+      <origin
+        xyz="0.025635 0.047115 0.021109"
+        rpy="0 0 0" />
+      <mass
+        value="2.045" />
+      <inertia
+        ixx="0.0097744"
+        ixy="2.0744E-07"
+        ixz="0.00060246"
+        iyy="0.012437"
+        iyz="-2.2545E-05"
+        izz="0.00611" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 0 Plate.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.4 0.4 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 0 Plate.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Axis 0 Joint"
+    type="revolute">
+    <origin
+      xyz="0.018772 -0.020734 -0.04971"
+      rpy="1.5708 0 3.1115" />
+    <parent
+      link="base_link" />
+    <child
+      link="Axis 0 Plate" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="Axis 1 Segment">
+    <inertial>
+      <origin
+        xyz="0.317731812584795 0.0226837932394467 -2.94234579792906E-05"
+        rpy="0 0 0" />
+      <mass
+        value="2.10107115350287" />
+      <inertia
+        ixx="0.00185099460285527"
+        ixy="-6.85595125576909E-06"
+        ixz="-2.99093842113918E-07"
+        iyy="0.00462248035875048"
+        iyz="2.91093713403385E-07"
+        izz="0.00297641069201651" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 1 Segment.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.8 0.2 0.2 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 1 Segment.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Axis 1 Joint"
+    type="revolute">
+    <origin
+      xyz="-0.0271654135185528 0.0927245490180083 0.00384109909109076"
+      rpy="-3.14159265358977 -0.00524713054608625 1.5707963267949" />
+    <parent
+      link="Axis 0 Plate" />
+    <child
+      link="Axis 1 Segment" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-1.05"
+      upper="1.6"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="Axis 2 Segment">
+    <inertial>
+      <origin
+        xyz="0.179701426719665 -0.0176131583689303 5.71147464441535E-05"
+        rpy="0 0 0" />
+      <mass
+        value="3.13644489009951" />
+      <inertia
+        ixx="0.00172062005671382"
+        ixy="1.49995165753112E-05"
+        ixz="3.0146547850231E-07"
+        iyy="0.00419573957161135"
+        iyz="2.86281305896603E-07"
+        izz="0.00280821030835127" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 2 Segment.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.2 0.8 0.2 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Axis 2 Segment.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Axis 2 Joint"
+    type="revolute">
+    <origin
+      xyz="0.470027000000004 0.0126999999999999 0"
+      rpy="3.14159265358979 0.000449358059257729 0" />
+    <parent
+      link="Axis 1 Segment" />
+    <child
+      link="Axis 2 Segment" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-2.0"
+      upper="2.0"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="Wrist">
+    <inertial>
+      <origin
+        xyz="0.0258890113931529 -0.0205223442970055 6.01641698143966E-05"
+        rpy="0 0 0" />
+      <mass
+        value="1.95105877103309" />
+      <inertia
+        ixx="0.00117490634970832"
+        ixy="8.14355696873965E-06"
+        ixz="2.37060433355634E-09"
+        iyy="0.0025492938141431"
+        iyz="-4.81227026285992E-09"
+        izz="0.00159235737231991" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Wrist.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.2 0.2 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Wrist.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Axis 3 Joint"
+    type="revolute">
+    <origin
+      xyz="0.393826999999998 0 0"
+      rpy="0 -0.000409495780687665 0" />
+    <parent
+      link="Axis 2 Segment" />
+    <child
+      link="Wrist" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-1.6"
+      upper="1.9"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="Diff Carrier">
+    <inertial>
+      <origin
+        xyz="-8.64620358677695E-06 -0.00516792807449162 -7.22608790769408E-07"
+        rpy="0 0 0" />
+      <mass
+        value="0.0655351660884378" />
+      <inertia
+        ixx="1.65846526943977E-05"
+        ixy="3.62206129298215E-09"
+        ixz="5.09422122565314E-10"
+        iyy="4.25479683866677E-05"
+        iyz="2.86164802173259E-10"
+        izz="3.87760449919773E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Diff Carrier.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.96 0.82 0.01 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/Diff Carrier.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Wrist Differential Joint"
+    type="revolute">
+    <origin
+      xyz="0.176692001200001 -0.00622300000004081 0"
+      rpy="-3.05263944120951 1.57079631189374 1.65994236547327" />
+    <parent
+      link="Wrist" />
+    <child
+      link="Diff Carrier" />
+    <axis
+      xyz="-1 0 0" />
+    <limit
+      lower="-1.6"
+      upper="1.6"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="End Effector">
+    <inertial>
+      <origin
+        xyz="-0.00327558376591462 0.00327411156667146 -0.0553569354578649"
+        rpy="0 0 0" />
+      <mass
+        value="0.397605677640027" />
+      <inertia
+        ixx="0.000631368000075726"
+        ixy="-1.01357929540856E-09"
+        ixz="-3.06601632900158E-06"
+        iyy="0.000105800099414061"
+        iyz="2.32813748604228E-09"
+        izz="0.000592001119919064" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/End Effector.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.01 0.82 0.96 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/End Effector.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Wrist-EF Roll Joint"
+    type="continuous">
+    <origin
+      xyz="0 0.01 0"
+      rpy="-1.5708 -0.21566 -3.1416" />
+    <parent
+      link="Diff Carrier" />
+    <child
+      link="End Effector" />
+    <axis
+      xyz="0 0 1" />
+  </joint>
+
+  <link
+    name="EF Gripper Right">
+    <inertial>
+      <origin
+        xyz="3.60822483003176E-16 0.0395187564799554 -0.0785892929086096"
+        rpy="0 0 0" />
+      <mass
+        value="0.0859306256217421" />
+      <inertia
+        ixx="8.1015302646778E-05"
+        ixy="2.5410988417629E-21"
+        ixz="3.75123099070348E-19"
+        iyy="8.51028632685389E-05"
+        iyz="1.00631950096307E-08"
+        izz="5.50169350148622E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/EF Gripper Right.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.8 0.8 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/EF Gripper Right.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Gripper Slider Right"
+    type="prismatic">
+    <origin
+      xyz="0 0 -0.031677"
+      rpy="0 0 3.1416" />
+    <parent
+      link="End Effector" />
+    <child
+      link="EF Gripper Right" />
+    <axis
+      xyz="0 1 0" />
+    <limit
+      lower="-0.025"
+      upper="0.04"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+  <link
+    name="EF Gripper Left">
+    <inertial>
+      <origin
+        xyz="0.000260261090099842 0.0391877753208171 -0.0810862651363518"
+        rpy="0 0 0" />
+      <mass
+        value="0.0813132558225319" />
+      <inertia
+        ixx="7.92230074239095E-05"
+        ixy="8.60239969339994E-10"
+        ixz="-3.27617434511821E-07"
+        iyy="8.29877943429396E-05"
+        iyz="9.84609377733742E-09"
+        izz="4.98027032334885E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/EF Gripper Left.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.8 0.8 0.8 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://rover_urdf_pkg/meshes/EF Gripper Left.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint
+    name="Gripper Slider Left"
+    type="prismatic">
+    <origin
+      xyz="0 0 -0.031677"
+      rpy="0 0 0" />
+    <parent
+      link="End Effector" />
+    <child
+      link="EF Gripper Left" />
+    <axis
+      xyz="0 -1 0" />
+    <limit
+      lower="-0.04"
+      upper="0.025"
+      effort="0"
+      velocity="0" />
+  </joint>
+
+</robot>
