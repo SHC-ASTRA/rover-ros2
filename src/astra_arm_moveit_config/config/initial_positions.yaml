@@ -5,7 +5,6 @@ initial_positions:
   Axis_1_Joint: 0
   Axis_2_Joint: 0
   Axis_3_Joint: 0
-  Gripper_Slider_Right: 0
   Gripper_Slider_Left: 0
   Wrist-EF_Roll_Joint: 0
   Wrist_Differential_Joint: 0

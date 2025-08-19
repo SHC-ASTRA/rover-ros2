@@ -30,7 +30,6 @@ astra_arm_controller:
     - position
     - velocity
     allow_nonzero_velocity_at_trajectory_end: true
-
 hand_controller:
   ros__parameters:
     joint: Gripper_Slider_Left

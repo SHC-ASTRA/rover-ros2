@@ -7,7 +7,7 @@ moveit_setup_assistant_config:
   package_settings:
     author_name: David Sharpe
     author_email: ds0196@uah.edu
-    generated_timestamp: 1755625929
+    generated_timestamp: 1755627043
   control_xacro:
     command:
       - position
