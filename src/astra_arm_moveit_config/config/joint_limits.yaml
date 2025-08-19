@@ -30,12 +30,12 @@ joint_limits:
     max_acceleration: 0.5
   Gripper_Slider_Left:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 0.015
     has_acceleration_limits: true
     max_acceleration: 0.5
   Gripper_Slider_Right:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 0.015
     has_acceleration_limits: true
     max_acceleration: 0.5
   Wrist_Differential_Joint:

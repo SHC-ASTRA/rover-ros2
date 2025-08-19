@@ -22,6 +22,7 @@ astra_arm_controller:
     - Axis_2_Joint
     - Axis_3_Joint
     - Wrist_Differential_Joint
+    - Wrist-EF_Roll_Joint
     command_interfaces:
     - position
     - velocity
@@ -32,4 +33,4 @@ astra_arm_controller:
 
 hand_controller:
   ros__parameters:
-    joint: Wrist-EF_Roll_Joint
+    joint: Gripper_Slider_Left
