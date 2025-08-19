@@ -22,6 +22,6 @@ moveit_simple_controller_manager:
     joints:
       - Wrist-EF_Roll_Joint
       - Gripper_Slider_Left
-      - Gripper _Slider_Right
+      - Gripper_Slider_Right
     action_ns: gripper_cmd
     default: true
