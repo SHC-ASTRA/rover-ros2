@@ -45,12 +45,12 @@
         <joint name="Wrist_Differential_Joint" value="0"/>
     </group_state>
     <group_state name="Open" group="Hand">
-        <joint name="Gripper _Slider_Right" value="0.04"/>
+        <joint name="Gripper_Slider_Right" value="0.04"/>
         <joint name="Gripper_Slider_Left" value="-0.04"/>
         <joint name="Wrist-EF_Roll_Joint" value="0"/>
     </group_state>
     <group_state name="Close" group="Hand">
-        <joint name="Gripper _Slider_Right" value="-0.0215"/>
+        <joint name="Gripper_Slider_Right" value="-0.0215"/>
         <joint name="Gripper_Slider_Left" value="0.0215"/>
         <joint name="Wrist-EF_Roll_Joint" value="0"/>
     </group_state>

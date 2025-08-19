@@ -1,1 +1,1 @@
-controller_joint_names: ['', 'Axis_0_Joint', 'Axis_1_Joint', 'Axis_2_Joint', 'Axis_3_Joint', 'Wrist_Differential_Joint', 'Wrist-EF_Roll_Joint', 'Gripper _Slider_Right', 'Gripper_Slider_Left', ]
+controller_joint_names: ['', 'Axis_0_Joint', 'Axis_1_Joint', 'Axis_2_Joint', 'Axis_3_Joint', 'Wrist_Differential_Joint', 'Wrist-EF_Roll_Joint', 'Gripper_Slider_Right', 'Gripper_Slider_Left', ]
