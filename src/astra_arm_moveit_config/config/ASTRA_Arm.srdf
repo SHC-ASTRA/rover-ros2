@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--This does not replace URDF, and is not an extension of URDF.
+    This is a format for representing semantic information about the robot structure.
+    A URDF file must exist for this robot as well, where the joints and the links that are referenced are defined
+-->
+<robot name="ASTRA_Arm">
+    <!--GROUPS: Representation of a set of joints and links. This can be useful for specifying DOF to plan for, defining arms, end effectors, etc-->
+    <!--LINKS: When a link is specified, the parent joint of that link (if it exists) is automatically included-->
+    <!--JOINTS: When a joint is specified, the child link of that joint (which will always exist) is automatically included-->
+    <!--CHAINS: When a chain is specified, all the links along the chain (including endpoints) are included in the group. Additionally, all the joints that are parents to included links are also included. This means that joints along the chain and the parent joint of the base link are included in the group-->
+    <!--SUBGROUPS: Groups can also be formed by referencing to already defined group names-->
+    <group name="astra_arm">
+        <joint name="virtual_joint"/>
+        <joint name="Axis_0_Joint"/>
+        <joint name="Axis_1_Joint"/>
+        <joint name="Axis_2_Joint"/>
+        <joint name="Axis_3_Joint"/>
+        <joint name="Wrist_Differential_Joint"/>
+    </group>
+    <group name="Hand">
+        <link name="End Effector"/>
+        <link name="EF Gripper Left"/>
+        <link name="EF Gripper Right"/>
+    </group>
+    <!--GROUP STATES: Purpose: Define a named state for a particular group, in terms of joint values. This is useful to define states like 'folded arms'-->
+    <group_state name="Zero Position" group="astra_arm">
+        <joint name="Axis_0_Joint" value="0"/>
+        <joint name="Axis_1_Joint" value="0"/>
+        <joint name="Axis_2_Joint" value="0"/>
+        <joint name="Axis_3_Joint" value="0"/>
+        <joint name="Wrist_Differential_Joint" value="0"/>
+    </group_state>
+    <group_state name="Stow" group="astra_arm">
+        <joint name="Axis_0_Joint" value="0"/>
+        <joint name="Axis_1_Joint" value="-1.05"/>
+        <joint name="Axis_2_Joint" value="-2"/>
+        <joint name="Axis_3_Joint" value="-1.6"/>
+        <joint name="Wrist_Differential_Joint" value="0"/>
+    </group_state>
+    <group_state name="Ready" group="astra_arm">
+        <joint name="Axis_0_Joint" value="0"/>
+        <joint name="Axis_1_Joint" value="0"/>
+        <joint name="Axis_2_Joint" value="-1.6"/>
+        <joint name="Axis_3_Joint" value="-1.6"/>
+        <joint name="Wrist_Differential_Joint" value="0"/>
+    </group_state>
+    <group_state name="Open" group="Hand">
+        <joint name="Gripper_Slider_Left" value="-0.04"/>
+        <joint name="Gripper _Slider_Right" value="0.04"/>
+        <joint name="Wrist-EF_Roll_Joint" value="0"/>
+    </group_state>
+    <group_state name="Close" group="Hand">
+        <joint name="Gripper_Slider_Left" value="0.0215"/>
+        <joint name="Gripper _Slider_Right" value="-0.0215"/>
+        <joint name="Wrist-EF_Roll_Joint" value="0"/>
+    </group_state>
+    <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
+    <end_effector name="Hand" parent_link="Diff Carrier" group="Hand"/>
+    <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
+    <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="base_link"/>
+    <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
+    <disable_collisions link1="Axis 0 Plate" link2="Axis 1 Segment" reason="Adjacent"/>
+    <disable_collisions link1="Axis 0 Plate" link2="Axis 2 Segment" reason="Never"/>
+    <disable_collisions link1="Axis 0 Plate" link2="Diff Carrier" reason="Never"/>
+    <disable_collisions link1="Axis 0 Plate" link2="End Effector" reason="Never"/>
+    <disable_collisions link1="Axis 0 Plate" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="Axis 0 Plate" link2="base_link" reason="Adjacent"/>
+    <disable_collisions link1="Axis 1 Segment" link2="Axis 2 Segment" reason="Adjacent"/>
+    <disable_collisions link1="Axis 1 Segment" link2="Diff Carrier" reason="Never"/>
+    <disable_collisions link1="Axis 1 Segment" link2="EF Gripper Left" reason="Never"/>
+    <disable_collisions link1="Axis 1 Segment" link2="EF Gripper Right" reason="Never"/>
+    <disable_collisions link1="Axis 1 Segment" link2="End Effector" reason="Never"/>
+    <disable_collisions link1="Axis 1 Segment" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="Axis 1 Segment" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Axis 2 Segment" link2="Diff Carrier" reason="Never"/>
+    <disable_collisions link1="Axis 2 Segment" link2="EF Gripper Left" reason="Never"/>
+    <disable_collisions link1="Axis 2 Segment" link2="EF Gripper Right" reason="Never"/>
+    <disable_collisions link1="Axis 2 Segment" link2="End Effector" reason="Never"/>
+    <disable_collisions link1="Axis 2 Segment" link2="Wrist" reason="Adjacent"/>
+    <disable_collisions link1="Axis 2 Segment" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Diff Carrier" link2="EF Gripper Left" reason="Never"/>
+    <disable_collisions link1="Diff Carrier" link2="EF Gripper Right" reason="Never"/>
+    <disable_collisions link1="Diff Carrier" link2="End Effector" reason="Adjacent"/>
+    <disable_collisions link1="Diff Carrier" link2="Wrist" reason="Adjacent"/>
+    <disable_collisions link1="Diff Carrier" link2="base_link" reason="Never"/>
+    <disable_collisions link1="EF Gripper Left" link2="End Effector" reason="Adjacent"/>
+    <disable_collisions link1="EF Gripper Left" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="EF Gripper Right" link2="End Effector" reason="Adjacent"/>
+    <disable_collisions link1="EF Gripper Right" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="End Effector" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="End Effector" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Wrist" link2="base_link" reason="Never"/>
+</robot>
