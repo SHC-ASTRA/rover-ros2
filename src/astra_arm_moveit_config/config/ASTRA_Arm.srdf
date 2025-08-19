@@ -16,9 +16,9 @@
         <joint name="Axis_2_Joint"/>
         <joint name="Axis_3_Joint"/>
         <joint name="Wrist_Differential_Joint"/>
+        <joint name="Wrist-EF_Roll_Joint"/>
     </group>
     <group name="Hand">
-        <link name="End Effector"/>
         <link name="EF Gripper Left"/>
         <link name="EF Gripper Right"/>
     </group>
@@ -28,6 +28,7 @@
         <joint name="Axis_1_Joint" value="0"/>
         <joint name="Axis_2_Joint" value="0"/>
         <joint name="Axis_3_Joint" value="0"/>
+        <joint name="Wrist-EF_Roll_Joint" value="0"/>
         <joint name="Wrist_Differential_Joint" value="0"/>
     </group_state>
     <group_state name="Stow" group="astra_arm">
@@ -35,6 +36,7 @@
         <joint name="Axis_1_Joint" value="-1.05"/>
         <joint name="Axis_2_Joint" value="-2"/>
         <joint name="Axis_3_Joint" value="-1.6"/>
+        <joint name="Wrist-EF_Roll_Joint" value="0"/>
         <joint name="Wrist_Differential_Joint" value="0"/>
     </group_state>
     <group_state name="Ready" group="astra_arm">
@@ -42,20 +44,19 @@
         <joint name="Axis_1_Joint" value="0"/>
         <joint name="Axis_2_Joint" value="-1.6"/>
         <joint name="Axis_3_Joint" value="-1.6"/>
+        <joint name="Wrist-EF_Roll_Joint" value="0"/>
         <joint name="Wrist_Differential_Joint" value="0"/>
     </group_state>
     <group_state name="Open" group="Hand">
-        <joint name="Gripper_Slider_Right" value="0.04"/>
         <joint name="Gripper_Slider_Left" value="-0.04"/>
-        <joint name="Wrist-EF_Roll_Joint" value="0"/>
+        <joint name="Gripper_Slider_Right" value="0.04"/>
     </group_state>
     <group_state name="Close" group="Hand">
-        <joint name="Gripper_Slider_Right" value="-0.0215"/>
         <joint name="Gripper_Slider_Left" value="0.0215"/>
-        <joint name="Wrist-EF_Roll_Joint" value="0"/>
+        <joint name="Gripper_Slider_Right" value="-0.0215"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="Hand" parent_link="Diff Carrier" group="Hand"/>
+    <end_effector name="Hand" parent_link="End Effector" group="Hand"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="base_link"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->

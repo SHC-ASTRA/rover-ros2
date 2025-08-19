@@ -15,12 +15,12 @@ moveit_simple_controller_manager:
       - Axis_2_Joint
       - Axis_3_Joint
       - Wrist_Differential_Joint
+      - Wrist-EF_Roll_Joint
     action_ns: follow_joint_trajectory
     default: true
   hand_controller:
     type: GripperCommand
     joints:
-      - Wrist-EF_Roll_Joint
       - Gripper_Slider_Left
       - Gripper_Slider_Right
     action_ns: gripper_cmd
