@@ -22,6 +22,5 @@ moveit_simple_controller_manager:
     type: GripperCommand
     joints:
       - Gripper_Slider_Left
-      - Gripper_Slider_Right
     action_ns: gripper_cmd
     default: true
