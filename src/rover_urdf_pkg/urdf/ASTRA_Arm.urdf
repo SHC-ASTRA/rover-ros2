@@ -3,7 +3,7 @@
      Commit Version: 1.6.1-11-gaed57c3-dirty  Build Version: 1.6.9361.3070
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
-  name="ASTRA Arm">
+  name="ASTRA_Arm">
 
   <link
     name="base_link">
@@ -88,7 +88,7 @@
   </link>
 
   <joint
-    name="Axis 0 Joint"
+    name="Axis_0_Joint"
     type="revolute">
     <origin
       xyz="0.018772 -0.020734 -0.04971"
@@ -103,7 +103,7 @@
       lower="-3.14"
       upper="3.14"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -148,7 +148,7 @@
   </link>
 
   <joint
-    name="Axis 1 Joint"
+    name="Axis_1_Joint"
     type="revolute">
     <origin
       xyz="-0.0271654135185528 0.0927245490180083 0.00384109909109076"
@@ -163,7 +163,7 @@
       lower="-1.05"
       upper="1.6"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -208,7 +208,7 @@
   </link>
 
   <joint
-    name="Axis 2 Joint"
+    name="Axis_2_Joint"
     type="revolute">
     <origin
       xyz="0.470027000000004 0.0126999999999999 0"
@@ -223,7 +223,7 @@
       lower="-2.0"
       upper="2.0"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -268,7 +268,7 @@
   </link>
 
   <joint
-    name="Axis 3 Joint"
+    name="Axis_3_Joint"
     type="revolute">
     <origin
       xyz="0.393826999999998 0 0"
@@ -283,7 +283,7 @@
       lower="-1.6"
       upper="1.9"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -328,7 +328,7 @@
   </link>
 
   <joint
-    name="Wrist Differential Joint"
+    name="Wrist_Differential_Joint"
     type="revolute">
     <origin
       xyz="0.176692001200001 -0.00622300000004081 0"
@@ -343,7 +343,7 @@
       lower="-1.6"
       upper="1.6"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -388,7 +388,7 @@
   </link>
 
   <joint
-    name="Wrist-EF Roll Joint"
+    name="Wrist-EF_Roll_Joint"
     type="continuous">
     <origin
       xyz="0 0.01 0"
@@ -443,7 +443,7 @@
   </link>
 
   <joint
-    name="Gripper Slider Right"
+    name="Gripper _Slider_Right"
     type="prismatic">
     <origin
       xyz="0 0 -0.031677"
@@ -458,7 +458,7 @@
       lower="-0.025"
       upper="0.04"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
   <link
@@ -503,7 +503,7 @@
   </link>
 
   <joint
-    name="Gripper Slider Left"
+    name="Gripper_Slider_Left"
     type="prismatic">
     <origin
       xyz="0 0 -0.031677"
@@ -518,7 +518,7 @@
       lower="-0.04"
       upper="0.025"
       effort="0"
-      velocity="0" />
+      velocity="0.05" />
   </joint>
 
 </robot>

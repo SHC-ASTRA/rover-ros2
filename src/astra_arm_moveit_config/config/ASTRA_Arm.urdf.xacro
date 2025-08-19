@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ASTRA_Arm">
+    <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
+
+    <!-- Import ASTRA_Arm urdf file -->
+    <xacro:include filename="$(find rover_urdf_pkg)/urdf/ASTRA_Arm.urdf" />
+
+    <!-- Import control_xacro -->
+    <xacro:include filename="ASTRA_Arm.ros2_control.xacro" />
+
+
+    <xacro:ASTRA_Arm_ros2_control name="FakeSystem" initial_positions_file="$(arg initial_positions_file)"/>
+
+</robot>
