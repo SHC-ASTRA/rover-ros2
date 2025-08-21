@@ -67,14 +67,16 @@ class SerialRelay(Node):
         self.joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
         self.tf_broadcaster = TransformBroadcaster(self)
         self.joint_state = JointState()
-        self.joint_state.name = ['Axis_0', 'Axis_1_Joint', 'Axis_2_Joint', 'Axis_3_Joint', 'Continuous_Joint', 'Wrist_Joint']
-        self.joint_state.position = [0.0] * 6  # Initialize with zeros
+        self.joint_state.name = ['Axis_0_Joint', 'Axis_1_Joint', 'Axis_2_Joint', 'Axis_3_Joint', 'Wrist_Differential_Joint', 'Wrist-EF_Roll_Joint', "Gripper_Slider_Left"]
+        self.joint_state.position = [0.0] * len(self.joint_state.name)  # Initialize with zeros
         self.odom_trans = TransformStamped()
         self.odom_trans.header.frame_id = 'odom'
-        self.odom_trans.child_frame_id = 'base_footprint'
+        self.odom_trans.child_frame_id = 'base_link'
         self.odom_trans.transform.translation.x = 0.0
         self.odom_trans.transform.translation.y = 0.0
         self.odom_trans.transform.translation.z = 0.0
+
+        self.joint_command_sub = self.create_subscription(JointState, '/joint_commands', self.joint_command_callback, 10)
 
         # Topics used in anchor mode
         if self.launch_mode == 'anchor':
@@ -238,6 +240,23 @@ class SerialRelay(Node):
             #self.debug_pub.publish(tempMsg)
 
 
+    def joint_command_callback(self, msg: JointState):
+        # Embedded takes deg*10, ROS2 uses Radians
+        positions = [math.degrees(pos)*10 for pos in msg.position]
+        # Axis 2 & 3 URDF direction is inverted
+        positions[2] = -positions[2]
+        positions[3] = -positions[3]
+
+        # Set target angles for each arm axis for embedded IK PID to handle
+        command = f"can_relay_tovic,arm,32,{positions[0]},{positions[1]},{positions[2]},{positions[3]}\n"
+        # Wrist yaw
+        command += f"can_relay_tovic,digit,36,0,{positions[4]}\n"
+        # Wrist roll
+        command += f"can_relay_tovic,digit,35,{positions[5]}\n"
+        # Gripper IK does not have adequate hardware yet
+        self.send_cmd(command)
+
+
     def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
         axis1 = -1 * msg.axis1
@@ -334,8 +353,8 @@ class SerialRelay(Node):
             # Joint state publisher for URDF visualization
             self.joint_state.position[0] = math.radians(angles[0])  # Axis 0
             self.joint_state.position[1] = math.radians(angles[1])  # Axis 1
-            self.joint_state.position[2] = math.radians(angles[2])  # Axis 2
-            self.joint_state.position[3] = math.radians(angles[3])  # Axis 3
+            self.joint_state.position[2] = math.radians(-angles[2])  # Axis 2 (inverted)
+            self.joint_state.position[3] = math.radians(-angles[3])  # Axis 3 (inverted)
             self.joint_state.position[4] = math.radians(angles[4])  # Wrist roll
             self.joint_state.position[5] = math.radians(angles[5])  # Wrist yaw
             self.joint_state.header.stamp = self.get_clock().now().to_msg()
