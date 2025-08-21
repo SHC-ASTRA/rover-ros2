@@ -1,0 +1,14 @@
+[Unit]
+Description=Autostart headless core node for controlling the rover without a base station
+After=systemd-user-sessions.service
+Requires=systemd-user-sessions.service
+
+[Service]
+ExecStart=/home/clucky/auto_start/auto_start_headless_full.sh
+Restart=always
+RestartSec=10
+User=clucky
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
