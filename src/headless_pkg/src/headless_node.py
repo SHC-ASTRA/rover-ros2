@@ -23,8 +23,8 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"  # Force pygame to use a dummy audio dri
 max_speed = 90 #Max speed as a duty cycle percentage (1-100)
 
 core_stop_msg = CoreControl()
-core_stop_msg.left_stick = 0
-core_stop_msg.right_stick = 0
+core_stop_msg.left_stick = 0.0
+core_stop_msg.right_stick = 0.0
 core_stop_msg.max_speed = 0
 
 arm_stop_msg = ArmManual()
