@@ -360,7 +360,7 @@ class SerialRelay(Node):
             self.joint_state.header.stamp = self.get_clock().now().to_msg()
             self.joint_state_pub.publish(self.joint_state)
 
-            self.odom_trans.header.stamp = self.get_clock().now().to_msg()
+            # self.odom_trans.header.stamp = self.get_clock().now().to_msg()
             self.tf_broadcaster.sendTransform(self.odom_trans)
         else:
             self.get_logger().info("Invalid angle feedback input format")

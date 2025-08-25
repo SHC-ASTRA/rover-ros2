@@ -47,7 +47,7 @@
   </link>
 
   <link
-    name="Axis 0 Plate">
+    name="Axis_0_Plate">
     <inertial>
       <origin
         xyz="0.025635 0.047115 0.021109"
@@ -68,7 +68,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 0 Plate.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_0_Plate.STL" />
       </geometry>
       <material
         name="">
@@ -82,7 +82,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 0 Plate.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_0_Plate.STL" />
       </geometry>
     </collision>
   </link>
@@ -96,18 +96,18 @@
     <parent
       link="base_link" />
     <child
-      link="Axis 0 Plate" />
+      link="Axis_0_Plate" />
     <axis
       xyz="0 -1 0" />
     <limit
       lower="-3.14"
       upper="3.14"
       effort="0"
-      velocity="3.1415963" />
+      velocity="31.41593" />
   </joint>
 
   <link
-    name="Axis 1 Segment">
+    name="Axis_1_Segment">
     <inertial>
       <origin
         xyz="0.317731812584795 0.0226837932394467 -2.94234579792906E-05"
@@ -128,7 +128,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 1 Segment.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_1_Segment.STL" />
       </geometry>
       <material
         name="">
@@ -142,7 +142,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 1 Segment.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_1_Segment.STL" />
       </geometry>
     </collision>
   </link>
@@ -154,20 +154,20 @@
       xyz="-0.0271654135185528 0.0927245490180083 0.00384109909109076"
       rpy="-3.14159265358977 -0.00524713054608625 1.5707963267949" />
     <parent
-      link="Axis 0 Plate" />
+      link="Axis_0_Plate" />
     <child
-      link="Axis 1 Segment" />
+      link="Axis_1_Segment" />
     <axis
       xyz="0 -1 0" />
     <limit
       lower="-1.05"
       upper="1.6"
       effort="0"
-      velocity="3.1415963" />
+      velocity="31.41593" />
   </joint>
 
   <link
-    name="Axis 2 Segment">
+    name="Axis_2_Segment">
     <inertial>
       <origin
         xyz="0.179701426719665 -0.0176131583689303 5.71147464441535E-05"
@@ -188,7 +188,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 2 Segment.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_2_Segment.STL" />
       </geometry>
       <material
         name="">
@@ -202,7 +202,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis 2 Segment.STL" />
+          filename="package://rover_urdf_pkg/meshes/Axis_2_Segment.STL" />
       </geometry>
     </collision>
   </link>
@@ -214,16 +214,16 @@
       xyz="0.470027000000004 0.0126999999999999 0"
       rpy="3.14159265358979 0.000449358059257729 0" />
     <parent
-      link="Axis 1 Segment" />
+      link="Axis_1_Segment" />
     <child
-      link="Axis 2 Segment" />
+      link="Axis_2_Segment" />
     <axis
       xyz="0 -1 0" />
     <limit
       lower="-2.0"
       upper="2.0"
       effort="0"
-      velocity="3.1415963" />
+      velocity="31.41593" />
   </joint>
 
   <link
@@ -274,7 +274,7 @@
       xyz="0.393826999999998 0 0"
       rpy="0 -0.000409495780687665 0" />
     <parent
-      link="Axis 2 Segment" />
+      link="Axis_2_Segment" />
     <child
       link="Wrist" />
     <axis
@@ -283,11 +283,11 @@
       lower="-1.6"
       upper="1.9"
       effort="0"
-      velocity="3.1415963" />
+      velocity="31.41593" />
   </joint>
 
   <link
-    name="Diff Carrier">
+    name="Diff_Carrier">
     <inertial>
       <origin
         xyz="-8.64620358677695E-06 -0.00516792807449162 -7.22608790769408E-07"
@@ -308,7 +308,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Diff Carrier.STL" />
+          filename="package://rover_urdf_pkg/meshes/Diff_Carrier.STL" />
       </geometry>
       <material
         name="">
@@ -322,7 +322,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Diff Carrier.STL" />
+          filename="package://rover_urdf_pkg/meshes/Diff_Carrier.STL" />
       </geometry>
     </collision>
   </link>
@@ -336,18 +336,18 @@
     <parent
       link="Wrist" />
     <child
-      link="Diff Carrier" />
+      link="Diff_Carrier" />
     <axis
       xyz="-1 0 0" />
     <limit
       lower="-1.6"
       upper="1.6"
       effort="0"
-      velocity="3.1415963" />
+      velocity="31.41593" />
   </joint>
 
   <link
-    name="End Effector">
+    name="End_Effector">
     <inertial>
       <origin
         xyz="-0.00327558376591462 0.00327411156667146 -0.0553569354578649"
@@ -368,7 +368,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/End Effector.STL" />
+          filename="package://rover_urdf_pkg/meshes/End_Effector.STL" />
       </geometry>
       <material
         name="">
@@ -382,7 +382,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/End Effector.STL" />
+          filename="package://rover_urdf_pkg/meshes/End_Effector.STL" />
       </geometry>
     </collision>
   </link>
@@ -394,15 +394,15 @@
       xyz="0 0.01 0"
       rpy="-1.5708 -0.21566 -3.1416" />
     <parent
-      link="Diff Carrier" />
+      link="Diff_Carrier" />
     <child
-      link="End Effector" />
+      link="End_Effector" />
     <axis
       xyz="0 0 1" />
   </joint>
 
   <link
-    name="EF Gripper Right">
+    name="EF_Gripper_Right">
     <inertial>
       <origin
         xyz="3.60822483003176E-16 0.0395187564799554 -0.0785892929086096"
@@ -423,7 +423,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF Gripper Right.STL" />
+          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Right.STL" />
       </geometry>
       <material
         name="">
@@ -437,7 +437,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF Gripper Right.STL" />
+          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Right.STL" />
       </geometry>
     </collision>
   </link>
@@ -449,9 +449,9 @@
       xyz="0 0 -0.031677"
       rpy="0 0 3.1416" />
     <parent
-      link="End Effector" />
+      link="End_Effector" />
     <child
-      link="EF Gripper Right" />
+      link="EF_Gripper_Right" />
     <axis
       xyz="0 1 0" />
     <limit
@@ -465,7 +465,7 @@
   </joint>
 
   <link
-    name="EF Gripper Left">
+    name="EF_Gripper_Left">
     <inertial>
       <origin
         xyz="0.000260261090099842 0.0391877753208171 -0.0810862651363518"
@@ -486,7 +486,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF Gripper Left.STL" />
+          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Left.STL" />
       </geometry>
       <material
         name="">
@@ -500,7 +500,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF Gripper Left.STL" />
+          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Left.STL" />
       </geometry>
     </collision>
   </link>
@@ -512,9 +512,9 @@
       xyz="0 0 -0.031677"
       rpy="0 0 0" />
     <parent
-      link="End Effector" />
+      link="End_Effector" />
     <child
-      link="EF Gripper Left" />
+      link="EF_Gripper_Left" />
     <axis
       xyz="0 -1 0" />
     <limit
