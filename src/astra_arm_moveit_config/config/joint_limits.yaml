@@ -10,22 +10,22 @@ default_acceleration_scaling_factor: 1
 joint_limits:
   Axis_0_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5
   Axis_1_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5
   Axis_2_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5
   Axis_3_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5
   Gripper_Slider_Left:
@@ -40,11 +40,11 @@ joint_limits:
     max_acceleration: 0.5
   Wrist_Differential_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5
   Wrist-EF_Roll_Joint:
     has_velocity_limits: true
-    max_velocity: 3.141593
+    max_velocity: 31.41593
     has_acceleration_limits: true
     max_acceleration: 0.5

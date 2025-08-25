@@ -19,8 +19,8 @@
         <joint name="Wrist-EF_Roll_Joint"/>
     </group>
     <group name="Hand">
-        <link name="EF Gripper Left"/>
-        <link name="EF Gripper Right"/>
+        <link name="EF_Gripper_Left"/>
+        <link name="EF_Gripper_Right"/>
     </group>
     <!--GROUP STATES: Purpose: Define a named state for a particular group, in terms of joint values. This is useful to define states like 'folded arms'-->
     <group_state name="Zero Position" group="astra_arm">
@@ -56,39 +56,39 @@
         <joint name="Gripper_Slider_Right" value="-0.0215"/>
     </group_state>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="Hand" parent_link="End Effector" group="Hand"/>
+    <end_effector name="Hand" parent_link="End_Effector" group="Hand"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="base_link"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
-    <disable_collisions link1="Axis 0 Plate" link2="Axis 1 Segment" reason="Adjacent"/>
-    <disable_collisions link1="Axis 0 Plate" link2="Axis 2 Segment" reason="Never"/>
-    <disable_collisions link1="Axis 0 Plate" link2="Diff Carrier" reason="Never"/>
-    <disable_collisions link1="Axis 0 Plate" link2="End Effector" reason="Never"/>
-    <disable_collisions link1="Axis 0 Plate" link2="Wrist" reason="Never"/>
-    <disable_collisions link1="Axis 0 Plate" link2="base_link" reason="Adjacent"/>
-    <disable_collisions link1="Axis 1 Segment" link2="Axis 2 Segment" reason="Adjacent"/>
-    <disable_collisions link1="Axis 1 Segment" link2="Diff Carrier" reason="Never"/>
-    <disable_collisions link1="Axis 1 Segment" link2="EF Gripper Left" reason="Never"/>
-    <disable_collisions link1="Axis 1 Segment" link2="EF Gripper Right" reason="Never"/>
-    <disable_collisions link1="Axis 1 Segment" link2="End Effector" reason="Never"/>
-    <disable_collisions link1="Axis 1 Segment" link2="Wrist" reason="Never"/>
-    <disable_collisions link1="Axis 1 Segment" link2="base_link" reason="Never"/>
-    <disable_collisions link1="Axis 2 Segment" link2="Diff Carrier" reason="Never"/>
-    <disable_collisions link1="Axis 2 Segment" link2="EF Gripper Left" reason="Never"/>
-    <disable_collisions link1="Axis 2 Segment" link2="EF Gripper Right" reason="Never"/>
-    <disable_collisions link1="Axis 2 Segment" link2="End Effector" reason="Never"/>
-    <disable_collisions link1="Axis 2 Segment" link2="Wrist" reason="Adjacent"/>
-    <disable_collisions link1="Axis 2 Segment" link2="base_link" reason="Never"/>
-    <disable_collisions link1="Diff Carrier" link2="EF Gripper Left" reason="Never"/>
-    <disable_collisions link1="Diff Carrier" link2="EF Gripper Right" reason="Never"/>
-    <disable_collisions link1="Diff Carrier" link2="End Effector" reason="Adjacent"/>
-    <disable_collisions link1="Diff Carrier" link2="Wrist" reason="Adjacent"/>
-    <disable_collisions link1="Diff Carrier" link2="base_link" reason="Never"/>
-    <disable_collisions link1="EF Gripper Left" link2="End Effector" reason="Adjacent"/>
-    <disable_collisions link1="EF Gripper Left" link2="Wrist" reason="Never"/>
-    <disable_collisions link1="EF Gripper Right" link2="End Effector" reason="Adjacent"/>
-    <disable_collisions link1="EF Gripper Right" link2="Wrist" reason="Never"/>
-    <disable_collisions link1="End Effector" link2="Wrist" reason="Never"/>
-    <disable_collisions link1="End Effector" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Axis_0_Plate" link2="Axis_1_Segment" reason="Adjacent"/>
+    <disable_collisions link1="Axis_0_Plate" link2="Axis_2_Segment" reason="Never"/>
+    <disable_collisions link1="Axis_0_Plate" link2="Diff_Carrier" reason="Never"/>
+    <disable_collisions link1="Axis_0_Plate" link2="End_Effector" reason="Never"/>
+    <disable_collisions link1="Axis_0_Plate" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="Axis_0_Plate" link2="base_link" reason="Adjacent"/>
+    <disable_collisions link1="Axis_1_Segment" link2="Axis_2_Segment" reason="Adjacent"/>
+    <disable_collisions link1="Axis_1_Segment" link2="Diff_Carrier" reason="Never"/>
+    <disable_collisions link1="Axis_1_Segment" link2="EF_Gripper_Left" reason="Never"/>
+    <disable_collisions link1="Axis_1_Segment" link2="EF_Gripper_Right" reason="Never"/>
+    <disable_collisions link1="Axis_1_Segment" link2="End_Effector" reason="Never"/>
+    <disable_collisions link1="Axis_1_Segment" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="Axis_1_Segment" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Axis_2_Segment" link2="Diff_Carrier" reason="Never"/>
+    <disable_collisions link1="Axis_2_Segment" link2="EF_Gripper_Left" reason="Never"/>
+    <disable_collisions link1="Axis_2_Segment" link2="EF_Gripper_Right" reason="Never"/>
+    <disable_collisions link1="Axis_2_Segment" link2="End_Effector" reason="Never"/>
+    <disable_collisions link1="Axis_2_Segment" link2="Wrist" reason="Adjacent"/>
+    <disable_collisions link1="Axis_2_Segment" link2="base_link" reason="Never"/>
+    <disable_collisions link1="Diff_Carrier" link2="EF_Gripper_Left" reason="Never"/>
+    <disable_collisions link1="Diff_Carrier" link2="EF_Gripper_Right" reason="Never"/>
+    <disable_collisions link1="Diff_Carrier" link2="End_Effector" reason="Adjacent"/>
+    <disable_collisions link1="Diff_Carrier" link2="Wrist" reason="Adjacent"/>
+    <disable_collisions link1="Diff_Carrier" link2="base_link" reason="Never"/>
+    <disable_collisions link1="EF_Gripper_Left" link2="End_Effector" reason="Adjacent"/>
+    <disable_collisions link1="EF_Gripper_Left" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="EF_Gripper_Right" link2="End_Effector" reason="Adjacent"/>
+    <disable_collisions link1="EF_Gripper_Right" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="End_Effector" link2="Wrist" reason="Never"/>
+    <disable_collisions link1="End_Effector" link2="base_link" reason="Never"/>
     <disable_collisions link1="Wrist" link2="base_link" reason="Never"/>
 </robot>

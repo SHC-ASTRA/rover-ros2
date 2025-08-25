@@ -45,7 +45,7 @@
       <origin xyz="-0.175 0 0" rpy="0 0 0" />
       <geometry>
         <!-- <cylinder radius="0.15" length="0.059" /> -->
-        <mesh filename="package://arm_pkg/urdf/Axis 0 Plate.STL" scale="1 1 1"/>
+        <mesh filename="package://arm_pkg/urdf/Axis_0_Plate.STL" scale="1 1 1"/>
       </geometry>
       <material name="Axis_0-material">
         <color rgba="0.3515325994898463 0.4735314961384573 0.9301108583738498 1" />
