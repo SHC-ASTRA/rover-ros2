@@ -4,7 +4,7 @@ package_name = 'headless_pkg'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.0.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -12,7 +12,7 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='David',
+    maintainer='David Sharpe',
     maintainer_email='ds0196@uah.edu',
     description='Headless rover control package to handle command interpretation and embedded interfacing.',
     license='All Rights Reserved',

@@ -4,7 +4,7 @@
   <name>headless_pkg</name>
   <version>1.0.0</version>
   <description>Headless rover control package to handle command interpretation and embedded interfacing.</description>
-  <maintainer email="ds0196@uah.edu">tristan</maintainer>
+  <maintainer email="ds0196@uah.edu">David Sharpe</maintainer>
   <license>All Rights Reserved</license>
 
   <depend>rclpy</depend>
