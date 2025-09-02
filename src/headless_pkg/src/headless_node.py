@@ -122,13 +122,13 @@ class Headless(Node):
 
 
             # Right wheels
-            input.right_stick = round(-1 * right_stick_y, 2)
+            input.right_stick = float(round(-1 * right_stick_y, 2))
 
             # Left wheels
             if right_trigger > 0:
                 input.left_stick = input.right_stick
             else:
-                input.left_stick = round(-1 * left_stick_y, 2)
+                input.left_stick = float(round(-1 * left_stick_y, 2))
 
 
             # Debug
