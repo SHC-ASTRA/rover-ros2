@@ -94,7 +94,7 @@ class Headless(Node):
             # Send one last zero control message
             self.core_publisher.publish(core_stop_msg)
             self.arm_publisher.publish(arm_stop_msg)
-            self.get_logger().info("Final stop command sent. Shutting down.")
+            self.get_logger().info("Final stop commands sent. Shutting down.")
             # Clean up
             pygame.quit()
             sys.exit(0)
@@ -102,6 +102,7 @@ class Headless(Node):
 
         global ctrl_mode
 
+        # Check for control mode change
         dpad_input = self.gamepad.get_hat(0)
         if dpad_input[1] == 1:
             ctrl_mode = "arm"
@@ -109,62 +110,102 @@ class Headless(Node):
             ctrl_mode = "core"
 
 
+        # CORE
         if ctrl_mode == "core":
             input = CoreControl()
             input.max_speed = max_speed
-            input.right_stick = -1 * round(self.gamepad.get_axis(4), 2)  # right y-axis
-            if self.gamepad.get_axis(5) > 0:
+
+            # Collect controller state
+            left_stick_y = deadzone(self.gamepad.get_axis(1))
+            right_stick_y = deadzone(self.gamepad.get_axis(4))
+            right_trigger = deadzone(self.gamepad.get_axis(5))
+
+
+            # Right wheels
+            input.right_stick = round(-1 * right_stick_y, 2)
+
+            # Left wheels
+            if right_trigger > 0:
                 input.left_stick = input.right_stick
             else:
-                input.left_stick = -1 * round(self.gamepad.get_axis(1), 2)  # left y-axis
+                input.left_stick = round(-1 * left_stick_y, 2)
 
+
+            # Debug
             output = f'L: {input.left_stick}, R: {input.right_stick}, M: {max_speed}'
             self.get_logger().info(f"[Ctrl] {output}")
+
             self.core_publisher.publish(input)
             self.arm_publisher.publish(arm_stop_msg)
 
+
+        # ARM
         if ctrl_mode == "arm":
             input = ArmManual()
+            
+            # Collect controller state
+            left_stick_x = deadzone(self.gamepad.get_axis(0))
+            left_stick_y = deadzone(self.gamepad.get_axis(1))
+            left_trigger = deadzone(self.gamepad.get_axis(2))
+            right_stick_x = deadzone(self.gamepad.get_axis(3))
+            right_stick_y = deadzone(self.gamepad.get_axis(4))
+            right_trigger = deadzone(self.gamepad.get_axis(5))
+            right_bumper = self.gamepad.get_button(5)
+            dpad_input = self.gamepad.get_hat(0)
 
-            # Triggers for gripper control
-            if self.gamepad.get_axis(2) > 0:#left trigger
+
+            # EF Grippers
+            if left_trigger > 0 and right_trigger > 0:
+                input.gripper = 0
+            elif left_trigger > 0:
                 input.gripper = -1
-            elif self.gamepad.get_axis(5) > 0:#right trigger
+            elif right_trigger > 0:
                 input.gripper = 1
 
-            if self.gamepad.get_button(5):#right bumper, control effector
+            # Axis 0
+            if dpad_input[0] == 1:
+                input.axis0 = 1
+            elif dpad_input[0] == -1:
+                input.axis0 = -1
 
-                # Left stick X-axis for effector yaw
-                if self.gamepad.get_axis(0) > 0:
+
+            if right_bumper:  # Control end effector
+
+                # Effector yaw
+                if left_stick_x > 0:
                     input.effector_yaw = 1
-                elif self.gamepad.get_axis(0) < 0:
+                elif left_stick_x < 0:
                     input.effector_yaw = -1
 
-                # Right stick X-axis for effector roll
-                if self.gamepad.get_axis(3) > 0:
+                # Effector roll
+                if right_stick_x > 0:
                     input.effector_roll = 1
-                elif self.gamepad.get_axis(3) < 0:
+                elif right_stick_x < 0:
                     input.effector_roll = -1
 
             else:   # Control arm axis
-                dpad_input = self.gamepad.get_hat(0)
-                input.axis0 = 0
-                if dpad_input[0] == 1:
-                    input.axis0 = 1
-                elif dpad_input[0] == -1:
-                    input.axis0 = -1
 
-                if self.gamepad.get_axis(0) > .15 or self.gamepad.get_axis(0) < -.15:
-                    input.axis1 = round(self.gamepad.get_axis(0))
+                # Axis 1
+                if abs(left_stick_x) > .15:
+                    input.axis1 = round(left_stick_x)
 
-                if self.gamepad.get_axis(1) > .15 or self.gamepad.get_axis(1) < -.15:
-                    input.axis2 = -1 * round(self.gamepad.get_axis(1))
+                # Axis 2
+                if abs(left_stick_y) > .15:
+                    input.axis2 = -1 * round(left_stick_y)
 
-                if self.gamepad.get_axis(4) > .15 or self.gamepad.get_axis(4) < -.15:
-                    input.axis3 = -1 * round(self.gamepad.get_axis(4))
+                # Axis 3
+                if abs(right_stick_y) > .15:
+                    input.axis3 = -1 * round(right_stick_y)
 
-            self.arm_publisher.publish(input)
             self.core_publisher.publish(core_stop_msg)
+            self.arm_publisher.publish(input)
+
+
+def deadzone(value: float, threshold=0.05) -> float:
+    if abs(value) < threshold:
+        return 0
+    return value
+
 
 def main(args=None):
     rclpy.init(args=args)
