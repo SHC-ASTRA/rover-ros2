@@ -4,7 +4,7 @@ After=systemd-user-sessions.service
 Requires=systemd-user-sessions.service
 
 [Service]
-ExecStart=/home/clucky/auto_start/auto_start_anchor.sh
+ExecStart=/home/clucky/rover-ros2/auto_start/auto_start_anchor.sh
 Restart=always
 RestartSec=5
 User=clucky
