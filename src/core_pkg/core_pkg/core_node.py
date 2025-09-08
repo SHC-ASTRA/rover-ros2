@@ -17,19 +17,23 @@ from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import CoreFeedback
 from ros2_interfaces_pkg.msg import CoreControl
 
+# NEW
+from sensor_msgs.msg import Imu, NavSatFix
+from geometry_msgs.msg import TwistStamped
+
 serial_pub = None
 thread = None
 
-# control_qos = qos.QoSProfile(
-#     history=qos.QoSHistoryPolicy.KEEP_LAST,
-#     depth=1,
-#     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-#     durability=qos.QoSDurabilityPolicy.VOLATILE,
-#     deadline=1000,
-#     lifespan=500,
-#     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-#     liveliness_lease_duration=5000
-# )
+control_qos = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    deadline=1000,
+    lifespan=500,
+    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    liveliness_lease_duration=5000
+)
 
 class SerialRelay(Node):
     def __init__(self):
@@ -58,6 +62,15 @@ class SerialRelay(Node):
             self.anchor_pub = self.create_publisher(String, '/anchor/relay', 10)
 
         self.core_feedback = CoreFeedback()
+        
+        
+        ## NEW TOPICS
+        self.imu_pub_ = self.create_publisher(Imu, '/imu/data', 10)
+        self.imu_state = Imu()
+        self.gps_pub_ = self.create_publisher(NavSatFix, '/gps/fix', 10)
+        self.gps_state = NavSatFix()
+
+        self.twist_sub_ = self.create_subscription(TwistStamped, '/twist', self.twist_callback, qos_profile=control_qos)
 
 
         if self.launch_mode == 'core':
@@ -195,6 +208,15 @@ class SerialRelay(Node):
         self.send_cmd(command)
 
         #print(f"[Sys] Relaying: {command}")
+    
+    def twist_callback(self, msg: TwistStamped):
+        linear = msg.twist.linear.x
+        angular = msg.twist.angular.z
+        
+        # send that bitch straight to embedded (hope we're running through core rn...)
+        command = f"joystick_ctrl,{angular},{linear}\n"
+        self.send_cmd(command)
+
     def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor':
             #self.get_logger().info(f"[Core to Anchor Relay] {msg}")
@@ -211,13 +233,15 @@ class SerialRelay(Node):
         #self.get_logger().info(f"[ANCHOR FEEDBACK parts] {parts}")
         if output.startswith("can_relay_fromvic,core,48"): #GNSS Lattitude
             self.core_feedback.gps_lat = float(parts[3])
+            self.gps_state.latitude = float(parts[3])
         elif output.startswith("can_relay_fromvic,core,49"):#GNSS Longitude
             self.core_feedback.gps_long = float(parts[3])
+            self.gps_state.longitude = float(parts[3])
         elif output.startswith("can_relay_fromvic,core,50"):#GNSS Satellite Count
             self.core_feedback.gps_sats = round(float(parts[3]))
-            #if parts length is at least 5 then we should have altitude, this is a temporary check until fully implemented
-            if len(parts) >= 5:
-                self.core_feedback.gps_alt = round(float(parts[4]), 2)
+            self.core_feedback.gps_alt = round(float(parts[4]), 2)
+            self.gps_state.altitude = float(parts[3])
+            self.gps_state.altitude = round(float(parts[4]), 2)
         elif output.startswith("can_relay_fromvic,core,51"):  #Gyro x,y,z
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
