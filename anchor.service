@@ -1,0 +1,14 @@
+[Unit]
+Description=Autostart the anchor node for controlling the rover and its modules
+After=systemd-user-sessions.service
+Requires=systemd-user-sessions.service
+
+[Service]
+ExecStart=/home/clucky/rover-ros2/auto_start/auto_start_anchor.sh
+Restart=always
+RestartSec=5
+User=clucky
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
