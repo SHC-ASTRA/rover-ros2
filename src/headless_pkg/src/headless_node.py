@@ -1,4 +1,6 @@
 import rclpy
+from rclpy import qos
+from rclpy.duration import Duration
 from rclpy.node import Node
 
 import pygame
@@ -14,6 +16,7 @@ import os
 import importlib
 from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import CoreControl, ArmManual
+from geometry_msgs.msg import Twist
 
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display
@@ -27,6 +30,14 @@ core_stop_msg.left_stick = 0.0
 core_stop_msg.right_stick = 0.0
 core_stop_msg.max_speed = 0
 
+core_stop_twist_msg = Twist()
+core_stop_twist_msg.linear.x = 0.0
+core_stop_twist_msg.linear.y = 0.0
+core_stop_twist_msg.linear.z = 0.0
+core_stop_twist_msg.angular.x = 0.0
+core_stop_twist_msg.angular.y = 0.0
+core_stop_twist_msg.angular.z = 0.0
+
 arm_stop_msg = ArmManual()
 arm_stop_msg.axis0 = 0
 arm_stop_msg.axis1 = 0
@@ -39,6 +50,18 @@ arm_stop_msg.linear_actuator = 0
 arm_stop_msg.laser = 0
 
 ctrl_mode = "core"
+CORE_MODE = "duty"  # "twist" or "duty"
+
+control_qos = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    deadline=Duration(seconds=1),
+    lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    liveliness_lease_duration=Duration(seconds=5)
+)
 
 
 class Headless(Node):
@@ -69,6 +92,7 @@ class Headless(Node):
         self.create_timer(0.15, self.send_controls)
         self.core_publisher = self.create_publisher(CoreControl, '/core/control', 10)
         self.arm_publisher = self.create_publisher(ArmManual, '/arm/control/manual', 10)
+        self.core_twist_pub_ = self.create_publisher(Twist, '/core/twist', qos_profile=control_qos)
 
     def run(self):
         # This thread makes all the update processes run in the background
@@ -111,7 +135,7 @@ class Headless(Node):
 
 
         # CORE
-        if ctrl_mode == "core":
+        if ctrl_mode == "core" and CORE_MODE == "duty":
             input = CoreControl()
             input.max_speed = max_speed
 
@@ -136,6 +160,28 @@ class Headless(Node):
             self.get_logger().info(f"[Ctrl] {output}")
 
             self.core_publisher.publish(input)
+            self.arm_publisher.publish(arm_stop_msg)
+        
+        elif ctrl_mode == "core" and CORE_MODE == "twist":
+            input = Twist()
+
+            # Collect controller state
+            left_stick_y = deadzone(self.gamepad.get_axis(1))
+            right_stick_x = deadzone(self.gamepad.get_axis(3))
+
+
+            # Forward/back
+            input.linear.x = float(round(-1 * left_stick_y, 2))
+
+            # Turn
+            input.angular.z = float(round(right_stick_x, 2))
+
+
+            # Debug
+            output = f'Lin X: {input.linear.x}, Ang Z: {input.angular.z}'
+            self.get_logger().info(f"[Ctrl] {output}")
+
+            self.core_twist_pub_.publish(input)
             self.arm_publisher.publish(arm_stop_msg)
 
 

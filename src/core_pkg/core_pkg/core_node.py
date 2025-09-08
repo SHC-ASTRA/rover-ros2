@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy import qos
+from rclpy.duration import Duration
 from std_srvs.srv import Empty
 
 import signal
@@ -12,6 +13,7 @@ import os
 import sys
 import threading
 import glob
+from math import sqrt
 
 from std_msgs.msg import String
 from ros2_interfaces_pkg.msg import CoreFeedback
@@ -19,20 +21,24 @@ from ros2_interfaces_pkg.msg import CoreControl
 
 # NEW
 from sensor_msgs.msg import Imu, NavSatFix
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, Twist
 
 serial_pub = None
 thread = None
+
+CORE_WHEELBASE = 0.34  # meters  -- TODO: verify
+CORE_WHEEL_RADIUS = 0.075  # meters -- TODO: verify
+CORE_GEAR_RATIO = 100  # Clucky: 100:1, Testbed: 64:1
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
     durability=qos.QoSDurabilityPolicy.VOLATILE,
-    deadline=1000,
-    lifespan=500,
+    deadline=Duration(seconds=1),
+    lifespan=Duration(nanoseconds=500_000_000),  # 500ms
     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-    liveliness_lease_duration=5000
+    liveliness_lease_duration=Duration(seconds=5)
 )
 
 class SerialRelay(Node):
@@ -70,8 +76,8 @@ class SerialRelay(Node):
         self.gps_pub_ = self.create_publisher(NavSatFix, '/gps/fix', 10)
         self.gps_state = NavSatFix()
 
-        self.twist_sub_ = self.create_subscription(TwistStamped, '/twist', self.twist_callback, qos_profile=control_qos)
-
+        self.cmd_vel_sub_ = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, qos_profile=control_qos)
+        self.twist_man_sub_ = self.create_subscription(Twist, '/core/twist', self.twist_man_callback, qos_profile=control_qos)
 
         if self.launch_mode == 'core':
             # Loop through all serial devices on the computer to check for the MCU
@@ -208,13 +214,36 @@ class SerialRelay(Node):
         self.send_cmd(command)
 
         #print(f"[Sys] Relaying: {command}")
-    
-    def twist_callback(self, msg: TwistStamped):
+
+    def cmd_vel_callback(self, msg: TwistStamped):
         linear = msg.twist.linear.x
         angular = msg.twist.angular.z
+
+        vel_left_rads = (linear - (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
+        vel_right_rads = (linear + (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
+
+        vel_left_rpm = round((vel_left_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
+        vel_right_rpm = round((vel_right_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
+
+        command = f"can_relay_tovic,core,20,{vel_left_rpm},{vel_right_rpm}\n"
+        self.send_cmd(command)
+    
+    def twist_man_callback(self, msg: Twist):
+        linear = msg.linear.x  # [-1 1] for forward/back from left joy y
+        angular = -msg.angular.z  # [-1 1] for left/right from right joy x
+
+        if abs(linear) > 1 or abs(angular) > 1:
+            # if speed is greater than 1, then there is a problem
+            # make it look like a problem and don't just run away lmao
+            drive_speed = 0.25
         
-        # send that bitch straight to embedded (hope we're running through core rn...)
-        command = f"joystick_ctrl,{angular},{linear}\n"
+        duty_left = linear - angular
+        duty_right = linear + angular
+        scale = max(1, abs(duty_left), abs(duty_right))
+        duty_left /= scale
+        duty_right /= scale
+
+        command = f"can_relay_tovic,core,19,{duty_left},{duty_right}\n"
         self.send_cmd(command)
 
     def send_cmd(self, msg: str):
