@@ -26,8 +26,8 @@ from geometry_msgs.msg import TwistStamped, Twist
 serial_pub = None
 thread = None
 
-CORE_WHEELBASE = 0.34  # meters  -- TODO: verify
-CORE_WHEEL_RADIUS = 0.075  # meters -- TODO: verify
+CORE_WHEELBASE = 0.84  # meters  -- TODO: verify
+CORE_WHEEL_RADIUS = 0.015  # meters -- TODO: verify
 CORE_GEAR_RATIO = 100  # Clucky: 100:1, Testbed: 64:1
 
 control_qos = qos.QoSProfile(
@@ -231,6 +231,9 @@ class SerialRelay(Node):
     def twist_man_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left joy y
         angular = -msg.angular.z  # [-1 1] for left/right from right joy x
+        
+        if (linear < 0):  # reverse turning direction when going backwards
+            angular *= -1
 
         if abs(linear) > 1 or abs(angular) > 1:
             # if speed is greater than 1, then there is a problem
@@ -243,10 +246,6 @@ class SerialRelay(Node):
         scale = max(1, abs(duty_left), abs(duty_right))
         duty_left /= scale
         duty_right /= scale
-        
-        if (linear < 0):  # reverse direction when going backwards
-            duty_left *= -1
-            duty_right *= -1
 
         command = f"can_relay_tovic,core,19,{duty_left},{duty_right}\n"
         self.send_cmd(command)
@@ -258,7 +257,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'core':
-            self.get_logger().info(f"[Core to MCU] {msg.data}")
+            self.get_logger().info(f"[Core to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg: String):
