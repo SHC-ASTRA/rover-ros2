@@ -217,7 +217,7 @@ class SerialRelay(Node):
 
     def cmd_vel_callback(self, msg: TwistStamped):
         linear = msg.twist.linear.x
-        angular = msg.twist.angular.z
+        angular = -msg.twist.angular.z
 
         vel_left_rads = (linear - (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
         vel_right_rads = (linear + (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
@@ -235,13 +235,18 @@ class SerialRelay(Node):
         if abs(linear) > 1 or abs(angular) > 1:
             # if speed is greater than 1, then there is a problem
             # make it look like a problem and don't just run away lmao
-            drive_speed = 0.25
+            linear = 0.25 * (linear / abs(linear))
+            angular = 0.25 * (angular / abs(angular))
         
         duty_left = linear - angular
         duty_right = linear + angular
         scale = max(1, abs(duty_left), abs(duty_right))
         duty_left /= scale
         duty_right /= scale
+        
+        if (linear < 0):  # reverse direction when going backwards
+            duty_left *= -1
+            duty_right *= -1
 
         command = f"can_relay_tovic,core,19,{duty_left},{duty_right}\n"
         self.send_cmd(command)
