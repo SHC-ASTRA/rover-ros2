@@ -1,23 +1,23 @@
 import rclpy
+from rclpy.node import Node
 from rclpy import qos
 from rclpy.duration import Duration
-from rclpy.node import Node
 
-import pygame
-
+import signal
 import time
+import atexit
 
 import serial
+import os
 import sys
 import threading
 import glob
-import os
 
-import importlib
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import CoreControl, ArmManual
 from geometry_msgs.msg import Twist
+from ros2_interfaces_pkg.msg import CoreControl, ArmManual
 
+import pygame
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display
 os.environ["SDL_AUDIODRIVER"] = "dummy"  # Force pygame to use a dummy audio driver before pygame.init()
@@ -50,7 +50,7 @@ arm_stop_msg.linear_actuator = 0
 arm_stop_msg.laser = 0
 
 ctrl_mode = "core"
-CORE_MODE = "duty"  # "twist" or "duty"
+CORE_MODE = "twist"  # "twist" or "duty"
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -260,4 +260,5 @@ def main(args=None):
     rclpy.shutdown()
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))  # Catch termination signals and exit cleanly
     main()
