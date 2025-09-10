@@ -16,6 +16,7 @@ import glob
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from ros2_interfaces_pkg.msg import CoreControl, ArmManual
+from ros2_interfaces_pkg.msg import CoreCtrlState
 
 import pygame
 
@@ -49,9 +50,6 @@ arm_stop_msg.gripper = 0
 arm_stop_msg.linear_actuator = 0
 arm_stop_msg.laser = 0
 
-ctrl_mode = "core"
-CORE_MODE = "twist"  # "twist" or "duty"
-
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
@@ -62,6 +60,12 @@ control_qos = qos.QoSProfile(
     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
     liveliness_lease_duration=Duration(seconds=5)
 )
+
+ctrl_mode = "core"
+CORE_MODE = "twist"  # "twist" or "duty"
+
+core_brake_mode = False
+core_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
 
 
 class Headless(Node):
@@ -93,6 +97,7 @@ class Headless(Node):
         self.core_publisher = self.create_publisher(CoreControl, '/core/control', 10)
         self.arm_publisher = self.create_publisher(ArmManual, '/arm/control/manual', 10)
         self.core_twist_pub_ = self.create_publisher(Twist, '/core/twist', qos_profile=control_qos)
+        self.core_state_pub_ = self.create_publisher(CoreCtrlState, '/core/control/state', qos_profile=control_qos)
 
     def run(self):
         # This thread makes all the update processes run in the background
@@ -168,21 +173,42 @@ class Headless(Node):
             # Collect controller state
             left_stick_y = deadzone(self.gamepad.get_axis(1))
             right_stick_x = deadzone(self.gamepad.get_axis(3))
+            button_a = self.gamepad.get_button(0)
+            left_bumper = self.gamepad.get_button(4)
+            right_bumper = self.gamepad.get_button(5)
 
+            # Forward/back and Turn
+            input.linear.x = -left_stick_y
+            input.angular.z = -right_stick_x
 
-            # Forward/back
-            input.linear.x = float(round(-1 * left_stick_y, 2))
-
-            # Turn
-            input.angular.z = float(round(right_stick_x, 2))
-
-
-            # Debug
-            output = f'Lin X: {input.linear.x}, Ang Z: {input.angular.z}'
-            self.get_logger().info(f"[Ctrl] {output}")
-
+            # Publish
             self.core_twist_pub_.publish(input)
             self.arm_publisher.publish(arm_stop_msg)
+            self.get_logger().info(f"[Core Ctrl] Linear: {round(input.linear.x, 2)}, Angular: {round(input.angular.z, 2)}")
+
+            # State (brake and speed)
+            global core_brake_mode
+            global core_speed_mode
+
+            # Brake mode
+            new_brake_mode = button_a
+            # Speed mode
+            if left_bumper:
+                new_speed_mode = -1
+            elif right_bumper:
+                new_speed_mode = 1
+            else:
+                new_speed_mode = 0
+
+            # Only publish if needed
+            if new_brake_mode != core_brake_mode or new_speed_mode != core_speed_mode:
+                core_brake_mode = new_brake_mode
+                core_speed_mode = new_speed_mode
+                state_msg = CoreCtrlState()
+                state_msg.brake_mode = core_brake_mode
+                state_msg.speed_mode = core_speed_mode
+                self.core_state_pub_.publish(state_msg)
+                self.get_logger().info(f"[Core State] Brake: {core_brake_mode}, Speed: {core_speed_mode}")
 
 
         # ARM

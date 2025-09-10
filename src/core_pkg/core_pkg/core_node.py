@@ -13,21 +13,24 @@ import os
 import sys
 import threading
 import glob
-from math import sqrt
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Imu, NavSatFix
 from geometry_msgs.msg import TwistStamped, Twist
-from ros2_interfaces_pkg.msg import CoreFeedback
-from ros2_interfaces_pkg.msg import CoreControl
+from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback
+from ros2_interfaces_pkg.msg import NewCoreFeedback, CoreCtrlState
 
 
 serial_pub = None
 thread = None
 
-CORE_WHEELBASE = 0.84  # meters  -- TODO: verify
-CORE_WHEEL_RADIUS = 0.015  # meters -- TODO: verify
+CORE_WHEELBASE = 0.836  # meters
+CORE_WHEEL_RADIUS = 0.171  # meters
 CORE_GEAR_RATIO = 100  # Clucky: 100:1, Testbed: 64:1
+
+WALKING_SPEED = 0.5  # duty cycle
+FAST_SPEED = 0.9  # duty cycle
+SLOW_SPEED = 0.25  # duty cycle
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -60,6 +63,8 @@ class SerialRelay(Node):
         self.control_sub = self.create_subscription(CoreControl, '/core/control', self.send_controls, 10)
         self.cmd_vel_sub_ = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, qos_profile=control_qos)
         self.twist_man_sub_ = self.create_subscription(Twist, '/core/twist', self.twist_man_callback, qos_profile=control_qos)
+        self.control_state_sub_ = self.create_subscription(CoreCtrlState, '/core/control/state', self.control_state_callback, qos_profile=control_qos)
+        self.twist_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
 
         # Feedback
         self.feedback_pub = self.create_publisher(CoreFeedback, '/core/feedback', 10)
@@ -197,10 +202,10 @@ class SerialRelay(Node):
         self.send_cmd(command)
     
     def twist_man_callback(self, msg: Twist):
-        linear = msg.linear.x  # [-1 1] for forward/back from left joy y
-        angular = -msg.angular.z  # [-1 1] for left/right from right joy x
+        linear = msg.linear.x  # [-1 1] for forward/back from left stick y
+        angular = msg.angular.z  # [-1 1] for left/right from right stick x
         
-        if (linear < 0):  # reverse turning direction when going backwards
+        if (linear < 0):  # reverse turning direction when going backwards (WIP)
             angular *= -1
 
         if abs(linear) > 1 or abs(angular) > 1:
@@ -214,9 +219,28 @@ class SerialRelay(Node):
         scale = max(1, abs(duty_left), abs(duty_right))
         duty_left /= scale
         duty_right /= scale
+        
+        # Apply speed mode
+        if self.twist_speed_mode == -1:  # slow
+            duty_left = map_range(duty_left, -1, 1, -SLOW_SPEED, SLOW_SPEED)
+            duty_right = map_range(duty_right, -1, 1, -SLOW_SPEED, SLOW_SPEED)
+        elif self.twist_speed_mode == 0:  # walk
+            duty_left = map_range(duty_left, -1, 1, -WALKING_SPEED, WALKING_SPEED)
+            duty_right = map_range(duty_right, -1, 1, -WALKING_SPEED, WALKING_SPEED)
+        elif self.twist_speed_mode == 1:  # fast
+            duty_left = map_range(duty_left, -1, 1, -FAST_SPEED, FAST_SPEED)
+            duty_right = map_range(duty_right, -1, 1, -FAST_SPEED, FAST_SPEED)
 
         command = f"can_relay_tovic,core,19,{duty_left},{duty_right}\n"
         self.send_cmd(command)
+    
+    def control_state_callback(self, msg: CoreCtrlState):
+        # Brake mode
+        command = f"can_relay_tovic,core,18,{str(int(msg.brake_mode))}\n"
+        self.send_cmd(command)
+
+        # Speed mode
+        self.twist_speed_mode = msg.speed_mode  # twist_man_callback will handle this
 
     def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor':
@@ -320,6 +344,9 @@ def myexcepthook(type, value, tb):
     print("Uncaught exception:", type, value)
     if serial_pub:
         serial_pub.cleanup()
+
+def map_range(value: float, in_min: float, in_max: float, out_min: float, out_max: float):
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
 def main(args=None):
