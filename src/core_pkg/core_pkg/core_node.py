@@ -306,6 +306,7 @@ class SerialRelay(Node):
                 self.core_feedback.fl_temp = temp
                 self.core_feedback.fl_voltage = voltage
                 self.core_feedback.fl_current = current
+                self.feedback_new_state.fl_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.fl_motor.temperature = temp  # new
                 self.feedback_new_state.fl_motor.voltage = voltage  # new
                 self.feedback_new_state.fl_motor.current = current  # new
@@ -313,6 +314,7 @@ class SerialRelay(Node):
                 self.core_feedback.bl_temp = temp
                 self.core_feedback.bl_voltage = voltage
                 self.core_feedback.bl_current = current
+                self.feedback_new_state.bl_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.bl_motor.temperature = temp  # new
                 self.feedback_new_state.bl_motor.voltage = voltage  # new
                 self.feedback_new_state.bl_motor.current = current  # new
@@ -320,6 +322,7 @@ class SerialRelay(Node):
                 self.core_feedback.fr_temp = temp
                 self.core_feedback.fr_voltage = voltage
                 self.core_feedback.fr_current = current
+                self.feedback_new_state.fr_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.fr_motor.temperature = temp  # new
                 self.feedback_new_state.fr_motor.voltage = voltage  # new
                 self.feedback_new_state.fr_motor.current = current  # new
@@ -327,6 +330,7 @@ class SerialRelay(Node):
                 self.core_feedback.br_temp = temp
                 self.core_feedback.br_voltage = voltage
                 self.core_feedback.br_current = current
+                self.feedback_new_state.br_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.br_motor.temperature = temp  # new
                 self.feedback_new_state.br_motor.voltage = voltage  # new
                 self.feedback_new_state.br_motor.current = current  # new
@@ -354,15 +358,19 @@ class SerialRelay(Node):
             position = float(parts[4])
             velocity = float(parts[5])
             if motorId == 1:
+                self.feedback_new_state.fl_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.fl_motor.position = position  # new
                 self.feedback_new_state.fl_motor.velocity = velocity  # new
             elif motorId == 2:
+                self.feedback_new_state.bl_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.bl_motor.position = position  # new
                 self.feedback_new_state.bl_motor.velocity = velocity  # new
             elif motorId == 3:
+                self.feedback_new_state.fr_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.fr_motor.position = position  # new
                 self.feedback_new_state.fr_motor.velocity = velocity  # new
             elif motorId == 4:
+                self.feedback_new_state.br_motor.header.stamp = self.get_clock().now().to_msg()
                 self.feedback_new_state.br_motor.position = position  # new
                 self.feedback_new_state.br_motor.velocity = velocity  # new
         else:
