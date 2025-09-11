@@ -100,7 +100,7 @@ class Headless(Node):
         self.core_state_pub_ = self.create_publisher(CoreCtrlState, '/core/control/state', qos_profile=control_qos)
         
         # Rumble when node is ready (returns False if not supported)
-        self.gamepad.rumble(0.4, 0.6, 150)
+        self.gamepad.rumble(0.7, 0.8, 150)
 
     def run(self):
         # This thread makes all the update processes run in the background
