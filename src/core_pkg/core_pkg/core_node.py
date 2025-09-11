@@ -69,6 +69,12 @@ class SerialRelay(Node):
         # Feedback
         self.feedback_pub = self.create_publisher(CoreFeedback, '/core/feedback', 10)
         self.core_feedback = CoreFeedback()
+        self.feedback_new_pub_ = self.create_publisher(NewCoreFeedback, '/core/feedback_new', 10)
+        self.feedback_new_state = NewCoreFeedback()
+        self.feedback_new_state.fl_motor.id = 1
+        self.feedback_new_state.bl_motor.id = 2
+        self.feedback_new_state.fr_motor.id = 3
+        self.feedback_new_state.br_motor.id = 4
         self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)
         self.imu_pub_ = self.create_publisher(Imu, '/imu/data', 10)
         self.imu_state = Imu()
@@ -259,29 +265,37 @@ class SerialRelay(Node):
         # GNSS Lattitude
         if output.startswith("can_relay_fromvic,core,48"):
             self.core_feedback.gps_lat = float(parts[3])
-            self.gps_state.latitude = float(parts[3])
+            self.gps_state.latitude = float(parts[3])  # new
         # GNSS Longitude
         elif output.startswith("can_relay_fromvic,core,49"):
             self.core_feedback.gps_long = float(parts[3])
-            self.gps_state.longitude = float(parts[3])
-        # GNSS Satellite count
+            self.gps_state.longitude = float(parts[3])  # new
+        # GNSS Satellite count and altitude
         elif output.startswith("can_relay_fromvic,core,50"):
             self.core_feedback.gps_sats = round(float(parts[3]))
             self.core_feedback.gps_alt = round(float(parts[4]), 2)
-            self.gps_state.altitude = float(parts[3])
-            self.gps_state.altitude = round(float(parts[4]), 2)
-        # Gyro x, y, z
+            self.gps_state.altitude = float(parts[3])  # new
+            self.gps_state.altitude = round(float(parts[4]), 2)  # new
+        # Gyro x, y, z, and imu calibration
         elif output.startswith("can_relay_fromvic,core,51"):
             self.core_feedback.bno_gyro.x = float(parts[3])
             self.core_feedback.bno_gyro.y = float(parts[4])
             self.core_feedback.bno_gyro.z = float(parts[5])
             self.core_feedback.imu_calib = round(float(parts[6]))
+            self.imu_state.angular_velocity.x = float(parts[3])  # new
+            self.imu_state.angular_velocity.y = float(parts[4])  # new
+            self.imu_state.angular_velocity.z = float(parts[5])  # new
+            self.feedback_new_state.imu_calib = round(float(parts[6]))  # new
         # Accel x, y, z, heading
         elif output.startswith("can_relay_fromvic,core,52"):
             self.core_feedback.bno_accel.x = float(parts[3])
             self.core_feedback.bno_accel.y = float(parts[4])
             self.core_feedback.bno_accel.z = float(parts[5])
             self.core_feedback.orientation = float(parts[6])
+            self.imu_state.linear_acceleration.x = float(parts[3])  # new
+            self.imu_state.linear_acceleration.y = float(parts[4])  # new
+            self.imu_state.linear_acceleration.z = float(parts[5])  # new
+            self.imu_state.orientation.z = float(parts[6])  # new  -- ik this is not correct stfu
         # REV Sparkmax feedback
         elif output.startswith("can_relay_fromvic,core,53"):
             motorId = round(float(parts[3]))
@@ -292,31 +306,69 @@ class SerialRelay(Node):
                 self.core_feedback.fl_temp = temp
                 self.core_feedback.fl_voltage = voltage
                 self.core_feedback.fl_current = current
+                self.feedback_new_state.fl_motor.temperature = temp  # new
+                self.feedback_new_state.fl_motor.voltage = voltage  # new
+                self.feedback_new_state.fl_motor.current = current  # new
             elif motorId == 2:
                 self.core_feedback.bl_temp = temp
                 self.core_feedback.bl_voltage = voltage
                 self.core_feedback.bl_current = current
+                self.feedback_new_state.bl_motor.temperature = temp  # new
+                self.feedback_new_state.bl_motor.voltage = voltage  # new
+                self.feedback_new_state.bl_motor.current = current  # new
             elif motorId == 3:
                 self.core_feedback.fr_temp = temp
                 self.core_feedback.fr_voltage = voltage
                 self.core_feedback.fr_current = current
+                self.feedback_new_state.fr_motor.temperature = temp  # new
+                self.feedback_new_state.fr_motor.voltage = voltage  # new
+                self.feedback_new_state.fr_motor.current = current  # new
             elif motorId == 4:
                 self.core_feedback.br_temp = temp
                 self.core_feedback.br_voltage = voltage
                 self.core_feedback.br_current = current
+                self.feedback_new_state.br_motor.temperature = temp  # new
+                self.feedback_new_state.br_motor.voltage = voltage  # new
+                self.feedback_new_state.br_motor.current = current  # new
         # Voltages batt, 12, 5, 3, all * 100
         elif output.startswith("can_relay_fromvic,core,54"):
             self.core_feedback.bat_voltage = float(parts[3]) / 100.0
             self.core_feedback.voltage_12 = float(parts[4]) / 100.0
             self.core_feedback.voltage_5 = float(parts[5]) / 100.0
             self.core_feedback.voltage_3 = float(parts[6]) / 100.0
-        # BMP Temp, Altitude, Pressure
+            self.feedback_new_state.voltage_batt = float(parts[3]) / 100.0  # new
+            self.feedback_new_state.voltage_12 = float(parts[4]) / 100.0  # new
+            self.feedback_new_state.voltage_5 = float(parts[5]) / 100.0  # new
+            self.feedback_new_state.voltage_3 = float(parts[6]) / 100.0  # new
+        # BMP temperature, altitude, pressure
         elif output.startswith("can_relay_fromvic,core,56"):
             self.core_feedback.bmp_temp = float(parts[3])
             self.core_feedback.bmp_alt = float(parts[4])
             self.core_feedback.bmp_pres = float(parts[5])
+            self.feedback_new_state.bmp_temp = float(parts[3])  # new
+            self.feedback_new_state.bmp_alt = float(parts[4])  # new
+            self.feedback_new_state.bmp_pres = float(parts[5])  # new
+        # REV position and velocity
+        elif output.startswith("can_relay_fromvic,core,58"):
+            motorId = round(float(parts[3]))
+            position = float(parts[4])
+            velocity = float(parts[5])
+            if motorId == 1:
+                self.feedback_new_state.fl_motor.position = position  # new
+                self.feedback_new_state.fl_motor.velocity = velocity  # new
+            elif motorId == 2:
+                self.feedback_new_state.bl_motor.position = position  # new
+                self.feedback_new_state.bl_motor.velocity = velocity  # new
+            elif motorId == 3:
+                self.feedback_new_state.fr_motor.position = position  # new
+                self.feedback_new_state.fr_motor.velocity = velocity  # new
+            elif motorId == 4:
+                self.feedback_new_state.br_motor.position = position  # new
+                self.feedback_new_state.br_motor.velocity = velocity  # new
         else:
             return
+        self.feedback_new_state.header.stamp = self.get_clock().now().to_msg()
+        self.feedback_new_pub_.publish(self.feedback_new_state)
         #self.get_logger().info(f"[Core Anchor] {msg}")
 
     def publish_feedback(self):
