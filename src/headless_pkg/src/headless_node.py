@@ -90,6 +90,12 @@ class Headless(Node):
         self.gamepad = pygame.joystick.Joystick(0)
         self.gamepad.init()
         print(f'Gamepad Found: {self.gamepad.get_name()}')
+
+        # Rumble when gamepad connected (if supported)
+        if self.gamepad.get_axis_count() > 0: # type: ignore
+            # check for rumble support
+            if hasattr(self.gamepad, 'get_rumble'):
+                self.gamepad.rumble(0.4, 0.6, 200)
         
         # Now initialize the ROS2 node
         super().__init__("headless")
@@ -178,8 +184,8 @@ class Headless(Node):
             right_bumper = self.gamepad.get_button(5)
 
             # Forward/back and Turn
-            input.linear.x = -left_stick_y
-            input.angular.z = -right_stick_x
+            input.linear.x = -1.0 * left_stick_y
+            input.angular.z = -1.0 * right_stick_x
 
             # Publish
             self.core_twist_pub_.publish(input)
@@ -205,8 +211,8 @@ class Headless(Node):
                 core_brake_mode = new_brake_mode
                 core_speed_mode = new_speed_mode
                 state_msg = CoreCtrlState()
-                state_msg.brake_mode = core_brake_mode
-                state_msg.speed_mode = core_speed_mode
+                state_msg.brake_mode = bool(core_brake_mode)
+                state_msg.speed_mode = int(core_speed_mode)
                 self.core_state_pub_.publish(state_msg)
                 self.get_logger().info(f"[Core State] Brake: {core_brake_mode}, Speed: {core_speed_mode}")
 
