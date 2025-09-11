@@ -91,12 +91,6 @@ class Headless(Node):
         self.gamepad.init()
         print(f'Gamepad Found: {self.gamepad.get_name()}')
 
-        # Rumble when gamepad connected (if supported)
-        if self.gamepad.get_axis_count() > 0: # type: ignore
-            # check for rumble support
-            if hasattr(self.gamepad, 'get_rumble'):
-                self.gamepad.rumble(0.4, 0.6, 200)
-        
         # Now initialize the ROS2 node
         super().__init__("headless")
         self.create_timer(0.15, self.send_controls)
@@ -104,6 +98,9 @@ class Headless(Node):
         self.arm_publisher = self.create_publisher(ArmManual, '/arm/control/manual', 10)
         self.core_twist_pub_ = self.create_publisher(Twist, '/core/twist', qos_profile=control_qos)
         self.core_state_pub_ = self.create_publisher(CoreCtrlState, '/core/control/state', qos_profile=control_qos)
+        
+        # Rumble when node is ready (returns False if not supported)
+        self.gamepad.rumble(0.4, 0.6, 150)
 
     def run(self):
         # This thread makes all the update processes run in the background
@@ -185,7 +182,7 @@ class Headless(Node):
 
             # Forward/back and Turn
             input.linear.x = -1.0 * left_stick_y
-            input.angular.z = -1.0 * right_stick_x
+            input.angular.z = -1.0 * right_stick_x ** 3  # Cubic for finer control (curve)
 
             # Publish
             self.core_twist_pub_.publish(input)
