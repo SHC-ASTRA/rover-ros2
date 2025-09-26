@@ -41,7 +41,7 @@ private:
     void timer_callback()  // Send ping to embedded at 1 Hz
     {
         auto message = std_msgs::msg::String();
-        message.data = "core_relay_tovic," + target_mcu_ + ",1," + std::to_string(count_++) + '\n';
+        message.data = "can_relay_tovic," + target_mcu_ + ",1," + std::to_string(count_++) + '\n';
         publisher_->publish(message);
         RCLCPP_INFO(this->get_logger(), "Sending ping #%ld to %s", count_, target_mcu_.c_str());
         last_send_stamp_ = this->get_clock()->now();
@@ -59,6 +59,7 @@ private:
             return;
         }
 
+        // TODO: add topic for this so we can plot with MATLAB while using core/arm
         RCLCPP_INFO(this->get_logger(), "Received pong from %s after %lf ms", target_mcu_.c_str(),
                     (now - last_send_stamp_).nanoseconds() / 1000000.0);
     }
