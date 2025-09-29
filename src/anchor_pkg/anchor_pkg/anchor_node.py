@@ -19,20 +19,39 @@ serial_pub = None
 thread = None
 
 
+"""
+Publishers:
+  * /anchor/from_vic/debug
+    - Every string received from the MCU is published here for debugging
+  * /anchor/from_vic/core
+    - VicCAN messages for Core node
+  * /anchor/from_vic/arm
+    - VicCAN messages for Arm node
+  * /anchor/from_vic/bio
+    - VicCAN messages for Bio node
+
+Subscribers:
+  * /anchor/from_vic/mock_mcu
+    - For testing without an actual MCU, publish strings here as if they came from an MCU
+  * /anchor/to_vic/relay
+    - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
+  * /anchor/to_vic/relay_string
+    - Publish raw strings to this topic to send directly to the MCU for debugging
+"""
 class SerialRelay(Node):
     def __init__(self):
         # Initalize node with name
         super().__init__("anchor_node")#previously 'serial_publisher'
 
         # New pub/sub with VicCAN
-        self.mock_mcu_sub_ = self.create_subscription(String, '/anchor/from_mock_mcu', self.relay_mock_fromvic, 20)
+        self.fromvic_debug_pub_ = self.create_publisher(String, '/anchor/from_vic/debug', 20)
         self.fromvic_core_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/core', 20)
         self.fromvic_arm_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/arm', 20)
         self.fromvic_bio_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/bio', 20)
-        self.tovic_sub_ = self.create_subscription(VicCAN, '/anchor/to_vic/relay', self.relay_tovic, 20)
 
-        self.fromvic_debug_pub_ = self.create_publisher(String, '/anchor/from_vic/debug', 20)
-        self.tovic_debug_sub_ = self.create_subscription(String, '/anchor/to_vic/debug', self.send_cmd, 20)
+        self.mock_mcu_sub_ = self.create_subscription(String, '/anchor/from_vic/mock_mcu', self.relay_mock_fromvic, 20)
+        self.tovic_sub_ = self.create_subscription(VicCAN, '/anchor/to_vic/relay', self.relay_tovic, 20)
+        self.tovic_debug_sub_ = self.create_subscription(String, '/anchor/to_vic/relay_string', self.send_cmd, 20)
 
 
         # Create publishers 
