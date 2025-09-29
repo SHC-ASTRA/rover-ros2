@@ -24,8 +24,6 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a
 os.environ["SDL_AUDIODRIVER"] = "dummy"  # Force pygame to use a dummy audio driver before pygame.init()
 
 
-max_speed = 90 #Max speed as a duty cycle percentage (1-100)
-
 core_stop_msg = CoreControl()
 core_stop_msg.left_stick = 0.0
 core_stop_msg.right_stick = 0.0
@@ -61,11 +59,7 @@ control_qos = qos.QoSProfile(
     liveliness_lease_duration=Duration(seconds=5)
 )
 
-ctrl_mode = "core"
 CORE_MODE = "twist"  # "twist" or "duty"
-
-core_brake_mode = False
-core_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
 
 
 class Headless(Node):
@@ -99,8 +93,13 @@ class Headless(Node):
         self.core_twist_pub_ = self.create_publisher(Twist, '/core/twist', qos_profile=control_qos)
         self.core_state_pub_ = self.create_publisher(CoreCtrlState, '/core/control/state', qos_profile=control_qos)
         
-        # Rumble when node is ready (returns False if not supported)
+        self.ctrl_mode = "core"  # Start in core mode
+        self.core_brake_mode = False
+        self.core_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
+
+        # Rumble when node is ready (returns False if rumble not supported)
         self.gamepad.rumble(0.7, 0.8, 150)
+
 
     def run(self):
         # This thread makes all the update processes run in the background
@@ -131,9 +130,12 @@ class Headless(Node):
             pygame.quit()
             sys.exit(0)
 
+        # Make intellisense STFU
+        if self.gamepad == None:
+            return
 
-        global ctrl_mode
-        new_ctrl_mode = ctrl_mode  # if "" then inequality will always be true
+
+        new_ctrl_mode = self.ctrl_mode  # if "" then inequality will always be true
 
         # Check for control mode change
         dpad_input = self.gamepad.get_hat(0)
@@ -142,16 +144,16 @@ class Headless(Node):
         elif dpad_input[1] == -1:
             new_ctrl_mode = "core"
 
-        if new_ctrl_mode != ctrl_mode:
+        if new_ctrl_mode != self.ctrl_mode:
             self.gamepad.rumble(0.5, 0.5, 100)
             ctrl_mode = new_ctrl_mode
             self.get_logger().info(f"Switched to {ctrl_mode} control mode")
 
 
         # CORE
-        if ctrl_mode == "core" and CORE_MODE == "duty":
+        if self.ctrl_mode == "core" and CORE_MODE == "duty":
             input = CoreControl()
-            input.max_speed = max_speed
+            input.max_speed = 90
 
             # Collect controller state
             left_stick_y = deadzone(self.gamepad.get_axis(1))
@@ -170,13 +172,13 @@ class Headless(Node):
 
 
             # Debug
-            output = f'L: {input.left_stick}, R: {input.right_stick}, M: {max_speed}'
+            output = f'L: {input.left_stick}, R: {input.right_stick}'
             self.get_logger().info(f"[Ctrl] {output}")
 
             self.core_publisher.publish(input)
             self.arm_publisher.publish(arm_stop_msg)
         
-        elif ctrl_mode == "core" and CORE_MODE == "twist":
+        elif self.ctrl_mode == "core" and CORE_MODE == "twist":
             input = Twist()
 
             # Collect controller state
@@ -195,10 +197,6 @@ class Headless(Node):
             self.arm_publisher.publish(arm_stop_msg)
             self.get_logger().info(f"[Core Ctrl] Linear: {round(input.linear.x, 2)}, Angular: {round(input.angular.z, 2)}")
 
-            # State (brake and speed)
-            global core_brake_mode
-            global core_speed_mode
-
             # Brake mode
             new_brake_mode = button_a
             # Speed mode
@@ -210,18 +208,18 @@ class Headless(Node):
                 new_speed_mode = 0
 
             # Only publish if needed
-            if new_brake_mode != core_brake_mode or new_speed_mode != core_speed_mode:
-                core_brake_mode = new_brake_mode
-                core_speed_mode = new_speed_mode
+            if new_brake_mode != self.core_brake_mode or new_speed_mode != self.core_speed_mode:
+                self.core_brake_mode = new_brake_mode
+                self.core_speed_mode = new_speed_mode
                 state_msg = CoreCtrlState()
-                state_msg.brake_mode = bool(core_brake_mode)
-                state_msg.speed_mode = int(core_speed_mode)
+                state_msg.brake_mode = bool(self.core_brake_mode)
+                state_msg.speed_mode = int(self.core_speed_mode)
                 self.core_state_pub_.publish(state_msg)
-                self.get_logger().info(f"[Core State] Brake: {core_brake_mode}, Speed: {core_speed_mode}")
+                self.get_logger().info(f"[Core State] Brake: {self.core_brake_mode}, Speed: {self.core_speed_mode}")
 
 
         # ARM
-        if ctrl_mode == "arm":
+        if self.ctrl_mode == "arm":
             input = ArmManual()
             
             # Collect controller state
