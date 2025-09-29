@@ -133,13 +133,19 @@ class Headless(Node):
 
 
         global ctrl_mode
+        new_ctrl_mode = ctrl_mode  # if "" then inequality will always be true
 
         # Check for control mode change
         dpad_input = self.gamepad.get_hat(0)
         if dpad_input[1] == 1:
-            ctrl_mode = "arm"
+            new_ctrl_mode = "arm"
         elif dpad_input[1] == -1:
-            ctrl_mode = "core"
+            new_ctrl_mode = "core"
+
+        if new_ctrl_mode != ctrl_mode:
+            self.gamepad.rumble(0.5, 0.5, 100)
+            ctrl_mode = new_ctrl_mode
+            self.get_logger().info(f"Switched to {ctrl_mode} control mode")
 
 
         # CORE
