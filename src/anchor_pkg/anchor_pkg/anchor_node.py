@@ -12,7 +12,7 @@ import sys
 import threading
 import glob
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Header
 from ros2_interfaces_pkg.msg import VicCAN
 
 serial_pub = None
@@ -132,16 +132,16 @@ class SerialRelay(Node):
 
 
     def relay_mock_fromvic(self, msg: String):
-        #self.get_logger().info(f"Got command from mock MCU: {msg}")
+        # self.get_logger().info(f"Got command from mock MCU: {msg}")
         self.relay_fromvic(msg.data)
 
 
     def relay_tovic(self, msg: VicCAN):
         output: str = f"can_relay_tovic,{msg.mcu_name},{msg.command_id}"
         for num in msg.data:
-            output += f",{num}"
+            output += f",{round(num, 7)}"  # limit to 7 decimal places
         output += "\n"
-        #self.get_logger().info(f"Relaying to MCU: {output}")
+        # self.get_logger().info(f"VicCAN relay to MCU: {output}")
         self.ser.write(bytes(output, "utf8"))
 
     def relay_fromvic(self, msg: str):
@@ -149,12 +149,14 @@ class SerialRelay(Node):
         parts = msg.strip().split(",")
         if len(parts) < 3 or parts[0] != "can_relay_fromvic":
             return
+
         output = VicCAN()
         output.mcu_name = parts[1]
         output.command_id = int(parts[2])
         if len(parts) > 3:
             output.data = [float(x) for x in parts[3:]]
-        output.header.stamp = self.get_clock().now().to_msg()
+        output.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="from_vic")
+
         # self.get_logger().info(f"Relaying from MCU: {output}")
         if output.mcu_name == "core":
             self.fromvic_core_pub_.publish(output)

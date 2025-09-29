@@ -15,7 +15,7 @@ import threading
 import glob
 from scipy.spatial.transform import Rotation
 
-from std_msgs.msg import String
+from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
 from geometry_msgs.msg import TwistStamped, Twist
 from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback
@@ -235,9 +235,8 @@ class SerialRelay(Node):
 
         vel_left_rpm = round((vel_left_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
         vel_right_rpm = round((vel_right_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
-
-        command = f"can_relay_tovic,core,20,{vel_left_rpm},{vel_right_rpm}\n"
-        self.send_cmd(command)
+        
+        self.send_viccan(20, [vel_left_rpm, vel_right_rpm])
 
     def twist_man_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
@@ -269,13 +268,11 @@ class SerialRelay(Node):
             duty_left = map_range(duty_left, -1, 1, -FAST_SPEED, FAST_SPEED)
             duty_right = map_range(duty_right, -1, 1, -FAST_SPEED, FAST_SPEED)
 
-        command = f"can_relay_tovic,core,19,{duty_left},{duty_right}\n"
-        self.send_cmd(command)
+        self.send_viccan(19, [duty_left, duty_right])
 
     def control_state_callback(self, msg: CoreCtrlState):
         # Brake mode
-        command = f"can_relay_tovic,core,18,{str(int(msg.brake_mode))}\n"
-        self.send_cmd(command)
+        self.send_viccan(18, [msg.brake_mode])
 
         # Speed mode
         self.twist_speed_mode = msg.speed_mode  # twist_man_callback will handle this
@@ -289,6 +286,15 @@ class SerialRelay(Node):
         elif self.launch_mode == 'core':
             self.get_logger().info(f"[Core to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
+
+
+    def send_viccan(self, cmd_id: int, data: list[float]):
+        self.anchor_tovic_pub_.publish(VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg(), frame_id="to_vic"),
+            mcu_name="core",
+            command_id=cmd_id,
+            data=data
+        ))
 
 
     def anchor_feedback(self, msg: String):
