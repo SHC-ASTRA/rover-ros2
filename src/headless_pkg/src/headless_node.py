@@ -131,9 +131,9 @@ class Headless(Node):
             new_ctrl_mode = "core"
 
         if new_ctrl_mode != self.ctrl_mode:
-            self.gamepad.rumble(0.5, 0.5, 100)
-            ctrl_mode = new_ctrl_mode
-            self.get_logger().info(f"Switched to {ctrl_mode} control mode")
+            self.gamepad.rumble(0.6, 0.7, 75)
+            self.ctrl_mode = new_ctrl_mode
+            self.get_logger().info(f"Switched to {self.ctrl_mode} control mode")
 
 
         # CORE
@@ -266,7 +266,7 @@ class Headless(Node):
 
 
             # BIO
-            bio_input = BioControl(bio_arm=(left_stick_y * -100), drill_arm=(round(right_stick_y) * -100))
+            bio_input = BioControl(bio_arm=int(left_stick_y * -100), drill_arm=int(round(right_stick_y) * -100))
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
