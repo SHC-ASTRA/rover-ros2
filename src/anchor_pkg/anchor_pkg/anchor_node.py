@@ -66,6 +66,7 @@ class SerialRelay(Node):
 
         # Loop through all serial devices on the computer to check for the MCU
         self.port = None
+        # self.port = "/tmp/ttyACM9"  # Fake port, for debugging
         ports = SerialRelay.list_serial_ports()
         for i in range(4):
             if self.port is not None:

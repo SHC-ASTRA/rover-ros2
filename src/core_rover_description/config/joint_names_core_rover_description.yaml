@@ -1,0 +1,1 @@
+controller_joint_names: ['', 'right_suspension_joint', 'br_wheel_axis', 'fr_wheel_joint', 'averaging_bar_axis', 'left_suspension_joint', 'bl_wheel_joint', 'fl_wheel_joint', ]

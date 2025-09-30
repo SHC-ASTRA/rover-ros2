@@ -38,16 +38,16 @@ def launch_setup(context, *args, **kwargs):
                 on_exit=Shutdown()
             )
         )
-        nodes.append(
-            Node(
-                package='core_pkg',
-                executable='ptz',  # change as needed
-                name='ptz',
-                output='both'
-                # Currently don't shutdown all nodes if the PTZ node fails, as it is not critical
-                # on_exit=Shutdown()  # Uncomment if you want to shutdown on PTZ failure
-            )
-        )
+        # nodes.append(
+        #     Node(
+        #         package='core_pkg',
+        #         executable='ptz',  # change as needed
+        #         name='ptz',
+        #         output='both'
+        #         # Currently don't shutdown all nodes if the PTZ node fails, as it is not critical
+        #         # on_exit=Shutdown()  # Uncomment if you want to shutdown on PTZ failure
+        #     )
+        # )
         nodes.append(
             Node(
                 package='bio_pkg',
