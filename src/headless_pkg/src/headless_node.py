@@ -163,7 +163,7 @@ class Headless(Node):
 
             self.core_publisher.publish(input)
             self.arm_publisher.publish(ARM_STOP_MSG)
-            self.bio_publisher.publish(BIO_STOP_MSG)
+            # self.bio_publisher.publish(BIO_STOP_MSG)
         
         elif self.ctrl_mode == "core" and CORE_MODE == "twist":
             input = Twist()
@@ -182,7 +182,7 @@ class Headless(Node):
             # Publish
             self.core_twist_pub_.publish(input)
             self.arm_publisher.publish(ARM_STOP_MSG)
-            self.bio_publisher.publish(BIO_STOP_MSG)
+            # self.bio_publisher.publish(BIO_STOP_MSG)
             self.get_logger().info(f"[Core Ctrl] Linear: {round(input.linear.x, 2)}, Angular: {round(input.angular.z, 2)}")
 
             # Brake mode
@@ -270,7 +270,7 @@ class Headless(Node):
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
-            self.bio_publisher.publish(bio_input)
+            # self.bio_publisher.publish(bio_input)
 
 
 def deadzone(value: float, threshold=0.05) -> float:
