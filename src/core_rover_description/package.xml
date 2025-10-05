@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>This package contains configuration data, 3D models and launch files for Clucky Core</description>
   <maintainer email="ds0196@uah.edu">David Sharpe</maintainer>
-  <license>BSD</license>
+  <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
   <depend>robot_state_publisher</depend>
