@@ -50,7 +50,6 @@ class Headless(Node):
         pygame.joystick.init()
 
         # Wait for a gamepad to be connected
-        self.gamepad = None
         print("Waiting for gamepad connection...")
         while pygame.joystick.get_count() == 0:
             # Process any pygame events to keep it responsive
@@ -99,6 +98,7 @@ class Headless(Node):
             sys.exit(0)
 
     def send_controls(self):
+        """ Read the gamepad state and publish control messages """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -115,10 +115,6 @@ class Headless(Node):
             # Clean up
             pygame.quit()
             sys.exit(0)
-
-        # Make intellisense STFU
-        if self.gamepad == None:
-            return
 
 
         new_ctrl_mode = self.ctrl_mode  # if "" then inequality will always be true
@@ -274,6 +270,7 @@ class Headless(Node):
 
 
 def deadzone(value: float, threshold=0.05) -> float:
+    """ Apply a deadzone to a joystick input so the motors don't sound angry """
     if abs(value) < threshold:
         return 0
     return value
