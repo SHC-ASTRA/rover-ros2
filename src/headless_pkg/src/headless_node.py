@@ -79,7 +79,7 @@ class Headless(Node):
 
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
-        self.core_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
+        self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
 
         # Rumble when node is ready (returns False if rumble not supported)
         self.gamepad.rumble(0.7, 0.8, 150)
@@ -183,23 +183,23 @@ class Headless(Node):
 
             # Brake mode
             new_brake_mode = button_a
-            # Speed mode
+            # Max duty cycle
             if left_bumper:
-                new_speed_mode = -1
+                new_max_duty = 0.25
             elif right_bumper:
-                new_speed_mode = 1
+                new_max_duty = 0.9
             else:
-                new_speed_mode = 0
+                new_max_duty = 0.5
 
             # Only publish if needed
-            if new_brake_mode != self.core_brake_mode or new_speed_mode != self.core_speed_mode:
+            if new_brake_mode != self.core_brake_mode or new_max_duty != self.core_max_duty:
                 self.core_brake_mode = new_brake_mode
-                self.core_speed_mode = new_speed_mode
+                self.core_max_duty = new_max_duty
                 state_msg = CoreCtrlState()
                 state_msg.brake_mode = bool(self.core_brake_mode)
-                state_msg.speed_mode = int(self.core_speed_mode)
+                state_msg.max_duty = float(self.core_max_duty)
                 self.core_state_pub_.publish(state_msg)
-                self.get_logger().info(f"[Core State] Brake: {self.core_brake_mode}, Speed: {self.core_speed_mode}")
+                self.get_logger().info(f"[Core State] Brake: {self.core_brake_mode}, Max Duty: {self.core_max_duty}")
 
 
         # ARM and BIO

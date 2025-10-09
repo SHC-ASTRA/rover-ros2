@@ -14,6 +14,7 @@ import sys
 import threading
 import glob
 from scipy.spatial.transform import Rotation
+from math import copysign
 
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
@@ -28,10 +29,6 @@ thread = None
 CORE_WHEELBASE = 0.836  # meters
 CORE_WHEEL_RADIUS = 0.171  # meters
 CORE_GEAR_RATIO = 100  # Clucky: 100:1, Testbed: 64:1
-
-WALKING_SPEED = 0.5  # duty cycle
-FAST_SPEED = 0.9  # duty cycle
-SLOW_SPEED = 0.25  # duty cycle
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -73,9 +70,9 @@ class SerialRelay(Node):
         self.cmd_vel_sub_ = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, qos_profile=control_qos)
         # manual twist -- [-1, 1] rather than real units
         self.twist_man_sub_ = self.create_subscription(Twist, '/core/twist', self.twist_man_callback, qos_profile=control_qos)
-        # manual flags -- brake mode and speed mode
+        # manual flags -- brake mode and max duty cycle
         self.control_state_sub_ = self.create_subscription(CoreCtrlState, '/core/control/state', self.control_state_callback, qos_profile=control_qos)
-        self.twist_speed_mode = 0  # -1 = slow, 0 = walk, 1 = fast
+        self.twist_max_duty = 0.5  # max duty cycle for twist commands (0.0 - 1.0); walking speed is 0.5
 
         # Feedback
 
@@ -248,8 +245,8 @@ class SerialRelay(Node):
         if abs(linear) > 1 or abs(angular) > 1:
             # if speed is greater than 1, then there is a problem
             # make it look like a problem and don't just run away lmao
-            linear = 0.25 * (linear / abs(linear))
-            angular = 0.25 * (angular / abs(angular))
+            linear = copysign(0.25, linear)
+            angular = copysign(0.25, angular)
 
         duty_left = linear - angular
         duty_right = linear + angular
@@ -257,16 +254,10 @@ class SerialRelay(Node):
         duty_left /= scale
         duty_right /= scale
 
-        # Apply speed mode
-        if self.twist_speed_mode == -1:  # slow
-            duty_left = map_range(duty_left, -1, 1, -SLOW_SPEED, SLOW_SPEED)
-            duty_right = map_range(duty_right, -1, 1, -SLOW_SPEED, SLOW_SPEED)
-        elif self.twist_speed_mode == 0:  # walk
-            duty_left = map_range(duty_left, -1, 1, -WALKING_SPEED, WALKING_SPEED)
-            duty_right = map_range(duty_right, -1, 1, -WALKING_SPEED, WALKING_SPEED)
-        elif self.twist_speed_mode == 1:  # fast
-            duty_left = map_range(duty_left, -1, 1, -FAST_SPEED, FAST_SPEED)
-            duty_right = map_range(duty_right, -1, 1, -FAST_SPEED, FAST_SPEED)
+        # Apply max duty cycle
+        # Joysticks provide values [-1, 1] rather than real units
+        duty_left = map_range(duty_left, -1, 1, -self.twist_max_duty, self.twist_max_duty)
+        duty_right = map_range(duty_right, -1, 1, -self.twist_max_duty, self.twist_max_duty)
 
         self.send_viccan(19, [duty_left, duty_right])
 
@@ -274,8 +265,8 @@ class SerialRelay(Node):
         # Brake mode
         self.send_viccan(18, [msg.brake_mode])
 
-        # Speed mode
-        self.twist_speed_mode = msg.speed_mode  # twist_man_callback will handle this
+        # Max duty cycle
+        self.twist_max_duty = msg.max_duty  # twist_man_callback will handle this
 
     def send_cmd(self, msg: str):
         if self.launch_mode == 'anchor':
