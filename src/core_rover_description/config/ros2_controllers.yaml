@@ -1,13 +1,13 @@
 controller_manager:
   ros__parameters:
-    update_rate: 10
+    update_rate: 100
     use_sim_time: true
 
     diff_controller:
-      type: "diff_drive_controller/DiffDriveController"
+      type: diff_drive_controller/DiffDriveController
 
     joint_broadcaster:
-      type: "joint_state_broadcaster/JointStateBroadcaster"
+      type: joint_state_broadcaster/JointStateBroadcaster
 
 diff_controller: 
   ros__parameters:
@@ -30,6 +30,6 @@ diff_controller:
     publish_limited_velocity: false
 
     use_stamped_vel: false
-    publish_rate: 10.0
+    publish_rate: 100.0
 
     # TODO: add reasonable velocity and acceleration limits

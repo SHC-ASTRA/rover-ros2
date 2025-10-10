@@ -179,16 +179,16 @@ def generate_launch_description():
         condition=IfCondition(use_robot_state_pub)
     )
 
-    # # Include ROS 2 Controllers launch file if enabled
-    # load_controllers_cmd = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource([
-    #         os.path.join(pkg_share_moveit, 'launch', 'load_ros2_controllers.launch.py')
-    #     ]),
-    #     launch_arguments={
-    #         'use_sim_time': use_sim_time
-    #     }.items(),
-    #     condition=IfCondition(load_controllers)
-    # )
+    # Include ROS 2 Controllers launch file if enabled
+    load_controllers_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            os.path.join(pkg_share_description, 'launch', 'load_ros2_controllers.launch.py')
+        ]),
+        launch_arguments={
+            'use_sim_time': use_sim_time
+        }.items(),
+        condition=IfCondition(load_controllers)
+    )
 
     # Set Gazebo model path - include both models directory and ROS packages
     set_env_vars_resources = AppendEnvironmentVariable(
@@ -277,7 +277,7 @@ def generate_launch_description():
     ld.add_action(set_env_vars_resources)
     ld.add_action(set_env_vars_packages)
     ld.add_action(robot_state_publisher_cmd)
-    # ld.add_action(load_controllers_cmd)
+    ld.add_action(load_controllers_cmd)
     ld.add_action(start_gazebo_cmd)
     ld.add_action(start_gazebo_ros_bridge_cmd)
     ld.add_action(start_gazebo_ros_image_bridge_cmd)
