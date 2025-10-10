@@ -245,7 +245,7 @@ class SerialRelay(Node):
         if abs(linear) > 1 or abs(angular) > 1:
             # if speed is greater than 1, then there is a problem
             # make it look like a problem and don't just run away lmao
-            linear = copysign(0.25, linear)
+            linear = copysign(0.25, linear)  # 0.25 duty cycle in direction of control (hopefully slow)
             angular = copysign(0.25, angular)
 
         duty_left = linear - angular
