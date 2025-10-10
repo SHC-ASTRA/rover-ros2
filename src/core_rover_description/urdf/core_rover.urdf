@@ -152,7 +152,7 @@
   </link>
 
   <joint
-    name="br_wheel_axis"
+    name="br_wheel_joint"
     type="continuous">
     <origin
       xyz="-0.41838 -0.17155 0.12984"
@@ -162,7 +162,7 @@
     <child
       link="br_wheel" />
     <axis
-      xyz="1 0 0" />
+      xyz="-1 0 0" />
   </joint>
 
   <link
@@ -217,7 +217,7 @@
     <child
       link="fr_wheel" />
     <axis
-      xyz="1 0 0" />
+      xyz="-1 0 0" />
   </joint>
 
   <link
@@ -262,7 +262,7 @@
   </link>
 
   <joint
-    name="averaging_bar_axis"
+    name="averaging_bar_joint"
     type="revolute">
     <origin
       xyz="0 -0.23362 -0.0508"

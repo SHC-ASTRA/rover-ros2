@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="core_rover">
+
+  <xacro:include filename="core_rover.urdf"/>
+
+  <xacro:include filename="ros2_control.xacro"/>
+
+</robot>

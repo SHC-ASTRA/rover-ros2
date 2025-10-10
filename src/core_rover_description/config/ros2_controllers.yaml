@@ -1,0 +1,35 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 10
+    use_sim_time: true
+
+    diff_controller:
+      type: "diff_drive_controller/DiffDriveController"
+
+    joint_broadcaster:
+      type: "joint_state_broadcaster/JointStateBroadcaster"
+
+diff_controller: 
+  ros__parameters:
+    left_wheel_names: ["bl_wheel_joint", "fl_wheel_joint"]
+    right_wheel_names: ["br_wheel_joint", "fr_wheel_joint"]
+
+    wheel_separation: 0.836
+    wheels_per_side: 2
+    wheel_radius: 0.171
+
+    base_frame_id: "base_link"
+    pose_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+
+    position_feedback: true
+    open_loop: false
+    enable_odom_tf: true
+
+    cmd_vel_timeout: 0.5
+    publish_limited_velocity: false
+
+    use_stamped_vel: false
+    publish_rate: 10.0
+
+    # TODO: add reasonable velocity and acceleration limits

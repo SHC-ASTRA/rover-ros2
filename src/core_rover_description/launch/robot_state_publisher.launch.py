@@ -115,7 +115,7 @@ def generate_launch_description():
     """
     # Define filenames
     urdf_package = 'core_rover_description'
-    urdf_filename = 'core_rover_description.urdf'
+    urdf_filename = 'core_rover_description.xacro'
     rviz_config_filename = 'rviz_basic_settings.rviz'
 
     # Set paths to important files
@@ -233,6 +233,6 @@ def generate_launch_description():
     ld.add_action(start_joint_state_publisher_cmd)
     ld.add_action(start_joint_state_publisher_gui_cmd)
     ld.add_action(start_robot_state_publisher_cmd)
-    ld.add_action(start_rviz_cmd)
+    # ld.add_action(start_rviz_cmd)
 
     return ld
