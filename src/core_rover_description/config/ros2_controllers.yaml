@@ -14,7 +14,7 @@ diff_controller:
     left_wheel_names: ["bl_wheel_joint", "fl_wheel_joint"]
     right_wheel_names: ["br_wheel_joint", "fr_wheel_joint"]
 
-    wheel_separation: 0.836
+    wheel_separation: 0.836  # TODO: fix
     wheels_per_side: 2
     wheel_radius: 0.171
 

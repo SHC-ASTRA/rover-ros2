@@ -123,7 +123,7 @@ def generate_launch_description():
     default_urdf_model_path = PathJoinSubstitution(
         [pkg_share_description, 'urdf', urdf_filename])
     default_rviz_config_path = PathJoinSubstitution(
-        [pkg_share_description, 'rviz', rviz_config_filename])
+        [pkg_share_description, 'config', rviz_config_filename])
 
     # Launch configuration variables
     jsp_gui = LaunchConfiguration('jsp_gui')
@@ -233,6 +233,6 @@ def generate_launch_description():
     ld.add_action(start_joint_state_publisher_cmd)
     ld.add_action(start_joint_state_publisher_gui_cmd)
     ld.add_action(start_robot_state_publisher_cmd)
-    # ld.add_action(start_rviz_cmd)
+    ld.add_action(start_rviz_cmd)
 
     return ld
