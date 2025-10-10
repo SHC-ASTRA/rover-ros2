@@ -237,14 +237,12 @@ class SerialRelay(Node):
         command += "can_relay_tovic,arm,39," + str(axis0) + "," + str(axis1) + "," + str(axis2) + "," + str(axis3) + "\n"
         
         #Send controls for end effector
-        command += "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
 
-
-        command += "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
-
+        # command += "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
+        # command += "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
+        command += "can_relay_tovic,digit,39," + str(msg.effector_yaw) + "," + str(msg.effector_roll) + "\n"
 
         command += "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
-
 
         command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
 
@@ -260,7 +258,7 @@ class SerialRelay(Node):
             output.data = msg
             self.anchor_pub.publish(output)
         elif self.launch_mode == 'arm': #if in standalone mode, send to MCU directly
-            self.get_logger().info(f"[Arm to MCU] {msg.data}")
+            self.get_logger().info(f"[Arm to MCU] {msg}")
             self.ser.write(bytes(msg, "utf8"))
 
     def anchor_feedback(self, msg: String):
@@ -286,6 +284,7 @@ class SerialRelay(Node):
             parts = msg.data.split(",")
             if len(parts) >= 4:
                 self.digit_feedback.wrist_angle = float(parts[3])
+                # self.digit_feedback.wrist_roll = float(parts[4])
         else:
             return
 

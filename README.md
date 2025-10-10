@@ -1,5 +1,7 @@
 # rover-ros2
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 Submodule which includes all ros2 packages for the rover. These are centrally located for modular rover operation.
 
 You will use this package to launch any module-side ROS2 nodes.

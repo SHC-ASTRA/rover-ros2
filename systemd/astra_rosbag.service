@@ -1,0 +1,14 @@
+[Unit]
+Description=Record a rosbag on boot to /home/clucky/bags/
+After=systemd-user-sessions.service
+Requires=systemd-user-sessions.service
+
+[Service]
+ExecStart=/home/clucky/rover-ros2/auto_start/start_rosbag.sh
+Restart=always
+RestartSec=5
+User=clucky
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

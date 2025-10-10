@@ -1,0 +1,14 @@
+[Unit]
+Description=Headless node to control Core and Arm
+After=systemd-user-sessions.service
+Requires=systemd-user-sessions.service
+
+[Service]
+ExecStart=/home/clucky/rover-ros2/auto_start/auto_start_headless_full.sh
+Restart=always
+RestartSec=10
+User=clucky
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

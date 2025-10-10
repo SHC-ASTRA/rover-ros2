@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
-  <license>TODO: License declaration</license>
+  <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
   <depend>ros2_interfaces_pkg</depend>

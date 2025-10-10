@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Core rover control package to handle command interpretation and embedded interfacing.</description>
   <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
-  <license>All Rights Reserved</license>
+  <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
   <depend>ros2_interfaces_pkg</depend>
