@@ -30,6 +30,9 @@
     <gazebo>
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
             <parameters>$(find core_rover_description)/config/ros2_controllers.yaml</parameters>
+            <ros>
+                <remapping>/diff_controller/cmd_vel_unstamped:=/core/twist</remapping>
+            </ros>
         </plugin>
     </gazebo>
 
