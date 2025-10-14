@@ -171,8 +171,36 @@ class SerialRelay(Node):
         """ Relay a string message from the MCU to the appropriate VicCAN topic """
         self.fromvic_debug_pub_.publish(String(data=msg))
         parts = msg.strip().split(",")
-        if len(parts) < 3 or parts[0] != "can_relay_fromvic":
+        if len(parts) > 0 and parts[0] != "can_relay_fromvic":
+            self.get_logger().debug(f"Ignoring non-VicCAN message: '{msg.strip()}'")
             return
+
+        # String validation
+        malformed: bool = False
+        malformed_reason: str = ""
+        if len(parts) < 3 or len(parts) > 7:
+            malformed = True
+            malformed_reason = f"invalid argument count (expected [3,7], got {len(parts)})"
+        elif parts[1] not in ["core", "arm", "digit", "citadel", "broadcast"]:
+            malformed = True
+            malformed_reason = f"invalid mcu_name '{parts[1]}'"
+        elif parts[2].isnumeric() is False or int(parts[2]) < 0:
+            malformed = True
+            malformed_reason = f"command_id '{parts[2]}' is not a non-negative integer"
+        else:
+            for x in parts[3:]:
+                try:
+                    float(x)
+                except ValueError:
+                    malformed = True
+                    malformed_reason = f"data '{x}' is not a float"
+                    break
+
+        if malformed:
+            self.get_logger().warning(f"Ignoring malformed from_vic message: '{msg.strip()}'; reason: {malformed_reason}")
+            return
+
+        # Have valid VicCAN message
 
         output = VicCAN()
         output.mcu_name = parts[1]

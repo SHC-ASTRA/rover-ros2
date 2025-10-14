@@ -41,6 +41,20 @@ control_qos = qos.QoSProfile(
     liveliness_lease_duration=Duration(seconds=5)
 )
 
+# Used to verify the length of an incoming VicCAN feedback message
+# Key is VicCAN command_id, value is expected length of data list
+viccan_msg_len_dict = {
+    48: 1,
+    49: 1,
+    50: 2,
+    51: 4,
+    52: 4,
+    53: 4,
+    54: 4,
+    56: 3,
+    58: 3
+}
+
 
 class SerialRelay(Node):
     def __init__(self):
@@ -357,8 +371,13 @@ class SerialRelay(Node):
     def relay_fromvic(self, msg: VicCAN):
         # Assume that the message is coming from Core
         # skill diff if not
-        
-        # TODO: add len(msg.data) checks to each feedback message
+
+        # Check message len to prevent crashing on bad data
+        if msg.command_id in viccan_msg_len_dict:
+            expected_len = viccan_msg_len_dict[msg.command_id]
+            if len(msg.data) != expected_len:
+                self.get_logger().warning(f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})")
+                return
 
         match msg.command_id:
             # GNSS
