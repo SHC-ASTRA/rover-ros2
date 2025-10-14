@@ -360,108 +360,109 @@ class SerialRelay(Node):
         
         # TODO: add len(msg.data) checks to each feedback message
 
-        # GNSS
-        if msg.command_id == 48:  # GNSS Latitude
-            self.gps_state.latitude = float(msg.data[0])
-        elif msg.command_id == 49:  # GNSS Longitude
-            self.gps_state.longitude = float(msg.data[0])
-        elif msg.command_id == 50:  # GNSS Satellite count and altitude
-            self.gps_state.status.status = NavSatStatus.STATUS_FIX if int(msg.data[0]) >= 3 else NavSatStatus.STATUS_NO_FIX
-            self.gps_state.altitude = float(msg.data[1])
-            self.gps_state.header.stamp = msg.header.stamp
-            self.gps_pub_.publish(self.gps_state)
-        # IMU
-        elif msg.command_id == 51:  # Gyro x, y, z, and imu calibration
-            self.feedback_new_state.imu_calib = round(float(msg.data[3]))
-            self.imu_state.angular_velocity.x = float(msg.data[0])
-            self.imu_state.angular_velocity.y = float(msg.data[1])
-            self.imu_state.angular_velocity.z = float(msg.data[2])
-            self.imu_state.header.stamp = msg.header.stamp
-        elif msg.command_id == 52:  # Accel x, y, z, heading
-            self.imu_state.linear_acceleration.x = float(msg.data[0])
-            self.imu_state.linear_acceleration.y = float(msg.data[1])
-            self.imu_state.linear_acceleration.z = float(msg.data[2])
-            # Deal with quaternion
-            r = Rotation.from_euler('z', float(msg.data[3]), degrees=True)
-            q = r.as_quat()
-            self.imu_state.orientation.x = q[0]
-            self.imu_state.orientation.y = q[1]
-            self.imu_state.orientation.z = q[2]
-            self.imu_state.orientation.w = q[3]
-            self.imu_state.header.stamp = msg.header.stamp
-            self.imu_pub_.publish(self.imu_state)
-        # REV Motors
-        elif msg.command_id == 53:  # REV SPARK MAX feedback
-            motorId = round(float(msg.data[0]))
-            temp = float(msg.data[1]) / 10.0
-            voltage = float(msg.data[2]) / 10.0
-            current = float(msg.data[3]) / 10.0
-            if motorId == 1:
-                self.feedback_new_state.fl_motor.temperature = temp
-                self.feedback_new_state.fl_motor.voltage = voltage
-                self.feedback_new_state.fl_motor.current = current
-                self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
-            elif motorId == 2:
-                self.feedback_new_state.bl_motor.temperature = temp
-                self.feedback_new_state.bl_motor.voltage = voltage
-                self.feedback_new_state.bl_motor.current = current
-                self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
-            elif motorId == 3:
-                self.feedback_new_state.fr_motor.temperature = temp
-                self.feedback_new_state.fr_motor.voltage = voltage
-                self.feedback_new_state.fr_motor.current = current
-                self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
-            elif motorId == 4:
-                self.feedback_new_state.br_motor.temperature = temp
-                self.feedback_new_state.br_motor.voltage = voltage
-                self.feedback_new_state.br_motor.current = current
-                self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
-            self.feedback_new_pub_.publish(self.feedback_new_state)
-        # Board voltage
-        elif msg.command_id == 54:  # Voltages batt, 12, 5, 3, all * 100
-            self.feedback_new_state.board_voltage.vbatt = float(msg.data[0]) / 100.0
-            self.feedback_new_state.board_voltage.v12 = float(msg.data[1]) / 100.0
-            self.feedback_new_state.board_voltage.v5 = float(msg.data[2]) / 100.0
-            self.feedback_new_state.board_voltage.v3 = float(msg.data[3]) / 100.0
-        # Baro
-        elif msg.command_id == 56:  # BMP temperature, altitude, pressure
-            self.baro_state.temperature = float(msg.data[0])
-            self.baro_state.altitude = float(msg.data[1])
-            self.baro_state.pressure = float(msg.data[2])
-            self.baro_state.header.stamp = msg.header.stamp
-            self.baro_pub_.publish(self.baro_state)
-        # REV Motors (pos and vel)
-        elif msg.command_id == 58:  # REV position and velocity
-            motorId = round(float(msg.data[0]))
-            position = float(msg.data[1])
-            velocity = float(msg.data[2])
-            joint_state_msg = JointState()  # TODO: not sure if all motors should be in each message or not
-            joint_state_msg.position = [position * (2 * pi) / CORE_GEAR_RATIO]  # revolutions to radians
-            joint_state_msg.velocity = [velocity * (2 * pi / 60.0) / CORE_GEAR_RATIO]  # RPM to rad/s
-            if motorId == 1:
-                self.feedback_new_state.fl_motor.position = position
-                self.feedback_new_state.fl_motor.velocity = velocity
-                self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
-                joint_state_msg.name = ["fl_motor_joint"]
-            elif motorId == 2:
-                self.feedback_new_state.bl_motor.position = position
-                self.feedback_new_state.bl_motor.velocity = velocity
-                self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
-                joint_state_msg.name = ["bl_motor_joint"]
-            elif motorId == 3:
-                self.feedback_new_state.fr_motor.position = position
-                self.feedback_new_state.fr_motor.velocity = velocity
-                self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
-                joint_state_msg.name = ["fr_motor_joint"]
-            elif motorId == 4:
-                self.feedback_new_state.br_motor.position = position
-                self.feedback_new_state.br_motor.velocity = velocity
-                self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
-                joint_state_msg.name = ["br_motor_joint"]
-            joint_state_msg.header.stamp = msg.header.stamp
-            self.joint_state_pub_.publish(joint_state_msg)
-        else:
-            return
+        match msg.command_id:
+            # GNSS
+            case 48:  # GNSS Latitude
+                self.gps_state.latitude = float(msg.data[0])
+            case 49:  # GNSS Longitude
+                self.gps_state.longitude = float(msg.data[0])
+            case 50:  # GNSS Satellite count and altitude
+                self.gps_state.status.status = NavSatStatus.STATUS_FIX if int(msg.data[0]) >= 3 else NavSatStatus.STATUS_NO_FIX
+                self.gps_state.altitude = float(msg.data[1])
+                self.gps_state.header.stamp = msg.header.stamp
+                self.gps_pub_.publish(self.gps_state)
+            # IMU
+            case 51:  # Gyro x, y, z, and imu calibration
+                self.feedback_new_state.imu_calib = round(float(msg.data[3]))
+                self.imu_state.angular_velocity.x = float(msg.data[0])
+                self.imu_state.angular_velocity.y = float(msg.data[1])
+                self.imu_state.angular_velocity.z = float(msg.data[2])
+                self.imu_state.header.stamp = msg.header.stamp
+            case 52:  # Accel x, y, z, heading
+                self.imu_state.linear_acceleration.x = float(msg.data[0])
+                self.imu_state.linear_acceleration.y = float(msg.data[1])
+                self.imu_state.linear_acceleration.z = float(msg.data[2])
+                # Deal with quaternion
+                r = Rotation.from_euler('z', float(msg.data[3]), degrees=True)
+                q = r.as_quat()
+                self.imu_state.orientation.x = q[0]
+                self.imu_state.orientation.y = q[1]
+                self.imu_state.orientation.z = q[2]
+                self.imu_state.orientation.w = q[3]
+                self.imu_state.header.stamp = msg.header.stamp
+                self.imu_pub_.publish(self.imu_state)
+            # REV Motors
+            case 53:  # REV SPARK MAX feedback
+                motorId = round(float(msg.data[0]))
+                temp = float(msg.data[1]) / 10.0
+                voltage = float(msg.data[2]) / 10.0
+                current = float(msg.data[3]) / 10.0
+                if motorId == 1:
+                    self.feedback_new_state.fl_motor.temperature = temp
+                    self.feedback_new_state.fl_motor.voltage = voltage
+                    self.feedback_new_state.fl_motor.current = current
+                    self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
+                elif motorId == 2:
+                    self.feedback_new_state.bl_motor.temperature = temp
+                    self.feedback_new_state.bl_motor.voltage = voltage
+                    self.feedback_new_state.bl_motor.current = current
+                    self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
+                elif motorId == 3:
+                    self.feedback_new_state.fr_motor.temperature = temp
+                    self.feedback_new_state.fr_motor.voltage = voltage
+                    self.feedback_new_state.fr_motor.current = current
+                    self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
+                elif motorId == 4:
+                    self.feedback_new_state.br_motor.temperature = temp
+                    self.feedback_new_state.br_motor.voltage = voltage
+                    self.feedback_new_state.br_motor.current = current
+                    self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
+                self.feedback_new_pub_.publish(self.feedback_new_state)
+            # Board voltage
+            case 54:  # Voltages batt, 12, 5, 3, all * 100
+                self.feedback_new_state.board_voltage.vbatt = float(msg.data[0]) / 100.0
+                self.feedback_new_state.board_voltage.v12 = float(msg.data[1]) / 100.0
+                self.feedback_new_state.board_voltage.v5 = float(msg.data[2]) / 100.0
+                self.feedback_new_state.board_voltage.v3 = float(msg.data[3]) / 100.0
+            # Baro
+            case 56:  # BMP temperature, altitude, pressure
+                self.baro_state.temperature = float(msg.data[0])
+                self.baro_state.altitude = float(msg.data[1])
+                self.baro_state.pressure = float(msg.data[2])
+                self.baro_state.header.stamp = msg.header.stamp
+                self.baro_pub_.publish(self.baro_state)
+            # REV Motors (pos and vel)
+            case 58:  # REV position and velocity
+                motorId = round(float(msg.data[0]))
+                position = float(msg.data[1])
+                velocity = float(msg.data[2])
+                joint_state_msg = JointState()  # TODO: not sure if all motors should be in each message or not
+                joint_state_msg.position = [position * (2 * pi) / CORE_GEAR_RATIO]  # revolutions to radians
+                joint_state_msg.velocity = [velocity * (2 * pi / 60.0) / CORE_GEAR_RATIO]  # RPM to rad/s
+                if motorId == 1:
+                    self.feedback_new_state.fl_motor.position = position
+                    self.feedback_new_state.fl_motor.velocity = velocity
+                    self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
+                    joint_state_msg.name = ["fl_motor_joint"]
+                elif motorId == 2:
+                    self.feedback_new_state.bl_motor.position = position
+                    self.feedback_new_state.bl_motor.velocity = velocity
+                    self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
+                    joint_state_msg.name = ["bl_motor_joint"]
+                elif motorId == 3:
+                    self.feedback_new_state.fr_motor.position = position
+                    self.feedback_new_state.fr_motor.velocity = velocity
+                    self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
+                    joint_state_msg.name = ["fr_motor_joint"]
+                elif motorId == 4:
+                    self.feedback_new_state.br_motor.position = position
+                    self.feedback_new_state.br_motor.velocity = velocity
+                    self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
+                    joint_state_msg.name = ["br_motor_joint"]
+                joint_state_msg.header.stamp = msg.header.stamp
+                self.joint_state_pub_.publish(joint_state_msg)
+            case _:
+                return
 
 
     def publish_feedback(self):
