@@ -28,7 +28,7 @@ thread = None
 
 CORE_WHEELBASE = 0.836  # meters
 CORE_WHEEL_RADIUS = 0.171  # meters
-CORE_GEAR_RATIO = 100  # Clucky: 100:1, Testbed: 64:1
+CORE_GEAR_RATIO = 100.0  # Clucky: 100:1, Testbed: 64:1
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -436,8 +436,8 @@ class SerialRelay(Node):
             position = float(msg.data[1])
             velocity = float(msg.data[2])
             joint_state_msg = JointState()  # TODO: not sure if all motors should be in each message or not
-            joint_state_msg.position = [position * (2 * pi)]  # revolutions to radians
-            joint_state_msg.velocity = [velocity * (2 * pi / 60.0)]  # RPM to rad/s
+            joint_state_msg.position = [position * (2 * pi) / CORE_GEAR_RATIO]  # revolutions to radians
+            joint_state_msg.velocity = [velocity * (2 * pi / 60.0) / CORE_GEAR_RATIO]  # RPM to rad/s
             if motorId == 1:
                 self.feedback_new_state.fl_motor.position = position
                 self.feedback_new_state.fl_motor.velocity = velocity
