@@ -77,7 +77,7 @@ class SerialRelay(Node):
         # Feedback
 
         # Consolidated and organized core feedback
-        self.feedback_new_pub_ = self.create_publisher(NewCoreFeedback, '/core/feedback_new', 10)
+        self.feedback_new_pub_ = self.create_publisher(NewCoreFeedback, '/core/feedback_new', qos_profile=qos.qos_profile_sensor_data)
         self.feedback_new_state = NewCoreFeedback()
         self.feedback_new_state.fl_motor.id = 1
         self.feedback_new_state.bl_motor.id = 2
@@ -85,20 +85,20 @@ class SerialRelay(Node):
         self.feedback_new_state.br_motor.id = 4
         self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)  # TODO: not sure about this
         # Joint states for topic-based controller
-        self.joint_state_pub_ = self.create_publisher(JointState, '/core/joint_states', 2)
+        self.joint_state_pub_ = self.create_publisher(JointState, '/core/joint_states', qos_profile=qos.qos_profile_sensor_data)
         # IMU (embedded BNO-055)
-        self.imu_pub_ = self.create_publisher(Imu, '/core/imu', 10)
+        self.imu_pub_ = self.create_publisher(Imu, '/core/imu', qos_profile=qos.qos_profile_sensor_data)
         self.imu_state = Imu()
         self.imu_state.header.frame_id = "core_bno055"
         # GPS (embedded u-blox M9N)
-        self.gps_pub_ = self.create_publisher(NavSatFix, '/gps/fix', 10)
+        self.gps_pub_ = self.create_publisher(NavSatFix, '/gps/fix', qos_profile=qos.qos_profile_sensor_data)
         self.gps_state = NavSatFix()
         self.gps_state.header.frame_id = "core_gps_antenna"
         self.gps_state.status.service = NavSatStatus.SERVICE_GPS
         self.gps_state.status.status = NavSatStatus.STATUS_NO_FIX
         self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
         # Barometer (embedded BMP-388)
-        self.baro_pub_ = self.create_publisher(Barometer, '/core/baro', 10)
+        self.baro_pub_ = self.create_publisher(Barometer, '/core/baro', qos_profile=qos.qos_profile_sensor_data)
         self.baro_state = Barometer()
         self.baro_state.header.frame_id = "core_bmp388"
 
