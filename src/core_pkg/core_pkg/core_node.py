@@ -14,10 +14,10 @@ import sys
 import threading
 import glob
 from scipy.spatial.transform import Rotation
-from math import copysign
+from math import copysign, pi
 
 from std_msgs.msg import String, Header
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
 from geometry_msgs.msg import TwistStamped, Twist
 from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback
 from ros2_interfaces_pkg.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
@@ -84,6 +84,8 @@ class SerialRelay(Node):
         self.feedback_new_state.fr_motor.id = 3
         self.feedback_new_state.br_motor.id = 4
         self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)  # TODO: not sure about this
+        # Joint states for topic-based controller
+        self.joint_state_pub_ = self.create_publisher(JointState, '/core/joint_states', 2)
         # IMU (embedded BNO-055)
         self.imu_pub_ = self.create_publisher(Imu, '/core/imu', 10)
         self.imu_state = Imu()
@@ -433,22 +435,31 @@ class SerialRelay(Node):
             motorId = round(float(msg.data[0]))
             position = float(msg.data[1])
             velocity = float(msg.data[2])
+            joint_state_msg = JointState()  # TODO: not sure if all motors should be in each message or not
+            joint_state_msg.position = [position * (2 * pi)]  # revolutions to radians
+            joint_state_msg.velocity = [velocity * (2 * pi / 60.0)]  # RPM to rad/s
             if motorId == 1:
                 self.feedback_new_state.fl_motor.position = position
                 self.feedback_new_state.fl_motor.velocity = velocity
                 self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
+                joint_state_msg.name = ["fl_motor_joint"]
             elif motorId == 2:
                 self.feedback_new_state.bl_motor.position = position
                 self.feedback_new_state.bl_motor.velocity = velocity
                 self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
+                joint_state_msg.name = ["bl_motor_joint"]
             elif motorId == 3:
                 self.feedback_new_state.fr_motor.position = position
                 self.feedback_new_state.fr_motor.velocity = velocity
                 self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
+                joint_state_msg.name = ["fr_motor_joint"]
             elif motorId == 4:
                 self.feedback_new_state.br_motor.position = position
                 self.feedback_new_state.br_motor.velocity = velocity
                 self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
+                joint_state_msg.name = ["br_motor_joint"]
+            joint_state_msg.header.stamp = msg.header.stamp
+            self.joint_state_pub_.publish(joint_state_msg)
         else:
             return
 
