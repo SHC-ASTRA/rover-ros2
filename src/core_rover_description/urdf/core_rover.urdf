@@ -5,6 +5,15 @@
 <robot
   name="core_rover_description">
 
+  <link name="dummy_base_link"/>
+
+  <joint name="dummy_base_link_joint" type="fixed">
+    <parent link="dummy_base_link"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.35" rpy="0 0 1.5707963267948966"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+
   <link
     name="base_link">
     <inertial>

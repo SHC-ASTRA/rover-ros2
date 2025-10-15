@@ -167,7 +167,7 @@ def generate_launch_description():
     # Include Robot State Publisher launch file if enabled
     robot_state_publisher_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
-            os.path.join(pkg_share_description, 'launch', 'display.launch.py')
+            os.path.join(pkg_share_description, 'launch', 'robot_state_publisher.launch.py')
         ]),
         launch_arguments={
             'jsp_gui': jsp_gui,
