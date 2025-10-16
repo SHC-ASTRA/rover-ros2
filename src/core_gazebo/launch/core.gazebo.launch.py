@@ -180,14 +180,11 @@ def generate_launch_description():
     )
 
     # Include ROS 2 Controllers launch file if enabled
-    load_controllers_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            os.path.join(pkg_share_description, 'launch', 'load_ros2_controllers.launch.py')
-        ]),
-        launch_arguments={
-            'use_sim_time': use_sim_time
-        }.items(),
-        condition=IfCondition(load_controllers)
+    load_controllers_cmd = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['joint_broadcaster', 'diff_controller', '--controller-manager-timeout', '10'],
+        output='screen'
     )
 
     # Set Gazebo model path - include both models directory and ROS packages
