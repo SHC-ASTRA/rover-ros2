@@ -30,7 +30,7 @@ def generate_launch_description():
     """
     # Constants for paths to different files and folders
     package_name_gazebo = 'core_gazebo'
-    package_name_description = 'core_rover_description'
+    package_name_description = 'core_description'
     # package_name_moveit = 'mycobot_moveit_config'
 
     default_robot_name = 'core_rover'

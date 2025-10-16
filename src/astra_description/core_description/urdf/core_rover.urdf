@@ -3,7 +3,7 @@
      Commit Version:   Build Version: 1.6.9403.28032
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
-  name="core_rover_description">
+  name="core_description">
 
   <link name="dummy_base_link"/>
 
@@ -36,7 +36,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/base_link.STL" />
+          filename="package://core_description/meshes/base_link.STL" />
       </geometry>
       <material
         name="">
@@ -50,7 +50,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/base_link.STL" />
+          filename="package://core_description/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -77,7 +77,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/right_suspension_member.STL" />
+          filename="package://core_description/meshes/right_suspension_member.STL" />
       </geometry>
       <material
         name="">
@@ -91,7 +91,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/right_suspension_member.STL" />
+          filename="package://core_description/meshes/right_suspension_member.STL" />
       </geometry>
     </collision>
   </link>
@@ -141,7 +141,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/br_wheel.STL" />
+          filename="package://core_description/meshes/br_wheel.STL" />
       </geometry>
       <material
         name="">
@@ -155,7 +155,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/br_wheel.STL" />
+          filename="package://core_description/meshes/br_wheel.STL" />
       </geometry>
     </collision>
   </link>
@@ -196,7 +196,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/fr_wheel.STL" />
+          filename="package://core_description/meshes/fr_wheel.STL" />
       </geometry>
       <material
         name="">
@@ -210,7 +210,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/fr_wheel.STL" />
+          filename="package://core_description/meshes/fr_wheel.STL" />
       </geometry>
     </collision>
   </link>
@@ -251,7 +251,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/averaging_bar.STL" />
+          filename="package://core_description/meshes/averaging_bar.STL" />
       </geometry>
       <material
         name="">
@@ -265,7 +265,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/averaging_bar.STL" />
+          filename="package://core_description/meshes/averaging_bar.STL" />
       </geometry>
     </collision>
   </link>
@@ -315,7 +315,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/left_suspension_member.STL" />
+          filename="package://core_description/meshes/left_suspension_member.STL" />
       </geometry>
       <material
         name="">
@@ -329,7 +329,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/left_suspension_member.STL" />
+          filename="package://core_description/meshes/left_suspension_member.STL" />
       </geometry>
     </collision>
   </link>
@@ -375,7 +375,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/bl_wheel.STL" />
+          filename="package://core_description/meshes/bl_wheel.STL" />
       </geometry>
       <material
         name="">
@@ -389,7 +389,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/bl_wheel.STL" />
+          filename="package://core_description/meshes/bl_wheel.STL" />
       </geometry>
     </collision>
   </link>
@@ -430,7 +430,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/fl_wheel.STL" />
+          filename="package://core_description/meshes/fl_wheel.STL" />
       </geometry>
       <material
         name="">
@@ -444,7 +444,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://core_rover_description/meshes/fl_wheel.STL" />
+          filename="package://core_description/meshes/fl_wheel.STL" />
       </geometry>
     </collision>
   </link>

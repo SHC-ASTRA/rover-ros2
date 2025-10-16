@@ -15,13 +15,13 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
  
   # Set the path to this package.
-  pkg_share = FindPackageShare(package='core_rover_description').find('core_rover_description')
+  pkg_share = FindPackageShare(package='core_description').find('core_description')
  
   # Set the path to the RViz configuration settings
   default_rviz_config_path = os.path.join(pkg_share, 'config/rviz_basic_settings.rviz')
  
   # Set the path to the URDF file
-  default_urdf_model_path = os.path.join(pkg_share, 'urdf/core_rover_description.xacro')
+  default_urdf_model_path = os.path.join(pkg_share, 'urdf/core_description.xacro')
  
   ########### YOU DO NOT NEED TO CHANGE ANYTHING BELOW THIS LINE ##############  
   # Launch configuration variables specific to simulation

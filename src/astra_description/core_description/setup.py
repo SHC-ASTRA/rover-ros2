@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = 'core_rover_description'
+package_name = 'core_description'
 
 list_of_folders = ["config", "launch", "meshes", "textures", "urdf"]
 

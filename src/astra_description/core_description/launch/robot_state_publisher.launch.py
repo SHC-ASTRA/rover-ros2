@@ -13,7 +13,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
 
     # Set the path to this package.
-    pkg_share = FindPackageShare(package='core_rover_description').find('core_rover_description')
+    pkg_share = FindPackageShare(package='core_description').find('core_description')
 
     # Launch configuration variables specific to simulation
     urdf_model = LaunchConfiguration('urdf_model')
@@ -24,7 +24,7 @@ def generate_launch_description():
     # Declare the launch arguments
     declare_urdf_model_path_cmd = DeclareLaunchArgument(
         name='urdf_model',
-        default_value=os.path.join(pkg_share, 'urdf', 'core_rover_description.xacro'),
+        default_value=os.path.join(pkg_share, 'urdf', 'core_description.xacro'),
         description='Absolute path to robot urdf file')
 
     declare_rviz_config_file_cmd = DeclareLaunchArgument(
