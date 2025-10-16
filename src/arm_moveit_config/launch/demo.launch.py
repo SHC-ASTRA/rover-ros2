@@ -28,7 +28,7 @@ from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
-    moveit_config = MoveItConfigsBuilder("ASTRA_Arm", package_name="astra_arm_moveit_config").to_moveit_configs()
+    moveit_config = MoveItConfigsBuilder("ASTRA_Arm", package_name="arm_moveit_config").to_moveit_configs()
     # return generate_demo_launch(moveit_config)
     launch_package_path = moveit_config.package_path
 
@@ -119,7 +119,7 @@ def generate_launch_description():
 
     # Get parameters for the Servo node
     servo_params = {
-        "moveit_servo": ParameterBuilder("astra_arm_moveit_config")
+        "moveit_servo": ParameterBuilder("arm_moveit_config")
         .yaml("config/astra_arm_simulated_config.yaml")
         .to_dict()
     }

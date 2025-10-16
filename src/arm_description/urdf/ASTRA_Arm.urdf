@@ -27,7 +27,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/base_link.STL" />
+          filename="package://arm_description/meshes/base_link.STL" />
       </geometry>
       <material
         name="">
@@ -41,7 +41,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/base_link.STL" />
+          filename="package://arm_description/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -68,7 +68,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_0_Plate.STL" />
+          filename="package://arm_description/meshes/Axis_0_Plate.STL" />
       </geometry>
       <material
         name="">
@@ -82,7 +82,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_0_Plate.STL" />
+          filename="package://arm_description/meshes/Axis_0_Plate.STL" />
       </geometry>
     </collision>
   </link>
@@ -128,7 +128,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_1_Segment.STL" />
+          filename="package://arm_description/meshes/Axis_1_Segment.STL" />
       </geometry>
       <material
         name="">
@@ -142,7 +142,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_1_Segment.STL" />
+          filename="package://arm_description/meshes/Axis_1_Segment.STL" />
       </geometry>
     </collision>
   </link>
@@ -188,7 +188,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_2_Segment.STL" />
+          filename="package://arm_description/meshes/Axis_2_Segment.STL" />
       </geometry>
       <material
         name="">
@@ -202,7 +202,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Axis_2_Segment.STL" />
+          filename="package://arm_description/meshes/Axis_2_Segment.STL" />
       </geometry>
     </collision>
   </link>
@@ -248,7 +248,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Wrist.STL" />
+          filename="package://arm_description/meshes/Wrist.STL" />
       </geometry>
       <material
         name="">
@@ -262,7 +262,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Wrist.STL" />
+          filename="package://arm_description/meshes/Wrist.STL" />
       </geometry>
     </collision>
   </link>
@@ -308,7 +308,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Diff_Carrier.STL" />
+          filename="package://arm_description/meshes/Diff_Carrier.STL" />
       </geometry>
       <material
         name="">
@@ -322,7 +322,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/Diff_Carrier.STL" />
+          filename="package://arm_description/meshes/Diff_Carrier.STL" />
       </geometry>
     </collision>
   </link>
@@ -368,7 +368,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/End_Effector.STL" />
+          filename="package://arm_description/meshes/End_Effector.STL" />
       </geometry>
       <material
         name="">
@@ -382,7 +382,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/End_Effector.STL" />
+          filename="package://arm_description/meshes/End_Effector.STL" />
       </geometry>
     </collision>
   </link>
@@ -423,7 +423,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Right.STL" />
+          filename="package://arm_description/meshes/EF_Gripper_Right.STL" />
       </geometry>
       <material
         name="">
@@ -437,7 +437,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Right.STL" />
+          filename="package://arm_description/meshes/EF_Gripper_Right.STL" />
       </geometry>
     </collision>
   </link>
@@ -486,7 +486,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Left.STL" />
+          filename="package://arm_description/meshes/EF_Gripper_Left.STL" />
       </geometry>
       <material
         name="">
@@ -500,7 +500,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://rover_urdf_pkg/meshes/EF_Gripper_Left.STL" />
+          filename="package://arm_description/meshes/EF_Gripper_Left.STL" />
       </geometry>
     </collision>
   </link>

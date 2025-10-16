@@ -1,6 +1,6 @@
 moveit_setup_assistant_config:
   urdf:
-    package: rover_urdf_pkg
+    package: arm_description
     relative_path: urdf/ASTRA_Arm.urdf
   srdf:
     relative_path: config/ASTRA_Arm.srdf

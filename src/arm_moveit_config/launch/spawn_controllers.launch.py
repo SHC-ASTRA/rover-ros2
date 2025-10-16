@@ -24,7 +24,7 @@ from moveit_configs_utils.launch_utils import (
 
 
 def generate_launch_description():
-    moveit_config = MoveItConfigsBuilder("ASTRA_Arm", package_name="astra_arm_moveit_config").to_moveit_configs()
+    moveit_config = MoveItConfigsBuilder("ASTRA_Arm", package_name="arm_moveit_config").to_moveit_configs()
     # return generate_spawn_controllers_launch(moveit_config)
     controller_names = moveit_config.trajectory_execution.get(
         "moveit_simple_controller_manager", {}

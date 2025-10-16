@@ -3,7 +3,7 @@
     <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
 
     <!-- Import ASTRA_Arm urdf file -->
-    <xacro:include filename="$(find rover_urdf_pkg)/urdf/ASTRA_Arm.urdf" />
+    <xacro:include filename="$(find arm_description)/urdf/ASTRA_Arm.urdf" />
 
     <!-- Import control_xacro -->
     <xacro:include filename="ASTRA_Arm.ros2_control.xacro" />

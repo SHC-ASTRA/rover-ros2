@@ -54,9 +54,9 @@ foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
 
-include_directories(
-  include
-)
+# include_directories(
+#   include
+# )
 
 ###################
 ## C++ Libraries ##
@@ -140,7 +140,7 @@ install(
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
-  INCLUDES DESTINATION include
+  # INCLUDES DESTINATION include
 )
 
 # # Install Binaries
@@ -155,10 +155,10 @@ install(
 #   RUNTIME DESTINATION lib/${PROJECT_NAME}
 # )
 
-# Install include, launch, config directories
-install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# # Install include, launch, config directories
+# install(DIRECTORY include/ DESTINATION include)
+# install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
+# install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
