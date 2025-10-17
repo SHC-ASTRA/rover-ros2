@@ -7,7 +7,6 @@ import signal
 import time
 import atexit
 
-import serial
 import os
 import sys
 import threading
