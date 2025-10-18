@@ -30,6 +30,7 @@
                 pyserial
                 pygame
                 scipy
+                crccheck
               ]
             ))
             (
