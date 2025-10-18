@@ -51,8 +51,8 @@ viccan_msg_len_dict = {
     52: 4,
     53: 4,
     54: 4,
-    56: 3,
-    58: 3
+    56: 4,  # really 3, but viccan
+    58: 4   # ditto
 }
 
 
