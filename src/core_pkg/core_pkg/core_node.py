@@ -81,7 +81,7 @@ class SerialRelay(Node):
         # Control
 
         # autonomy twist -- m/s and rad/s -- for autonomy, in particular Nav2
-        self.cmd_vel_sub_ = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, qos_profile=control_qos)
+        self.cmd_vel_sub_ = self.create_subscription(TwistStamped, '/cmd_vel', self.cmd_vel_callback, 1)
         # manual twist -- [-1, 1] rather than real units
         self.twist_man_sub_ = self.create_subscription(Twist, '/core/twist', self.twist_man_callback, qos_profile=control_qos)
         # manual flags -- brake mode and max duty cycle
