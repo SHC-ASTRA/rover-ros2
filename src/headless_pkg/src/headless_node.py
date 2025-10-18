@@ -11,6 +11,7 @@ import os
 import sys
 import threading
 import glob
+from math import copysign
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
@@ -172,7 +173,7 @@ class Headless(Node):
 
             # Forward/back and Turn
             input.linear.x = -1.0 * left_stick_y
-            input.angular.z = -1.0 * right_stick_x ** 2  # Exponent for finer control (curve)
+            input.angular.z = -1.0 * copysign(right_stick_x ** 2, right_stick_x)  # Exponent for finer control (curve)
 
             # Publish
             self.core_twist_pub_.publish(input)
