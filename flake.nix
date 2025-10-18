@@ -57,9 +57,6 @@
             )
           ];
           shellHook = ''
-            [ -d install ] || colcon build --symlink-install
-            source install/setup.bash
-
             # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
