@@ -262,7 +262,18 @@ class Headless(Node):
 
 
             # BIO
-            bio_input = BioControl(bio_arm=int(left_stick_y * -100), drill_arm=int(round(right_stick_y) * -100))
+            bio_input = BioControl(
+                bio_arm=int(left_stick_y * -100),
+                drill_arm=int(round(right_stick_y) * -100)
+            )
+
+            # Drill motor (FAERIE)
+            if left_trigger > 0 and right_trigger > 0:
+                bio_input.drill = 0
+            elif left_trigger > 0:
+                bio_input.drill = -100
+            elif right_trigger > 0:
+                bio_input.drill = 100
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
