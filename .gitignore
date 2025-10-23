@@ -11,3 +11,6 @@ log/
 
 #Pycache folder
 __pycache__/
+
+#Direnv
+.direnv/
