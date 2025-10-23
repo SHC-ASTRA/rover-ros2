@@ -17,17 +17,20 @@ from ros2_interfaces_pkg.msg import CoreControl
 
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display
-os.environ["SDL_AUDIODRIVER"] = "dummy"  # Force pygame to use a dummy audio driver before pygame.init()
+os.environ["SDL_AUDIODRIVER"] = (
+    "dummy"  # Force pygame to use a dummy audio driver before pygame.init()
+)
 
 
-max_speed = 90 #Max speed as a duty cycle percentage (1-100)
+max_speed = 90  # Max speed as a duty cycle percentage (1-100)
+
 
 class Headless(Node):
     def __init__(self):
         # Initialize pygame first
         pygame.init()
         pygame.joystick.init()
-        
+
         # Wait for a gamepad to be connected
         self.gamepad = None
         print("Waiting for gamepad connection...")
@@ -39,23 +42,25 @@ class Headless(Node):
                     sys.exit(0)
             time.sleep(1.0)  # Check every second
             print("No gamepad found. Waiting...")
-        
+
         # Initialize the gamepad
         self.gamepad = pygame.joystick.Joystick(0)
         self.gamepad.init()
-        print(f'Gamepad Found: {self.gamepad.get_name()}')
-        
+        print(f"Gamepad Found: {self.gamepad.get_name()}")
+
         # Now initialize the ROS2 node
         super().__init__("core_headless")
         self.create_timer(0.15, self.send_controls)
-        self.publisher = self.create_publisher(CoreControl, '/core/control', 10)
-        self.lastMsg = String()  # Used to ignore sending controls repeatedly when they do not change
+        self.publisher = self.create_publisher(CoreControl, "/core/control", 10)
+        self.lastMsg = (
+            String()
+        )  # Used to ignore sending controls repeatedly when they do not change
 
     def run(self):
         # This thread makes all the update processes run in the background
         thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
         thread.start()
-        
+
         try:
             while rclpy.ok():
                 self.send_controls()
@@ -68,7 +73,7 @@ class Headless(Node):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
-        
+
         # Check if controller is still connected
         if pygame.joystick.get_count() == 0:
             print("Gamepad disconnected. Exiting...")
@@ -82,7 +87,7 @@ class Headless(Node):
             # Clean up
             pygame.quit()
             sys.exit(0)
-            
+
         input = CoreControl()
         input.max_speed = max_speed
         input.right_stick = -1 * round(self.gamepad.get_axis(4), 2)  # right y-axis
@@ -91,9 +96,10 @@ class Headless(Node):
         else:
             input.left_stick = -1 * round(self.gamepad.get_axis(1), 2)  # left y-axis
 
-        output = f'L: {input.left_stick}, R: {input.right_stick}, M: {max_speed}'
+        output = f"L: {input.left_stick}, R: {input.right_stick}, M: {max_speed}"
         self.get_logger().info(f"[Ctrl] {output}")
         self.publisher.publish(input)
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -101,5 +107,6 @@ def main(args=None):
     rclpy.spin(node)
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
