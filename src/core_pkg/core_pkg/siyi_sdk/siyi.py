@@ -110,9 +110,7 @@ class SiyiGimbalCamera:
 
     MAX_A8_MINI_ZOOM = 6.0  # Maximum zoom for A8 mini
 
-    def __init__(
-        self, ip: str, port: int = 37260, *, heartbeat_interval: int = 2
-    ):
+    def __init__(self, ip: str, port: int = 37260, *, heartbeat_interval: int = 2):
         self.ip = ip
         self.port = port
         self.heartbeat_interval = heartbeat_interval
@@ -124,9 +122,7 @@ class SiyiGimbalCamera:
 
     async def connect(self) -> None:
         try:
-            self.reader, self.writer = await asyncio.open_connection(
-                self.ip, self.port
-            )
+            self.reader, self.writer = await asyncio.open_connection(self.ip, self.port)
             self.is_connected = True
             asyncio.create_task(self.heartbeat_loop())
             asyncio.create_task(self._data_stream_listener())
@@ -158,9 +154,7 @@ class SiyiGimbalCamera:
             if self.is_connected:
                 await self.disconnect()
 
-    def _build_packet_header(
-        self, cmd_id: CommandID, data_len: int
-    ) -> bytearray:
+    def _build_packet_header(self, cmd_id: CommandID, data_len: int) -> bytearray:
         """Helper to build the common packet header."""
         packet = bytearray()
         packet.extend(b"\x55\x66")  # STX
@@ -179,15 +173,11 @@ class SiyiGimbalCamera:
 
     def _build_rotation_packet(self, turn_yaw: int, turn_pitch: int) -> bytes:
         data_len = 2
-        packet = self._build_packet_header(
-            CommandID.ROTATION_CONTROL, data_len
-        )
+        packet = self._build_packet_header(CommandID.ROTATION_CONTROL, data_len)
         packet.extend(struct.pack("bb", turn_yaw, turn_pitch))
         return self._finalize_packet(packet)
 
-    async def send_rotation_command(
-        self, turn_yaw: int, turn_pitch: int
-    ) -> None:
+    async def send_rotation_command(self, turn_yaw: int, turn_pitch: int) -> None:
         if not self.is_connected or not self.writer:
             raise RuntimeError(
                 "Socket is not connected or writer is None, cannot send rotation command."
@@ -199,21 +189,15 @@ class SiyiGimbalCamera:
             f"Sent rotation command with yaw_speed {turn_yaw} and pitch_speed {turn_pitch}"
         )
 
-    def _build_attitude_angles_packet(
-        self, yaw: float, pitch: float
-    ) -> bytes:
+    def _build_attitude_angles_packet(self, yaw: float, pitch: float) -> bytes:
         data_len = 4
-        packet = self._build_packet_header(
-            CommandID.ATTITUDE_ANGLES, data_len
-        )
+        packet = self._build_packet_header(CommandID.ATTITUDE_ANGLES, data_len)
         yaw_int = int(round(yaw * 10))
         pitch_int = int(round(pitch * 10))
         packet.extend(struct.pack("<hh", yaw_int, pitch_int))
         return self._finalize_packet(packet)
 
-    async def send_attitude_angles_command(
-        self, yaw: float, pitch: float
-    ) -> None:
+    async def send_attitude_angles_command(self, yaw: float, pitch: float) -> None:
         if not self.is_connected or not self.writer:
             raise RuntimeError(
                 "Socket is not connected or writer is None, cannot send attitude angles command."
@@ -221,17 +205,13 @@ class SiyiGimbalCamera:
         packet = self._build_attitude_angles_packet(yaw, pitch)
         self.writer.write(packet)
         await self.writer.drain()
-        logger.debug(
-            f"Sent attitude angles command with yaw {yaw}° and pitch {pitch}°"
-        )
+        logger.debug(f"Sent attitude angles command with yaw {yaw}° and pitch {pitch}°")
 
     def _build_single_axis_attitude_packet(
         self, angle: float, axis: SingleAxis
     ) -> bytes:
         data_len = 3
-        packet = self._build_packet_header(
-            CommandID.SINGLE_AXIS_CONTROL, data_len
-        )
+        packet = self._build_packet_header(CommandID.SINGLE_AXIS_CONTROL, data_len)
         angle_int = int(round(angle * 10))
         packet.extend(struct.pack("<hB", angle_int, axis.value))
         return self._finalize_packet(packet)
@@ -254,9 +234,7 @@ class SiyiGimbalCamera:
         self, data_type: DataStreamType, data_freq: DataStreamFrequency
     ) -> bytes:
         data_len = 2
-        packet = self._build_packet_header(
-            CommandID.DATA_STREAM_REQUEST, data_len
-        )
+        packet = self._build_packet_header(CommandID.DATA_STREAM_REQUEST, data_len)
         packet.append(data_type.value)
         packet.append(data_freq.value)
         return self._finalize_packet(packet)
@@ -279,7 +257,9 @@ class SiyiGimbalCamera:
         data_len = 2
         packet = self._build_packet_header(CommandID.ABSOLUTE_ZOOM, data_len)
         zoom_packet_value = int(round(zoom_level * 10))
-        if not (0 <= zoom_packet_value <= 65535): # Should be caught by clamping earlier
+        if not (
+            0 <= zoom_packet_value <= 65535
+        ):  # Should be caught by clamping earlier
             raise ValueError(
                 "Zoom packet value out of uint16_t range after conversion."
             )
@@ -329,24 +309,24 @@ class SiyiGimbalCamera:
         ctrl = await self.reader.readexactly(1)
         data_len_bytes = await self.reader.readexactly(2)
         data_len = struct.unpack("<H", data_len_bytes)[0]
-        seq_bytes = await self.reader.readexactly(2) # Renamed for clarity
+        seq_bytes = await self.reader.readexactly(2)  # Renamed for clarity
         # seq_val = struct.unpack("<H", seq_bytes)[0] # If you need the sequence value
         cmd_id_bytes = await self.reader.readexactly(1)
-        cmd_id_val = cmd_id_bytes[0] # Renamed for clarity
-        
+        cmd_id_val = cmd_id_bytes[0]  # Renamed for clarity
+
         # Protect against excessively large data_len
-        if data_len > 2048: # Arbitrary reasonable limit
+        if data_len > 2048:  # Arbitrary reasonable limit
             raise ValueError(f"Excessive data length received: {data_len}")
 
         data = await self.reader.readexactly(data_len)
         crc_bytes = await self.reader.readexactly(2)
         received_crc = struct.unpack("<H", crc_bytes)[0]
-        
+
         packet_without_crc = (
             stx + ctrl + data_len_bytes + seq_bytes + cmd_id_bytes + data
         )
         computed_crc = Crc16.calc(packet_without_crc)
-        
+
         if computed_crc != received_crc:
             raise ValueError(
                 f"CRC check failed. Expected {computed_crc:04X}, got {received_crc:04X}. "
@@ -374,10 +354,7 @@ class SiyiGimbalCamera:
                         self._data_callback(cmd_id_int, data)
                     continue
 
-                if (
-                    cmd_id_enum == CommandID.ATTITUDE_DATA_RESPONSE
-                    and len(data) == 12
-                ):
+                if cmd_id_enum == CommandID.ATTITUDE_DATA_RESPONSE and len(data) == 12:
                     try:
                         parsed = AttitudeData.from_bytes(data)
                         if self._data_callback:
@@ -385,9 +362,7 @@ class SiyiGimbalCamera:
                         else:
                             logger.info(f"Received attitude data: {parsed}")
                     except Exception as e:
-                        logger.exception(
-                            f"Failed to parse attitude data: {e}"
-                        )
+                        logger.exception(f"Failed to parse attitude data: {e}")
                         if self._data_callback:
                             self._data_callback(cmd_id_enum, data)
                 else:
@@ -410,12 +385,12 @@ class SiyiGimbalCamera:
             except ValueError as e:
                 logger.error(f"Packet error in listener: {e}")
                 # Consider adding a small delay or a mechanism to resync if this happens frequently
-                await asyncio.sleep(0.1) # Small delay before trying to read again
+                await asyncio.sleep(0.1)  # Small delay before trying to read again
                 continue
             except Exception as e:
                 logger.exception(f"Unexpected error in data stream listener: {e}")
                 # Depending on the error, you might want to break or continue
-                await asyncio.sleep(0.1) # Small delay
+                await asyncio.sleep(0.1)  # Small delay
                 continue
 
     def set_data_callback(
@@ -424,12 +399,14 @@ class SiyiGimbalCamera:
         self._data_callback = callback
 
 
-async def main_sdk_test(): # Renamed to avoid conflict if this file is imported
+async def main_sdk_test():  # Renamed to avoid conflict if this file is imported
     gimbal_ip = "192.168.144.25"
     gimbal = SiyiGimbalCamera(gimbal_ip)
 
     def my_data_handler(cmd_id, data):
-        if cmd_id == CommandID.ATTITUDE_DATA_RESPONSE and isinstance(data, AttitudeData):
+        if cmd_id == CommandID.ATTITUDE_DATA_RESPONSE and isinstance(
+            data, AttitudeData
+        ):
             print(
                 f"Attitude: Yaw={data.yaw:.1f}, Pitch={data.pitch:.1f}, Roll={data.roll:.1f}"
             )
@@ -460,7 +437,7 @@ async def main_sdk_test(): # Renamed to avoid conflict if this file is imported
             print("SDK Test: Setting zoom to 6.0x (A8 mini max)")
             await gimbal.send_absolute_zoom_command(6.0)
             await asyncio.sleep(2)
-            
+
             print("SDK Test: Attempting zoom to 7.0x (should be clamped to 6.0x)")
             await gimbal.send_absolute_zoom_command(7.0)
             await asyncio.sleep(2)
@@ -470,15 +447,18 @@ async def main_sdk_test(): # Renamed to avoid conflict if this file is imported
             await asyncio.sleep(2)
 
             print("SDK Test: Requesting attitude data stream at 5Hz...")
-            await gimbal.send_data_stream_request(DataStreamType.ATTITUDE_DATA, DataStreamFrequency.HZ_5)
-            
+            await gimbal.send_data_stream_request(
+                DataStreamType.ATTITUDE_DATA, DataStreamFrequency.HZ_5
+            )
+
             print("SDK Test: Listening for data for 10 seconds...")
             await asyncio.sleep(10)
 
             print("SDK Test: Disabling attitude data stream...")
-            await gimbal.send_data_stream_request(DataStreamType.ATTITUDE_DATA, DataStreamFrequency.DISABLE)
+            await gimbal.send_data_stream_request(
+                DataStreamType.ATTITUDE_DATA, DataStreamFrequency.DISABLE
+            )
             await asyncio.sleep(1)
-
 
     except ConnectionRefusedError:
         print(
