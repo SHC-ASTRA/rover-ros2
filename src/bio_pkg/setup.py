@@ -15,7 +15,7 @@ setup(
     maintainer="tristan",
     maintainer_email="tristanmcginnis26@gmail.com",
     description="TODO: Package description",
-    license="TODO: License declaration",
+    license="AGPL-3.0-only",
     entry_points={
         "console_scripts": ["bio = bio_pkg.bio_node:main"],
     },

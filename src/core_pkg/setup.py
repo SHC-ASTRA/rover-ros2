@@ -15,7 +15,7 @@ setup(
     maintainer="tristan",
     maintainer_email="tristanmcginnis26@gmail.com",
     description="Core rover control package to handle command interpretation and embedded interfacing.",
-    license="All Rights Reserved",
+    license="AGPL-3.0-only",
     entry_points={
         "console_scripts": [
             "core = core_pkg.core_node:main",

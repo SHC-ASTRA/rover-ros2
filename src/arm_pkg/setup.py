@@ -19,7 +19,7 @@ setup(
     maintainer="tristan",
     maintainer_email="tristanmcginnis26@gmail.com",
     description="TODO: Package description",
-    license="All Rights Reserved",
+    license="AGPL-3.0-only",
     entry_points={
         "console_scripts": [
             "arm = arm_pkg.arm_node:main",
