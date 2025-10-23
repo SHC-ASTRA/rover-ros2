@@ -7,11 +7,11 @@ import signal
 import time
 import atexit
 
-import serial
 import os
 import sys
 import threading
 import glob
+from math import copysign
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
@@ -48,6 +48,14 @@ class Headless(Node):
         # Initialize pygame first
         pygame.init()
         pygame.joystick.init()
+        super().__init__("headless")
+
+        # Wait for anchor to start
+        pub_info = self.get_publishers_info_by_topic('/anchor/from_vic/debug')
+        while len(pub_info) == 0:
+            self.get_logger().info("Waiting for anchor to start...")
+            time.sleep(1.0)
+            pub_info = self.get_publishers_info_by_topic('/anchor/from_vic/debug')
 
         # Wait for a gamepad to be connected
         print("Waiting for gamepad connection...")
@@ -65,8 +73,6 @@ class Headless(Node):
         self.gamepad.init()
         print(f'Gamepad Found: {self.gamepad.get_name()}')
 
-        # Now initialize the ROS2 node
-        super().__init__("headless")
         self.create_timer(0.15, self.send_controls)
 
         self.core_publisher = self.create_publisher(CoreControl, '/core/control', 2)
@@ -173,7 +179,7 @@ class Headless(Node):
 
             # Forward/back and Turn
             input.linear.x = -1.0 * left_stick_y
-            input.angular.z = -1.0 * right_stick_x ** 2  # Exponent for finer control (curve)
+            input.angular.z = -1.0 * copysign(right_stick_x ** 2, right_stick_x)  # Exponent for finer control (curve)
 
             # Publish
             self.core_twist_pub_.publish(input)
@@ -262,7 +268,14 @@ class Headless(Node):
 
 
             # BIO
-            bio_input = BioControl(bio_arm=int(left_stick_y * -100), drill_arm=int(round(right_stick_y) * -100))
+            bio_input = BioControl(
+                bio_arm=int(left_stick_y * -100),
+                drill_arm=int(round(right_stick_y) * -100)
+            )
+
+            # Drill motor (FAERIE)
+            if deadzone(left_trigger) > 0 or deadzone(right_trigger) > 0:
+                bio_input.drill = 100 * right_trigger - 100 * left_trigger
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)

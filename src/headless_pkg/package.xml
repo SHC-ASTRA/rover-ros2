@@ -8,6 +8,8 @@
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
+  <depend>common_interfaces</depend>
+  <depend>python3-pygame</depend>
   <depend>ros2_interfaces_pkg</depend>
 
   <test_depend>ament_copyright</test_depend>

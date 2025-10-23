@@ -8,7 +8,11 @@
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
+  <depend>common_interfaces</depend>
+  <depend>python3-numpy</depend>
   <depend>ros2_interfaces_pkg</depend>
+  <!-- TODO: remove after refactored out -->
+  <exec_depend>python3-ikpy-pip</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
