@@ -426,6 +426,9 @@ class SerialRelay(Node):
                         motor = self.feedback_new_state.fr_motor
                     case 4:
                         motor = self.feedback_new_state.br_motor
+                    case _:
+                        self.get_logger().warning(f"Ignoring REV motor feedback 53 with invalid motorId {motorId}")
+                        return
 
                 if motor:
                     motor.temperature = temp
@@ -471,6 +474,9 @@ class SerialRelay(Node):
                     case 4:
                         motor = self.feedback_new_state.br_motor
                         joint_state_msg.name = ["br_motor_joint"]
+                    case _:
+                        self.get_logger().warning(f"Ignoring REV motor feedback 58 with invalid motorId {motorId}")
+                        return
 
                 joint_state_msg.header.stamp = msg.header.stamp
                 self.joint_state_pub_.publish(joint_state_msg)

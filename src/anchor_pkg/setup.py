@@ -1,4 +1,6 @@
 from setuptools import find_packages, setup
+from os import path
+from glob import glob
 
 package_name = 'anchor_pkg'
 
@@ -9,7 +11,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml']),
+        (path.join("share", package_name), ['package.xml']),
+        (path.join("share", package_name, "launch"), glob("launch/*"))
     ],
     install_requires=['setuptools'],
     zip_safe=True,

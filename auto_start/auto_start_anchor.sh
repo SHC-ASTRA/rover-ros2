@@ -21,4 +21,4 @@ source /home/clucky/rover-ros2/install/setup.bash
 cd /home/clucky/rover-ros2/
 
 # Launch the ROS 2 node with the desired mode
-ros2 launch rover_launch.py mode:=anchor
+ros2 launch anchor_pkg rover.launch.py mode:=anchor

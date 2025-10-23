@@ -31,6 +31,7 @@
                 pygame
                 scipy
                 crccheck
+                black
               ]
             ))
             (

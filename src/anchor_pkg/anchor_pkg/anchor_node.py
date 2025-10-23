@@ -43,27 +43,6 @@ class SerialRelay(Node):
         # Initalize node with name
         super().__init__("anchor_node")#previously 'serial_publisher'
 
-        # New pub/sub with VicCAN
-        self.fromvic_debug_pub_ = self.create_publisher(String, '/anchor/from_vic/debug', 20)
-        self.fromvic_core_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/core', 20)
-        self.fromvic_arm_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/arm', 20)
-        self.fromvic_bio_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/bio', 20)
-
-        self.mock_mcu_sub_ = self.create_subscription(String, '/anchor/from_vic/mock_mcu', self.on_mock_fromvic, 20)
-        self.tovic_sub_ = self.create_subscription(VicCAN, '/anchor/to_vic/relay', self.on_relay_tovic_viccan, 20)
-        self.tovic_debug_sub_ = self.create_subscription(String, '/anchor/to_vic/relay_string', self.on_relay_tovic_string, 20)
-
-
-        # Create publishers 
-        self.arm_pub = self.create_publisher(String, '/anchor/arm/feedback', 10)
-        self.core_pub = self.create_publisher(String, '/anchor/core/feedback', 10)
-        self.bio_pub = self.create_publisher(String, '/anchor/bio/feedback', 10)
-
-        self.debug_pub = self.create_publisher(String, '/anchor/debug', 10)
-
-        # Create a subscriber 
-        self.relay_sub = self.create_subscription(String, '/anchor/relay', self.on_relay_tovic_string, 10)
-
         # Loop through all serial devices on the computer to check for the MCU
         self.port = None
         if port_override := os.getenv("PORT_OVERRIDE"):
@@ -97,6 +76,27 @@ class SerialRelay(Node):
         self.get_logger().info(f"Enabling Relay Mode")
         self.ser.write(b"can_relay_mode,on\n")
         atexit.register(self.cleanup)
+
+        # New pub/sub with VicCAN
+        self.fromvic_debug_pub_ = self.create_publisher(String, '/anchor/from_vic/debug', 20)
+        self.fromvic_core_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/core', 20)
+        self.fromvic_arm_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/arm', 20)
+        self.fromvic_bio_pub_ = self.create_publisher(VicCAN, '/anchor/from_vic/bio', 20)
+
+        self.mock_mcu_sub_ = self.create_subscription(String, '/anchor/from_vic/mock_mcu', self.on_mock_fromvic, 20)
+        self.tovic_sub_ = self.create_subscription(VicCAN, '/anchor/to_vic/relay', self.on_relay_tovic_viccan, 20)
+        self.tovic_debug_sub_ = self.create_subscription(String, '/anchor/to_vic/relay_string', self.on_relay_tovic_string, 20)
+
+
+        # Create publishers 
+        self.arm_pub = self.create_publisher(String, '/anchor/arm/feedback', 10)
+        self.core_pub = self.create_publisher(String, '/anchor/core/feedback', 10)
+        self.bio_pub = self.create_publisher(String, '/anchor/bio/feedback', 10)
+
+        self.debug_pub = self.create_publisher(String, '/anchor/debug', 10)
+
+        # Create a subscriber 
+        self.relay_sub = self.create_subscription(String, '/anchor/relay', self.on_relay_tovic_string, 10)
 
 
     def run(self):

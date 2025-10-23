@@ -11,6 +11,8 @@
   <depend>common_interfaces</depend>
   <depend>python3-serial</depend>
 
+  <build_depend>black</build_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
