@@ -12,7 +12,6 @@ from ros2_interfaces_pkg.msg import ArmManual
 from ros2_interfaces_pkg.msg import SocketFeedback
 from ros2_interfaces_pkg.msg import DigitFeedback
 from sensor_msgs.msg import JointState
-from tf2_ros import TransformBroadcaster, TransformStamped
 import math
 
 # control_qos = qos.QoSProfile(
@@ -55,7 +54,6 @@ class SerialRelay(Node):
 
         # New messages
         self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)
-        self.tf_broadcaster = TransformBroadcaster(self)
         self.joint_state = JointState()
         self.joint_state.name = [
             "Axis_0_Joint",
@@ -66,15 +64,7 @@ class SerialRelay(Node):
             "Wrist-EF_Roll_Joint",
             "Gripper_Slider_Left",
         ]
-        self.joint_state.position = [0.0] * len(
-            self.joint_state.name
-        )  # Initialize with zeros
-        self.odom_trans = TransformStamped()
-        self.odom_trans.header.frame_id = "odom"
-        self.odom_trans.child_frame_id = "base_link"
-        self.odom_trans.transform.translation.x = 0.0
-        self.odom_trans.transform.translation.y = 0.0
-        self.odom_trans.transform.translation.z = 0.0
+        self.joint_state.position = [0.0] * len(self.joint_state.name)  # Initialize with zeros
 
         self.joint_command_sub = self.create_subscription(
             JointState, "/joint_commands", self.joint_command_callback, 10
@@ -179,10 +169,8 @@ class SerialRelay(Node):
 
         # Set target angles for each arm axis for embedded IK PID to handle
         command = f"can_relay_tovic,arm,32,{positions[0]},{positions[1]},{positions[2]},{positions[3]}\n"
-        # Wrist yaw
-        command += f"can_relay_tovic,digit,36,0,{positions[4]}\n"
-        # Wrist roll
-        command += f"can_relay_tovic,digit,35,{positions[5]}\n"
+        # Wrist yaw and roll
+        command += f"can_relay_tovic,digit,32,{positions[4]},{positions[5]}\n"
         # Gripper IK does not have adequate hardware yet
         self.send_cmd(command)
 
@@ -193,36 +181,18 @@ class SerialRelay(Node):
         axis3 = msg.axis3
 
         # Send controls for arm
-        command = "can_relay_tovic,arm,18," + str(int(msg.brake)) + "\n"
-        command += (
-            "can_relay_tovic,arm,39,"
-            + str(axis0)
-            + ","
-            + str(axis1)
-            + ","
-            + str(axis2)
-            + ","
-            + str(axis3)
-            + "\n"
-        )
+        command = f"can_relay_tovic,arm,18,{int(msg.brake)}\n"
+        command += f"can_relay_tovic,arm,39,{axis0},{axis1},{axis2},{axis3}\n"
 
         # Send controls for end effector
 
-        # command += "can_relay_tovic,digit,35," + str(msg.effector_roll) + "\n"
-        # command += "can_relay_tovic,digit,36,0," + str(msg.effector_yaw) + "\n"
-        command += (
-            "can_relay_tovic,digit,39,"
-            + str(msg.effector_yaw)
-            + ","
-            + str(msg.effector_roll)
-            + "\n"
-        )
+        command += f"can_relay_tovic,digit,39,{msg.effector_yaw},{msg.effector_roll}\n"
 
-        command += "can_relay_tovic,digit,26," + str(msg.gripper) + "\n"
+        # command += f"can_relay_tovic,digit,26,{msg.gripper}\n"  # no hardware rn
 
-        command += "can_relay_tovic,digit,28," + str(msg.laser) + "\n"
+        command += f"can_relay_tovic,digit,28,{msg.laser}\n"
 
-        command += "can_relay_tovic,digit,34," + str(msg.linear_actuator) + "\n"
+        command += f"can_relay_tovic,digit,34,{msg.linear_actuator}\n"
 
         self.send_cmd(command)
 
@@ -263,6 +233,8 @@ class SerialRelay(Node):
             if len(parts) >= 4:
                 self.digit_feedback.wrist_angle = float(parts[3])
                 # self.digit_feedback.wrist_roll = float(parts[4])
+                self.joint_state.position[4] = math.radians(float(parts[4]))  # Wrist roll
+                self.joint_state.position[5] = math.radians(float(parts[3]))  # Wrist yaw
         else:
             return
 
@@ -280,18 +252,7 @@ class SerialRelay(Node):
             angles_in = parts[3:7]
             # Convert the angles to floats divide by 10.0
             angles = [float(angle) / 10.0 for angle in angles_in]
-            #
-            #
-            # THIS NEEDS TO BE REMOVED LATER
-            # PLACEHOLDER FOR WRIST VALUE
-            #
-            #
-            angles.append(0.0)  # placeholder for wrist_continuous
-            angles.append(0.0)  # placeholder for wrist
-            #
-            #
-            # # Update the arm's current angles
-            self.arm.update_angles(angles)
+
             self.arm_feedback.axis0_angle = angles[0]
             self.arm_feedback.axis1_angle = angles[1]
             self.arm_feedback.axis2_angle = angles[2]
@@ -302,13 +263,10 @@ class SerialRelay(Node):
             self.joint_state.position[1] = math.radians(angles[1])  # Axis 1
             self.joint_state.position[2] = math.radians(-angles[2])  # Axis 2 (inverted)
             self.joint_state.position[3] = math.radians(-angles[3])  # Axis 3 (inverted)
-            self.joint_state.position[4] = math.radians(angles[4])  # Wrist roll
-            self.joint_state.position[5] = math.radians(angles[5])  # Wrist yaw
+            # Wrist is handled by digit feedback
             self.joint_state.header.stamp = self.get_clock().now().to_msg()
             self.joint_state_pub.publish(self.joint_state)
 
-            # self.odom_trans.header.stamp = self.get_clock().now().to_msg()
-            self.tf_broadcaster.sendTransform(self.odom_trans)
         else:
             self.get_logger().info("Invalid angle feedback input format")
 

@@ -6,7 +6,6 @@ from launch.substitutions import LaunchConfiguration, ThisLaunchFileDir, PathJoi
 from launch_ros.actions import Node
 
 
-
 #Prevent making __pycache__ directories
 from sys import dont_write_bytecode
 dont_write_bytecode = True
@@ -18,18 +17,14 @@ def launch_setup(context, *args, **kwargs):
 
     if mode == 'anchor':
         # Launch every node and pass "anchor" as the parameter
-        
-        # Arm
-        urdf_file = "/home/david/repos/rover-ros2/src/arm_pkg/urdf/arm12.urdf"
-        robot_description = {'robot_description': open(urdf_file).read()}
+
         nodes.append(
             Node(
                 package='arm_pkg',
                 executable='arm',  # change as needed
                 name='arm',
                 output='both',
-                parameters=[{'launch_mode': mode},
-                            {'robot_description': robot_description}],
+                parameters=[{'launch_mode': mode}],
                 on_exit=Shutdown()
             )
         )
