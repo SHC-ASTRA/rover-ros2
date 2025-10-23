@@ -268,12 +268,8 @@ class Headless(Node):
             )
 
             # Drill motor (FAERIE)
-            if left_trigger > 0 and right_trigger > 0:
-                bio_input.drill = 0
-            elif left_trigger > 0:
-                bio_input.drill = -100
-            elif right_trigger > 0:
-                bio_input.drill = 100
+            if deadzone(left_trigger) > 0 or deadzone(right_trigger) > 0:
+                bio_input.drill = 100 * right_trigger - 100 * left_trigger
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
