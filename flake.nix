@@ -53,6 +53,23 @@
                   robot-state-publisher
                   ros2-control
                   controller-manager
+                  control-msgs
+                  control-toolbox
+                  moveit-core
+                  moveit-common
+                  moveit-msgs
+                  moveit-ros-planning
+                  moveit-ros-planning-interface
+                  moveit-configs-utils
+                  moveit-ros-move-group
+                  moveit-servo
+                  moveit-simple-controller-manager
+                  topic-based-ros2-control
+                  pilz-industrial-motion-planner
+                  pick-ik
+                  ompl
+                  chomp-motion-planner
+                  joy
                   # ros2-controllers nixpkg does not build :(
                 ];
               }
