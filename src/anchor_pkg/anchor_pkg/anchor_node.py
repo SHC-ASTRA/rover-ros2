@@ -185,7 +185,7 @@ class SerialRelay(Node):
         elif parts[1] not in ["core", "arm", "digit", "citadel", "broadcast"]:
             malformed = True
             malformed_reason = f"invalid mcu_name '{parts[1]}'"
-        elif parts[2].isnumeric() is False or int(parts[2]) < 0:
+        elif not(parts[2].isnumeric()) or int(parts[2]) < 0:
             malformed = True
             malformed_reason = f"command_id '{parts[2]}' is not a non-negative integer"
         else:

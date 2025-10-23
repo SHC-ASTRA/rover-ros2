@@ -19,7 +19,7 @@ from math import copysign, pi
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
 from geometry_msgs.msg import TwistStamped, Twist
-from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback
+from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback, RevMotorState
 from ros2_interfaces_pkg.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
 
@@ -416,26 +416,23 @@ class SerialRelay(Node):
                 temp = float(msg.data[1]) / 10.0
                 voltage = float(msg.data[2]) / 10.0
                 current = float(msg.data[3]) / 10.0
-                if motorId == 1:
-                    self.feedback_new_state.fl_motor.temperature = temp
-                    self.feedback_new_state.fl_motor.voltage = voltage
-                    self.feedback_new_state.fl_motor.current = current
-                    self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
-                elif motorId == 2:
-                    self.feedback_new_state.bl_motor.temperature = temp
-                    self.feedback_new_state.bl_motor.voltage = voltage
-                    self.feedback_new_state.bl_motor.current = current
-                    self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
-                elif motorId == 3:
-                    self.feedback_new_state.fr_motor.temperature = temp
-                    self.feedback_new_state.fr_motor.voltage = voltage
-                    self.feedback_new_state.fr_motor.current = current
-                    self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
-                elif motorId == 4:
-                    self.feedback_new_state.br_motor.temperature = temp
-                    self.feedback_new_state.br_motor.voltage = voltage
-                    self.feedback_new_state.br_motor.current = current
-                    self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
+                motor: RevMotorState | None = None
+                match motorId:
+                    case 1:
+                        motor = self.feedback_new_state.fl_motor
+                    case 2:
+                        motor = self.feedback_new_state.bl_motor
+                    case 3:
+                        motor = self.feedback_new_state.fr_motor
+                    case 4:
+                        motor = self.feedback_new_state.br_motor
+
+                if motor:
+                    motor.temperature = temp
+                    motor.voltage = voltage
+                    motor.current = current
+                    motor.header.stamp = msg.header.stamp
+
                 self.feedback_new_pub_.publish(self.feedback_new_state)
             # Board voltage
             case 54:  # Voltages batt, 12, 5, 3, all * 100
@@ -458,26 +455,23 @@ class SerialRelay(Node):
                 joint_state_msg = JointState()  # TODO: not sure if all motors should be in each message or not
                 joint_state_msg.position = [position * (2 * pi) / CORE_GEAR_RATIO]  # revolutions to radians
                 joint_state_msg.velocity = [velocity * (2 * pi / 60.0) / CORE_GEAR_RATIO]  # RPM to rad/s
-                if motorId == 1:
-                    self.feedback_new_state.fl_motor.position = position
-                    self.feedback_new_state.fl_motor.velocity = velocity
-                    self.feedback_new_state.fl_motor.header.stamp = msg.header.stamp
-                    joint_state_msg.name = ["fl_motor_joint"]
-                elif motorId == 2:
-                    self.feedback_new_state.bl_motor.position = position
-                    self.feedback_new_state.bl_motor.velocity = velocity
-                    self.feedback_new_state.bl_motor.header.stamp = msg.header.stamp
-                    joint_state_msg.name = ["bl_motor_joint"]
-                elif motorId == 3:
-                    self.feedback_new_state.fr_motor.position = position
-                    self.feedback_new_state.fr_motor.velocity = velocity
-                    self.feedback_new_state.fr_motor.header.stamp = msg.header.stamp
-                    joint_state_msg.name = ["fr_motor_joint"]
-                elif motorId == 4:
-                    self.feedback_new_state.br_motor.position = position
-                    self.feedback_new_state.br_motor.velocity = velocity
-                    self.feedback_new_state.br_motor.header.stamp = msg.header.stamp
-                    joint_state_msg.name = ["br_motor_joint"]
+
+                motor: RevMotorState | None = None
+
+                match motorId:
+                    case 1:
+                        motor = self.feedback_new_state.fl_motor
+                        joint_state_msg.name = ["fl_motor_joint"]
+                    case 2:
+                        motor = self.feedback_new_state.bl_motor
+                        joint_state_msg.name = ["bl_motor_joint"]
+                    case 3:
+                        motor = self.feedback_new_state.fr_motor
+                        joint_state_msg.name = ["fr_motor_joint"]
+                    case 4:
+                        motor = self.feedback_new_state.br_motor
+                        joint_state_msg.name = ["br_motor_joint"]
+
                 joint_state_msg.header.stamp = msg.header.stamp
                 self.joint_state_pub_.publish(joint_state_msg)
             case _:
