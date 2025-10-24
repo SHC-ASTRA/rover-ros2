@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Wait for a network interface to be up (not necessarily online)
 while ! ip link show | grep -q "state UP"; do
