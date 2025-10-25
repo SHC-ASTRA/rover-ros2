@@ -275,7 +275,7 @@ class Headless(Node):
 
             # Drill motor (FAERIE)
             if deadzone(left_trigger) > 0 or deadzone(right_trigger) > 0:
-                bio_input.drill = 100 * right_trigger - 100 * left_trigger
+                bio_input.drill = int(30 * (right_trigger - left_trigger))  # Max duty cycle 30%
 
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
