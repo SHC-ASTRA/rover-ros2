@@ -2,9 +2,8 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, Shutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, ThisLaunchFileDir, PathJoinSubstitution
 from launch_ros.actions import Node
-
 
 
 #Prevent making __pycache__ directories
@@ -18,6 +17,7 @@ def launch_setup(context, *args, **kwargs):
 
     if mode == 'anchor':
         # Launch every node and pass "anchor" as the parameter
+
         nodes.append(
             Node(
                 package='arm_pkg',

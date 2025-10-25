@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ANCHOR_WS="/home/clucky/rover-ros2"
 AUTONOMY_WS="/home/clucky/rover-Autonomy"
