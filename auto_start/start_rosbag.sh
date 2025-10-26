@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-ANCHOR_WS="$(dirname $0)/.."
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+ANCHOR_WS="$SCRIPT_DIR/.."
 AUTONOMY_WS="$ANCHOR_WS/../rover-Autonomy"
 BAG_LOCATION="$ANCHOR_WS/../bags/autostart"
 

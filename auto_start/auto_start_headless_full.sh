@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 # Wait for a network interface to be up (not necessarily online)
 while ! ip link show | grep -q "state UP"; do
     echo "[INFO] Waiting for active network interface..."
@@ -15,7 +17,7 @@ echo "[INFO] Starting ROS node..."
 source /opt/ros/humble/setup.bash
 
 # Source your workspace setup script
-source $(dirname $0)/../install/setup.bash
+source $SCRIPT_DIR/../install/setup.bash
 
 # Launch the ROS 2 node
 ros2 run headless_pkg headless_full
