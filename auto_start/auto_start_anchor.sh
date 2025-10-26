@@ -15,10 +15,7 @@ echo "[INFO] Starting ROS node..."
 source /opt/ros/humble/setup.bash
 
 # Source your workspace setup script
-source /home/clucky/rover-ros2/install/setup.bash
-
-# CD to directory
-cd /home/clucky/rover-ros2/
+source $(dirname $0)/../install/setup.bash
 
 # Launch the ROS 2 node with the desired mode
 ros2 launch anchor_pkg rover.launch.py mode:=anchor

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-ANCHOR_WS="/home/clucky/rover-ros2"
-AUTONOMY_WS="/home/clucky/rover-Autonomy"
-BAG_LOCATION="/home/clucky/bags/autostart"
+ANCHOR_WS="$(dirname $0)/.."
+AUTONOMY_WS="$ANCHOR_WS/../rover-Autonomy"
+BAG_LOCATION="$ANCHOR_WS/../bags/autostart"
 
 # Wait for a network interface to be up (not necessarily online)
 while ! ip link show | grep -q "state UP"; do
