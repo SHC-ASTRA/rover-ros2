@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-ANCHOR_WS="$SCRIPT_DIR/.."
-AUTONOMY_WS="$ANCHOR_WS/../rover-Autonomy"
-BAG_LOCATION="$ANCHOR_WS/../bags/autostart"
+[[ -z "$ANCHOR_WS" ]] && ANCHOR_WS="$SCRIPT_DIR/.."
+[[ -z "$AUTONOMY_WS" ]] && AUTONOMY_WS="$HOME/rover-Autonomy"
+BAG_LOCATION="$HOME/bags/autostart"
+[[ ! -d "$BAG_LOCATION" ]] && mkdir -p "$BAG_LOCATION"
 
 # Wait for a network interface to be up (not necessarily online)
 while ! ip link show | grep -q "state UP"; do
@@ -17,7 +19,7 @@ echo "[INFO] Network interface is up!"
 
 source /opt/ros/humble/setup.bash
 source $ANCHOR_WS/install/setup.bash
-[ -f $AUTONOMY_WS/install/setup.bash ] && source $AUTONOMY_WS/install/setup.bash
+[[ -f $AUTONOMY_WS/install/setup.bash ]] && source $AUTONOMY_WS/install/setup.bash
 
 cd $BAG_LOCATION
 
