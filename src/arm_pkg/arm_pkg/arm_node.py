@@ -64,7 +64,9 @@ class SerialRelay(Node):
             "Wrist-EF_Roll_Joint",
             "Gripper_Slider_Left",
         ]
-        self.joint_state.position = [0.0] * len(self.joint_state.name)  # Initialize with zeros
+        self.joint_state.position = [0.0] * len(
+            self.joint_state.name
+        )  # Initialize with zeros
 
         self.joint_command_sub = self.create_subscription(
             JointState, "/joint_commands", self.joint_command_callback, 10
@@ -233,8 +235,12 @@ class SerialRelay(Node):
             if len(parts) >= 4:
                 self.digit_feedback.wrist_angle = float(parts[3])
                 # self.digit_feedback.wrist_roll = float(parts[4])
-                self.joint_state.position[4] = math.radians(float(parts[4]))  # Wrist roll
-                self.joint_state.position[5] = math.radians(float(parts[3]))  # Wrist yaw
+                self.joint_state.position[4] = math.radians(
+                    float(parts[4])
+                )  # Wrist roll
+                self.joint_state.position[5] = math.radians(
+                    float(parts[3])
+                )  # Wrist yaw
         else:
             return
 

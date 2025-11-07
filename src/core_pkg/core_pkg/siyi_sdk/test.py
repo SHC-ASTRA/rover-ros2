@@ -24,7 +24,9 @@ async def main():
         await asyncio.sleep(2)
 
         # Command 1: Move all the way to the right (using set angles)
-        logger.info("Command 1: Move all the way to the right (using absolute angle control)")
+        logger.info(
+            "Command 1: Move all the way to the right (using absolute angle control)"
+        )
         await camera.send_attitude_angles_command(135.0, 0.0)
         await asyncio.sleep(5)
 
@@ -35,13 +37,17 @@ async def main():
         await asyncio.sleep(5)
 
         # Command 3: Stop looking down, then look up (with the single axis)
-        logger.info("Command 3: Stop looking down and start looking up (single axis control)")
+        logger.info(
+            "Command 3: Stop looking down and start looking up (single axis control)"
+        )
         await camera.send_rotation_command(0, 0)
         await camera.send_single_axis_attitude_command(135, SingleAxis.PITCH)
         await asyncio.sleep(5)
 
         # Command 4: Reset and move all the way to the left (Absolute value).
-        logger.info("Command 4: Move back to the center, and start moving all the way left")
+        logger.info(
+            "Command 4: Move back to the center, and start moving all the way left"
+        )
         await camera.send_attitude_angles_command(-135.0, 0.0)
         await asyncio.sleep(5)
 
