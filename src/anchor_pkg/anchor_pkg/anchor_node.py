@@ -13,7 +13,7 @@ import threading
 import glob
 
 from std_msgs.msg import String, Header
-from ros2_interfaces_pkg.msg import VicCAN
+from astra_msgs.msg import VicCAN
 
 serial_pub = None
 thread = None

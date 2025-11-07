@@ -1,6 +1,6 @@
-[submodule "src/ros2_interfaces_pkg"]
-	path = src/ros2_interfaces_pkg
-	url = ../ros2_interfaces_pkg
 [submodule "src/astra_description"]
 	path = src/astra_descriptions
 	url = ../astra_descriptions
+[submodule "src/astra_msgs"]
+	path = src/astra_msgs
+	url = git@github.com:SHC-ASTRA/astra_msgs.git
