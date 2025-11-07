@@ -9,7 +9,7 @@ import threading
 import time
 
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import PtzControl, PtzFeedback
+from astra_msgs.msg import PtzControl, PtzFeedback
 
 # Import the SIYI SDK
 from core_pkg.siyi_sdk import (

@@ -9,8 +9,8 @@ import time
 import atexit
 import signal
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import BioControl
-from ros2_interfaces_pkg.msg import BioFeedback
+from astra_msgs.msg import BioControl
+from astra_msgs.msg import BioFeedback
 
 serial_pub = None
 thread = None

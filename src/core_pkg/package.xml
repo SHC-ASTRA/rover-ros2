@@ -11,7 +11,7 @@
   <depend>common_interfaces</depend>
   <depend>python3-scipy</depend>
   <depend>python-crccheck-pip</depend>
-  <depend>ros2_interfaces_pkg</depend>
+  <depend>astra_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

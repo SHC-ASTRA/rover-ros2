@@ -13,7 +13,7 @@ import os
 
 import importlib
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import CoreControl
+from astra_msgs.msg import CoreControl
 
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display

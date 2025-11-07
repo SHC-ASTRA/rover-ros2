@@ -8,9 +8,9 @@ import time
 import atexit
 import signal
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import ArmManual
-from ros2_interfaces_pkg.msg import SocketFeedback
-from ros2_interfaces_pkg.msg import DigitFeedback
+from astra_msgs.msg import ArmManual
+from astra_msgs.msg import SocketFeedback
+from astra_msgs.msg import DigitFeedback
 from sensor_msgs.msg import JointState
 import math
 

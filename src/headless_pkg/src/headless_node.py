@@ -15,8 +15,8 @@ from math import copysign
 
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
-from ros2_interfaces_pkg.msg import CoreControl, ArmManual, BioControl
-from ros2_interfaces_pkg.msg import CoreCtrlState
+from astra_msgs.msg import CoreControl, ArmManual, BioControl
+from astra_msgs.msg import CoreCtrlState
 
 import pygame
 

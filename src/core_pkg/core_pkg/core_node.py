@@ -19,8 +19,8 @@ from math import copysign, pi
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
 from geometry_msgs.msg import TwistStamped, Twist
-from ros2_interfaces_pkg.msg import CoreControl, CoreFeedback, RevMotorState
-from ros2_interfaces_pkg.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
+from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
+from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
 
 serial_pub = None

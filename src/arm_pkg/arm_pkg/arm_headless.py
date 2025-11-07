@@ -12,9 +12,9 @@ import glob
 import os
 
 from std_msgs.msg import String
-from ros2_interfaces_pkg.msg import ControllerState
-from ros2_interfaces_pkg.msg import ArmManual
-from ros2_interfaces_pkg.msg import ArmIK
+from astra_msgs.msg import ControllerState
+from astra_msgs.msg import ArmManual
+from astra_msgs.msg import ArmIK
 
 
 os.environ["SDL_AUDIODRIVER"] = (
