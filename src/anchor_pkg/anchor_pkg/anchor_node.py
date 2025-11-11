@@ -19,28 +19,27 @@ serial_pub = None
 thread = None
 
 
-"""
-Publishers:
-  * /anchor/from_vic/debug
-    - Every string received from the MCU is published here for debugging
-  * /anchor/from_vic/core
-    - VicCAN messages for Core node
-  * /anchor/from_vic/arm
-    - VicCAN messages for Arm node
-  * /anchor/from_vic/bio
-    - VicCAN messages for Bio node
+class Anchor(Node):
+    """
+    Publishers:
+    * /anchor/from_vic/debug
+        - Every string received from the MCU is published here for debugging
+    * /anchor/from_vic/core
+        - VicCAN messages for Core node
+    * /anchor/from_vic/arm
+        - VicCAN messages for Arm node
+    * /anchor/from_vic/bio
+        - VicCAN messages for Bio node
 
-Subscribers:
-  * /anchor/from_vic/mock_mcu
-    - For testing without an actual MCU, publish strings here as if they came from an MCU
-  * /anchor/to_vic/relay
-    - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
-  * /anchor/to_vic/relay_string
-    - Publish raw strings to this topic to send directly to the MCU for debugging
-"""
+    Subscribers:
+    * /anchor/from_vic/mock_mcu
+        - For testing without an actual MCU, publish strings here as if they came from an MCU
+    * /anchor/to_vic/relay
+        - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
+    * /anchor/to_vic/relay_string
+        - Publish raw strings to this topic to send directly to the MCU for debugging
+    """
 
-
-class SerialRelay(Node):
     def __init__(self):
         # Initalize node with name
         super().__init__("anchor_node")  # previously 'serial_publisher'
@@ -49,7 +48,7 @@ class SerialRelay(Node):
         self.port = None
         if port_override := os.getenv("PORT_OVERRIDE"):
             self.port = port_override
-        ports = SerialRelay.list_serial_ports()
+        ports = Anchor.list_serial_ports()
         for i in range(4):
             if self.port is not None:
                 break
@@ -270,7 +269,7 @@ def main(args=None):
 
     global serial_pub
 
-    serial_pub = SerialRelay()
+    serial_pub = Anchor()
     serial_pub.run()
 
 
