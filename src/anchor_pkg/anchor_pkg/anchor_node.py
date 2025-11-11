@@ -144,11 +144,14 @@ class Anchor(Node):
                 mcu_name: str = ""
                 for _ in range(4):
                     response = self.serial_interface.read_until(bytes("\n", "utf8"))
-                    if b"can_relay_ready" in response:
-                        args: list[str] = response.decode("utf8").strip().split(",")
-                        if len(args) == 2:
-                            mcu_name = args[1]
-                        break
+                    try:
+                        if b"can_relay_ready" in response:
+                            args: list[str] = response.decode("utf8").strip().split(",")
+                            if len(args) == 2:
+                                mcu_name = args[1]
+                            break
+                    except UnicodeDecodeError:
+                        pass  # ignore malformed responses
                 self.get_logger().info(
                     f"MCU '{mcu_name}' is ready at '{self.serial_port}'."
                 )
