@@ -11,6 +11,8 @@ import os
 import sys
 import threading
 import glob
+import pwd
+import grp
 from math import copysign
 
 from std_msgs.msg import String
@@ -74,6 +76,19 @@ class Headless(Node):
         self.gamepad = pygame.joystick.Joystick(0)
         self.gamepad.init()
         print(f"Gamepad Found: {self.gamepad.get_name()}")
+
+        if self.gamepad.get_numhats() == 0:
+            self.get_logger().error("Controller not correctly initialized.")
+            if not is_user_in_group("input"):
+                self.get_logger().warning(
+                    "If using NixOS, you may need to add yourself to the 'input' group."
+                )
+            if is_user_in_group("plugdev"):
+                self.get_logger().warning(
+                    "If using NixOS, you may need to remove yourself from the 'plugdev' group."
+                )
+            time.sleep(1)
+            sys.exit(1)
 
         self.create_timer(0.15, self.send_controls)
 
@@ -294,6 +309,24 @@ def deadzone(value: float, threshold=0.05) -> float:
     if abs(value) < threshold:
         return 0
     return value
+
+
+def is_user_in_group(group_name: str) -> bool:
+    # Copied from https://zetcode.com/python/os-getgrouplist/
+    try:
+        username = os.getlogin()
+
+        # Get group ID from name
+        group_info = grp.getgrnam(group_name)
+        target_gid = group_info.gr_gid
+
+        # Get user's groups
+        user_info = pwd.getpwnam(username)
+        user_groups = os.getgrouplist(username, user_info.pw_gid)
+
+        return target_gid in user_groups
+    except KeyError:
+        return False
 
 
 def main(args=None):
