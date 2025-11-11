@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 from std_srvs.srv import Empty
 
 import signal
@@ -14,9 +15,6 @@ import glob
 
 from std_msgs.msg import String, Header
 from astra_msgs.msg import VicCAN
-
-serial_pub = None
-thread = None
 
 
 class Anchor(Node):
@@ -76,7 +74,12 @@ class Anchor(Node):
         self.ser = serial.Serial(self.port, 115200)
         self.get_logger().info(f"Enabling Relay Mode")
         self.ser.write(b"can_relay_mode,on\n")
+
+        # Close serial port on exit
         atexit.register(self.cleanup)
+
+        ##################################################
+        # ROS2 Topic Setup
 
         # New pub/sub with VicCAN
         self.fromvic_debug_pub_ = self.create_publisher(
@@ -113,18 +116,6 @@ class Anchor(Node):
         self.relay_sub = self.create_subscription(
             String, "/anchor/relay", self.on_relay_tovic_string, 10
         )
-
-    def run(self):
-        # This thread makes all the update processes run in the background
-        global thread
-        thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
-        thread.start()
-
-        try:
-            while rclpy.ok():
-                self.read_MCU()  # Check the MCU for updates
-        except KeyboardInterrupt:
-            sys.exit(0)
 
     def read_MCU(self):
         """Check the USB serial port for new data from the MCU, and publish string to appropriate topics"""
@@ -257,24 +248,25 @@ class Anchor(Node):
             self.ser.close()
 
 
-def myexcepthook(type, value, tb):
-    print("Uncaught exception:", type, value)
-    if serial_pub:
-        serial_pub.cleanup()
-
-
 def main(args=None):
-    rclpy.init(args=args)
-    sys.excepthook = myexcepthook
+    try:
+        rclpy.init(args=args)
+        anchor_node = Anchor()
 
-    global serial_pub
+        thread = threading.Thread(target=rclpy.spin, args=(anchor_node,), daemon=True)
+        thread.start()
 
-    serial_pub = Anchor()
-    serial_pub.run()
+        rate = anchor_node.create_rate(100)  # 100 Hz -- arbitrary rate
+        while rclpy.ok():
+            anchor_node.read_MCU()  # Check the MCU for updates
+            rate.sleep()
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal, shutting down...")
+    finally:
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(
         signal.SIGTERM, lambda signum, frame: sys.exit(0)
     )  # Catch termination signals and exit cleanly
