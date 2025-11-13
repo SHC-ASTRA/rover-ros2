@@ -35,7 +35,7 @@
               ]
             ))
             (
-              with rosPackages.humble;
+              with rosPackages.jazzy;
               buildEnv {
                 paths = [
                   ros-core
@@ -64,7 +64,6 @@
                   moveit-ros-move-group
                   moveit-servo
                   moveit-simple-controller-manager
-                  topic-based-ros2-control
                   pilz-industrial-motion-planner
                   pick-ik
                   ompl
