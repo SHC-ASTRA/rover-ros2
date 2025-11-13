@@ -78,6 +78,10 @@
             # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
+	    if [[ ! $DIRENV_IN_ENVRC ]]; then
+              eval "$(${pkgs.python3Packages.argcomplete}/bin/register-python-argcomplete ros2)"
+              eval "$(${pkgs.python3Packages.argcomplete}/bin/register-python-argcomplete colcon)"
+            fi
           '';
         };
       }
