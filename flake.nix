@@ -35,10 +35,11 @@
               ]
             ))
             (
-              with rosPackages.humble;
+              with rosPackages.jazzy;
               buildEnv {
                 paths = [
                   ros-core
+		  ros-testing
                   ros2cli
                   ros2run
                   ros2bag
@@ -64,7 +65,7 @@
                   moveit-ros-move-group
                   moveit-servo
                   moveit-simple-controller-manager
-                  topic-based-ros2-control
+                  #topic-based-ros2-control
                   pilz-industrial-motion-planner
                   pick-ik
                   ompl

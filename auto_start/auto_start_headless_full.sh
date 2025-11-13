@@ -15,7 +15,7 @@ echo "[INFO] Network interface is up!"
 echo "[INFO] Starting ROS node..."
 
 # Source ROS 2 Humble setup script
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 
 # Source your workspace setup script
 source $SCRIPT_DIR/../install/setup.bash

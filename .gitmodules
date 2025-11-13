@@ -3,4 +3,7 @@
 	url = ../astra_descriptions
 [submodule "src/astra_msgs"]
 	path = src/astra_msgs
-	url = git@github.com:SHC-ASTRA/astra_msgs.git
+	url = ../astra_msgs.git
+[submodule "src/topic_based_ros2_control"]
+	path = src/topic_based_ros2_control
+	url = ../../PickNikRobotics/topic_based_ros2_control.git
