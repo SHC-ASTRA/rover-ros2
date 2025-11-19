@@ -18,6 +18,12 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
+          config = {
+            # Allow the insecure freeimage package
+            permittedInsecurePackages = [
+              "freeimage-3.18.0-unstable-2024-04-18"
+            ];
+          };
         };
       in
       {
@@ -69,6 +75,8 @@
                   ompl
                   chomp-motion-planner
                   joy
+                  ros-gz-sim
+                  ros-gz-bridge
                   # ros2-controllers nixpkg does not build :(
                 ];
               }
