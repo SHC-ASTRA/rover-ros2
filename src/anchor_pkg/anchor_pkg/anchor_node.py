@@ -77,26 +77,23 @@ class Anchor(Node):
                 self.get_logger().info(
                     f"Selecting MCU '{found_port.description}' at {found_port.device}."
                 )
-                self.serial_port = found_port.device
+                self.serial_port = found_port.device  # String, location of device file; e.g., '/dev/ttyACM0'
             elif len(recog_ports) > 1:  # Found multiple recognized MCUs
                 # Kinda jank log message
                 self.get_logger().error(
                     f"Found multiple recognized MCUs: {[p.device for p in recog_ports].__str__()}"
                 )
-                # time.sleep(1)
-                # sys.exit(1)
+                # Don't set self.serial_port; later if-statement will exit()
             elif (
                 len(recog_ports) == 0 and len(real_ports) > 0
-            ):  # Found real ports but none recognized
+            ):  # Found real ports but none recognized; i.e. maybe found an IMU or camera but not a MCU
                 self.get_logger().error(
                     f"No recognized MCUs found; instead found {[p.device for p in real_ports].__str__()}."
                 )
-                # time.sleep(1)
-                # sys.exit(1)
+                # Don't set self.serial_port; later if-statement will exit()
             else:  # Found jack shit
                 self.get_logger().error("No valid Serial ports specified or found.")
-                # time.sleep(1)
-                # sys.exit(1)
+                # Don't set self.serial_port; later if-statement will exit()
 
         # We still don't have a serial port; fall back to legacy discovery (Areeb's code)
         # Loop through all serial devices on the computer to check for the MCU
