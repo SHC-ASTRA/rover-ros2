@@ -8,6 +8,7 @@ from launch.substitutions import (
     PathJoinSubstitution,
 )
 from launch_ros.actions import Node
+from launch.conditions import IfCondition
 
 
 # Prevent making __pycache__ directories
@@ -50,6 +51,7 @@ def launch_setup(context, *args, **kwargs):
                 executable="ptz",  # change as needed
                 name="ptz",
                 output="both",
+                condition=IfCondition(LaunchConfiguration("use_ptz", default="true")),
                 # Currently don't shutdown all nodes if the PTZ node fails, as it is not critical
                 # on_exit=Shutdown()  # Uncomment if you want to shutdown on PTZ failure
             )
