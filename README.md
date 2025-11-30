@@ -16,6 +16,7 @@ You will use these packages to launch all rover-side ROS2 nodes.
   - [Connecting the GuliKit Controller](#connecting-the-gulikit-controller)
 - [Common Problems/Toubleshooting](#common-problemstroubleshooting)
 - [Packages](#packages)
+- [Graphs](#graphs)
 - [Maintainers](#maintainers)
 
 ## Software Prerequisites
@@ -139,6 +140,17 @@ A: To find a microcontroller to talk to, Anchor sends a ping to every Serial por
 - [latency\_tester](./src/latency_tester) - A temporary node to test comms latency over ROS2, Serial, and CAN.
 - [ros2\_interfaces\_pkg](./src/ros2_interfaces_pkg) - Contains custom message types for communication between basestation and the rover over ROS2. (being renamed to `astra_msgs`).
 - [servo\_arm\_twist\_pkg](./src/servo_arm_twist_pkg) - A temporary node to translate controller state from `ros2_joy` to `Twist` messages to control the Arm via IK.
+
+## Graphs
+
+> Anchor stand-alone (`ros2 launch anchor_pkg rover.launch.py`)
+![rqt_graph of Anchor by itself, ran with command: ros2 launch anchor_pkg rover.launch.py](./docs-resources/graph-anchor-standalone.png)
+
+> Anchor with [basestation-classic](https://github.com/SHC-ASTRA/basestation-classic)
+![rqt_graph of Anchor ran with the same command as above, talking to basestation-classic](./docs-resources/graph-anchor-w-basestation-classic.png)
+
+> Anchor with Headless (`ros2 run headless_pkg headless_full`)
+![rqt_graph of Anchor ran with Headless](./docs-resources/graph-anchor-w-headless.png)
 
 ## Maintainers
 
