@@ -33,7 +33,8 @@ thread = None
 viccan_msg_len_dict = {
     53: 4,
     54: 4,
-    55: 4
+    55: 4,
+    58: 4
 }
 
 
@@ -272,8 +273,8 @@ class SerialRelay(Node):
             return
 
     def relay_fromvic(self, msg: VicCAN):
-        # Assume that the message is coming from Core
-        # skill diff if not
+        if msg.mcu_name != "arm":
+            return  # ignore digit for now
 
         # Check message len to prevent crashing on bad data
         if msg.command_id in viccan_msg_len_dict:
@@ -284,7 +285,12 @@ class SerialRelay(Node):
                 )
                 return
 
-        # match msg.command_id:
+        match msg.command_id:
+            case 58:
+                self.saved_joint_state.velocity[0] = math.radians(msg.data[0])  # Axis 0
+                self.saved_joint_state.velocity[1] = math.radians(msg.data[1])  # Axis 1
+                self.saved_joint_state.velocity[2] = math.radians(-msg.data[2])  # Axis 2 (inverted)
+                self.saved_joint_state.velocity[3] = math.radians(-msg.data[3])  # Axis 3 (inverted)
 
     def publish_feedback(self):
         self.socket_pub.publish(self.arm_feedback)
