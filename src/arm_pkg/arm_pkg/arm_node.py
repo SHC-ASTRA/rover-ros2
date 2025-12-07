@@ -8,7 +8,7 @@ import glob
 import time
 import atexit
 import signal
-from std_msgs.msg import String
+from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual
 from astra_msgs.msg import ArmFeedback, VicCAN
@@ -191,18 +191,26 @@ class SerialRelay(Node):
             pass
 
     def joint_command_callback(self, msg: JointState):
-        # Embedded takes deg*10, ROS2 uses Radians
-        positions = [math.degrees(pos) * 10 for pos in msg.position]
-        # Axis 2 & 3 URDF direction is inverted
-        positions[2] = -positions[2]
-        positions[3] = -positions[3]
+        if len(msg.position) < 7 and len(msg.velocity) < 7:  # one or the other needs to be filled
+            return
 
-        # Set target angles for each arm axis for embedded IK PID to handle
-        command = f"can_relay_tovic,arm,32,{positions[0]},{positions[1]},{positions[2]},{positions[3]}\n"
-        # Wrist yaw and roll
-        command += f"can_relay_tovic,digit,32,{positions[4]},{positions[5]}\n"
-        # Gripper IK does not have adequate hardware yet
-        self.send_cmd(command)
+        # Assumed order: Axis0, Axis1, Axis2, Axis3, Wrist_Yaw, Wrist_Roll, Gripper
+        # TODO: formalize joint names in URDF, refactor here to depend on joint names
+        # Embedded takes deg*10, ROS2 uses Radians
+        velocities = [math.degrees(vel) * 10 if abs(vel) > 0.05 else 0.0 for vel in msg.velocity]
+        # Axis 2 & 3 URDF direction is inverted
+        velocities[2] = -velocities[2]
+        velocities[3] = -velocities[3]
+
+        # Axis 0-3
+        arm_cmd = VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3])
+        arm_cmd.header = Header(stamp=self.get_clock().now().to_msg())
+        # Wrist yaw and roll, gripper included for future use when have adequate hardware
+        digit_cmd = VicCAN(mcu_name="digit", command_id=43, data=velocities[4:6])
+        digit_cmd.header = Header(stamp=self.get_clock().now().to_msg())
+
+        self.anchor_tovic_pub_.publish(arm_cmd)
+        self.anchor_tovic_pub_.publish(digit_cmd)
 
     def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
