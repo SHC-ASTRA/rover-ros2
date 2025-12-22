@@ -34,7 +34,8 @@ viccan_msg_len_dict = {
     53: 4,
     54: 4,
     55: 4,
-    58: 4
+    58: 4,
+    59: 4
 }
 
 
@@ -294,11 +295,15 @@ class SerialRelay(Node):
                 return
 
         match msg.command_id:
-            case 58:
-                self.saved_joint_state.velocity[0] = math.radians(msg.data[0])  # Axis 0
-                self.saved_joint_state.velocity[1] = math.radians(msg.data[1])  # Axis 1
-                self.saved_joint_state.velocity[2] = math.radians(-msg.data[2])  # Axis 2 (inverted)
-                self.saved_joint_state.velocity[3] = math.radians(-msg.data[3])  # Axis 3 (inverted)
+            case 59:  # Arm joint velocities
+                velocities = [vel / 100.0 for vel in msg.data]  # VicCAN sends deg/s*100
+                self.saved_joint_state.velocity[0] = math.radians(velocities[0])  # Axis 0
+                self.saved_joint_state.velocity[1] = math.radians(velocities[1])  # Axis 1
+                self.saved_joint_state.velocity[2] = math.radians(-velocities[2])  # Axis 2 (-)
+                self.saved_joint_state.velocity[3] = math.radians(-velocities[3])  # Axis 3 (-)
+                # Wrist is handled by digit feedback
+                self.saved_joint_state.header.stamp = msg.header.stamp
+                self.joint_state_pub_.publish(self.saved_joint_state)
 
     def publish_feedback(self):
         self.socket_pub.publish(self.arm_feedback)
