@@ -11,7 +11,7 @@ import signal
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual
-from astra_msgs.msg import ArmFeedback, VicCAN
+from astra_msgs.msg import ArmFeedback, VicCAN, RevMotorState
 import math
 
 # control_qos = qos.QoSProfile(
@@ -80,6 +80,8 @@ class SerialRelay(Node):
 
         # Feedback
 
+        self.arm_feedback_pub_ = self.create_publisher(ArmFeedback, "/arm/feedback/new_feedback", qos_profile=qos.qos_profile_sensor_data)
+        self.arm_feedback_new = ArmFeedback()
         # IK: /joint_states is published from here to topic_based_control
         self.joint_state_pub_ = self.create_publisher(JointState, "joint_states", qos_profile=qos.qos_profile_sensor_data)
         self.saved_joint_state = JointState()
@@ -302,6 +304,31 @@ class SerialRelay(Node):
                 return
 
         match msg.command_id:
+            case 53:  # REV SPARK MAX feedback
+                motorId = round(msg.data[0])
+                motor: RevMotorState | None = None
+                match motorId:
+                    case 1:
+                        motor = self.arm_feedback_new.axis1_motor
+                    case 2:
+                        motor = self.arm_feedback_new.axis2_motor
+                    case 3:
+                        motor = self.arm_feedback_new.axis3_motor
+                    case 4:
+                        motor = self.arm_feedback_new.axis0_motor
+
+                if motor:
+                    motor.temperature = float(msg.data[1]) / 10.0
+                    motor.voltage = float(msg.data[2]) / 10.0
+                    motor.current = float(msg.data[3]) / 10.0
+                    motor.header.stamp = msg.header.stamp
+                
+                self.arm_feedback_pub_.publish(self.arm_feedback_new)
+            case 54:  # Board voltages
+                self.arm_feedback_new.socket_voltage.vbatt = float(msg.data[0]) / 100.0
+                self.arm_feedback_new.socket_voltage.v12 = float(msg.data[1]) / 100.0
+                self.arm_feedback_new.socket_voltage.v5 = float(msg.data[2]) / 100.0
+                self.arm_feedback_new.socket_voltage.v3 = float(msg.data[3]) / 100.0
             case 55:  # Arm joint positions
                 angles = [angle / 10.0 for angle in msg.data]  # VicCAN sends deg*10
                 # Joint state publisher for URDF visualization
@@ -312,6 +339,25 @@ class SerialRelay(Node):
                 # Wrist is handled by digit feedback
                 self.saved_joint_state.header.stamp = msg.header.stamp
                 self.joint_state_pub_.publish(self.saved_joint_state)
+            case 58:  # REV SPARK MAX position and velocity feedback
+                motorId = round(msg.data[0])
+                motor: RevMotorState | None = None
+                match motorId:
+                    case 1:
+                        motor = self.arm_feedback_new.axis1_motor
+                    case 2:
+                        motor = self.arm_feedback_new.axis2_motor
+                    case 3:
+                        motor = self.arm_feedback_new.axis3_motor
+                    case 4:
+                        motor = self.arm_feedback_new.axis0_motor
+                
+                if motor:
+                    motor.position = float(msg.data[1])
+                    motor.velocity = float(msg.data[2])
+                    motor.header.stamp = msg.header.stamp
+
+                self.arm_feedback_pub_.publish(self.arm_feedback_new)
             case 59:  # Arm joint velocities
                 velocities = [vel / 100.0 for vel in msg.data]  # VicCAN sends deg/s*100
                 self.saved_joint_state.velocity[0] = math.radians(velocities[0])  # Axis 0
@@ -336,6 +382,10 @@ class SerialRelay(Node):
                 return
 
         match msg.command_id:
+            case 54:  # Board voltages
+                self.arm_feedback_new.digit_voltage.vbatt = float(msg.data[0]) / 100.0
+                self.arm_feedback_new.digit_voltage.v12 = float(msg.data[1]) / 100.0
+                self.arm_feedback_new.digit_voltage.v5 = float(msg.data[2]) / 100.0
             case 55:  # Arm joint positions
                 self.saved_joint_state.position[4] = math.radians(msg.data[0])  # Wrist roll
                 self.saved_joint_state.position[5] = math.radians(msg.data[1])  # Wrist yaw
