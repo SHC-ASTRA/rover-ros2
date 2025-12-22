@@ -295,6 +295,16 @@ class SerialRelay(Node):
                 return
 
         match msg.command_id:
+            case 55:  # Arm joint positions
+                angles = [angle / 10.0 for angle in msg.data]  # VicCAN sends deg*10
+                # Joint state publisher for URDF visualization
+                self.saved_joint_state.position[0] = math.radians(angles[0])  # Axis 0
+                self.saved_joint_state.position[1] = math.radians(angles[1])  # Axis 1
+                self.saved_joint_state.position[2] = math.radians(-angles[2])  # Axis 2 (inverted)
+                self.saved_joint_state.position[3] = math.radians(-angles[3])  # Axis 3 (inverted)
+                # Wrist is handled by digit feedback
+                self.saved_joint_state.header.stamp = msg.header.stamp
+                self.joint_state_pub_.publish(self.saved_joint_state)
             case 59:  # Arm joint velocities
                 velocities = [vel / 100.0 for vel in msg.data]  # VicCAN sends deg/s*100
                 self.saved_joint_state.velocity[0] = math.radians(velocities[0])  # Axis 0
@@ -324,16 +334,6 @@ class SerialRelay(Node):
             self.arm_feedback.axis1_angle = angles[1]
             self.arm_feedback.axis2_angle = angles[2]
             self.arm_feedback.axis3_angle = angles[3]
-
-            # Joint state publisher for URDF visualization
-            self.saved_joint_state.position[0] = math.radians(angles[0])  # Axis 0
-            self.saved_joint_state.position[1] = math.radians(angles[1])  # Axis 1
-            self.saved_joint_state.position[2] = math.radians(-angles[2])  # Axis 2 (inverted)
-            self.saved_joint_state.position[3] = math.radians(-angles[3])  # Axis 3 (inverted)
-            # Wrist is handled by digit feedback
-            self.saved_joint_state.header.stamp = self.get_clock().now().to_msg()
-            self.joint_state_pub_.publish(self.saved_joint_state)
-
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
