@@ -17,7 +17,11 @@ done
 echo "[INFO] Network interface is up!"
 
 
-source /opt/ros/humble/setup.bash
+if command -v nixos-rebuild; then
+    echo "[INFO] running on NixOS"
+else
+    source /opt/ros/humble/setup.bash
+fi
 source $ANCHOR_WS/install/setup.bash
 [[ -f $AUTONOMY_WS/install/setup.bash ]] && source $AUTONOMY_WS/install/setup.bash
 
