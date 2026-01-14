@@ -74,22 +74,29 @@ class Headless(Node):
             print("No gamepad found. Waiting...")
 
         # Initialize the gamepad
-        self.gamepad = pygame.joystick.Joystick(0)
-        self.gamepad.init()
-        print(f"Gamepad Found: {self.gamepad.get_name()}")
+        id = 0
+        while True:
+            if id >= pygame.joystick.get_count():
+                self.get_logger().fatal("Ran out of controllers to try")
+                sys.exit(1)
 
-        if self.gamepad.get_numhats() == 0:
-            self.get_logger().error("Controller not correctly initialized.")
-            if not is_user_in_group("input"):
-                self.get_logger().warning(
-                    "If using NixOS, you may need to add yourself to the 'input' group."
-                )
-            if is_user_in_group("plugdev"):
-                self.get_logger().warning(
-                    "If using NixOS, you may need to remove yourself from the 'plugdev' group."
-                )
-            time.sleep(1)
-            sys.exit(1)
+            self.gamepad = pygame.joystick.Joystick(id)
+            self.gamepad.init()
+            print(f"Gamepad Found: {self.gamepad.get_name()}")
+
+            if self.gamepad.get_numhats() == 0 or self.gamepad.get_numaxes() < 5:
+                self.get_logger().error("Controller not correctly initialized.")
+                if not is_user_in_group("input"):
+                    self.get_logger().warning(
+                        "If using NixOS, you may need to add yourself to the 'input' group."
+                    )
+                if is_user_in_group("plugdev"):
+                    self.get_logger().warning(
+                        "If using NixOS, you may need to remove yourself from the 'plugdev' group."
+                    )
+            else:
+                break
+            id += 1
 
         self.create_timer(0.15, self.send_controls)
 
