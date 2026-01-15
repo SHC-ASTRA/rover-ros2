@@ -76,12 +76,19 @@ class Headless(Node):
         # Initialize the gamepad
         id = 0
         while True:
-            if id >= pygame.joystick.get_count():
+            self.num_gamepads = pygame.joystick.get_count()
+            if id >= self.num_gamepads:
                 self.get_logger().fatal("Ran out of controllers to try")
                 sys.exit(1)
 
-            self.gamepad = pygame.joystick.Joystick(id)
-            self.gamepad.init()
+            try:
+                self.gamepad = pygame.joystick.Joystick(id)
+                self.gamepad.init()
+            except Exception as e:
+                self.get_logger().error("Error when initializing gamepad")
+                self.get_logger().error(e)
+                id += 1
+                continue
             print(f"Gamepad Found: {self.gamepad.get_name()}")
 
             if self.gamepad.get_numhats() == 0 or self.gamepad.get_numaxes() < 5:
@@ -138,7 +145,7 @@ class Headless(Node):
                 sys.exit(0)
 
         # Check if controller is still connected
-        if pygame.joystick.get_count() == 0:
+        if pygame.joystick.get_count() != self.num_gamepads:
             print("Gamepad disconnected. Exiting...")
             # Send one last zero control message
             self.core_publisher.publish(CORE_STOP_MSG)
