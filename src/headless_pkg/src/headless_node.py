@@ -47,6 +47,8 @@ control_qos = qos.QoSProfile(
 
 CORE_MODE = "twist"  # "twist" or "duty"
 
+STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
+
 
 class Headless(Node):
     def __init__(self):
@@ -385,7 +387,7 @@ class Headless(Node):
             self.arm_publisher.publish(arm_input)
 
 
-def deadzone(value: float, threshold=0.05) -> float:
+def deadzone(value: float, threshold=STICK_DEADZONE) -> float:
     """Apply a deadzone to a joystick input so the motors don't sound angry"""
     if abs(value) < threshold:
         return 0
@@ -419,7 +421,7 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         print("Caught shutdown signal. Exiting...")
     finally:
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
