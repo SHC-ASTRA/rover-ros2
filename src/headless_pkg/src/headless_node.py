@@ -118,6 +118,13 @@ class Headless(Node):
             CoreCtrlState, "/core/control/state", qos_profile=control_qos
         )
 
+        self.declare_parameter('arm_manual_scheme', "old")
+        self.arm_manual_scheme = self.get_parameter('arm_manual_scheme').value
+
+        # Check parameter validity
+        if self.arm_manual_scheme not in ["old", "new"]:
+            self.get_logger().warn(f"Invalid value '{self.arm_manual_scheme}' for arm_manual_scheme parameter. Defaulting to 'old' ('24 and '25 controls).")
+
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
@@ -257,50 +264,112 @@ class Headless(Node):
             right_stick_x = deadzone(self.gamepad.get_axis(3))
             right_stick_y = deadzone(self.gamepad.get_axis(4))
             right_trigger = deadzone(self.gamepad.get_axis(5))
+            button_a = self.gamepad.get_button(0)
+            button_b = self.gamepad.get_button(1)
+            button_x = self.gamepad.get_button(2)
+            button_y = self.gamepad.get_button(3)
+            left_bumper = self.gamepad.get_button(4)
             right_bumper = self.gamepad.get_button(5)
             dpad_input = self.gamepad.get_hat(0)
 
-            # EF Grippers
-            if left_trigger > 0 and right_trigger > 0:
-                arm_input.gripper = 0
-            elif left_trigger > 0:
-                arm_input.gripper = -1
-            elif right_trigger > 0:
-                arm_input.gripper = 1
+            if self.arm_manual_scheme == "old":
+                # EF Grippers
+                if left_trigger > 0 and right_trigger > 0:
+                    arm_input.gripper = 0
+                elif left_trigger > 0:
+                    arm_input.gripper = -1
+                elif right_trigger > 0:
+                    arm_input.gripper = 1
 
-            # Axis 0
-            if dpad_input[0] == 1:
-                arm_input.axis0 = 1
-            elif dpad_input[0] == -1:
-                arm_input.axis0 = -1
+                # Axis 0
+                if dpad_input[0] == 1:
+                    arm_input.axis0 = 1
+                elif dpad_input[0] == -1:
+                    arm_input.axis0 = -1
 
-            if right_bumper:  # Control end effector
+                if right_bumper:  # Control end effector
 
-                # Effector yaw
-                if left_stick_x > 0:
-                    arm_input.effector_yaw = 1
-                elif left_stick_x < 0:
-                    arm_input.effector_yaw = -1
+                    # Effector yaw
+                    if left_stick_x > 0:
+                        arm_input.effector_yaw = 1
+                    elif left_stick_x < 0:
+                        arm_input.effector_yaw = -1
 
-                # Effector roll
-                if right_stick_x > 0:
-                    arm_input.effector_roll = 1
-                elif right_stick_x < 0:
+                    # Effector roll
+                    if right_stick_x > 0:
+                        arm_input.effector_roll = 1
+                    elif right_stick_x < 0:
+                        arm_input.effector_roll = -1
+
+                else:  # Control arm axis
+
+                    # Axis 1
+                    if abs(left_stick_x) > 0.15:
+                        arm_input.axis1 = round(left_stick_x)
+
+                    # Axis 2
+                    if abs(left_stick_y) > 0.15:
+                        arm_input.axis2 = -1 * round(left_stick_y)
+
+                    # Axis 3
+                    if abs(right_stick_y) > 0.15:
+                        arm_input.axis3 = -1 * round(right_stick_y)
+            
+            if self.arm_manual_scheme == "new":
+                # Right stick: EF yaw and axis 3
+                # Left stick: axis 1 and 2
+                # D-pad: axis 0 and _
+                # Triggers: EF grippers
+                # Bumpers: EF roll
+                # A: brake
+                # B: _
+                # X: _
+                # Y: linear actuator
+                
+                # Right stick: EF yaw and axis 3
+                arm_input.effector_yaw = 0 if right_stick_x == 0 else int(
+                    copysign(1, right_stick_x)
+                )
+                arm_input.axis3 = 0 if right_stick_y == 0 else int(
+                    copysign(-1, right_stick_y)
+                )
+
+                # Left stick: axis 1 and 2
+                arm_input.axis1 = 0 if left_stick_x == 0 else int(
+                    copysign(1, left_stick_x)
+                )
+                arm_input.axis2 = 0 if left_stick_y == 0 else int(
+                    copysign(-1, left_stick_y)
+                )
+
+                # D-pad: axis 0 and _
+                arm_input.axis0 = 0 if dpad_input[0] == 0 else int(
+                    copysign(1, dpad_input[0])
+                )
+
+                # Triggers: EF Grippers
+                if left_trigger > 0 and right_trigger > 0:
+                    arm_input.gripper = 0
+                elif left_trigger > 0:
+                    arm_input.gripper = -1
+                elif right_trigger > 0:
+                    arm_input.gripper = 1
+
+                # Bumpers: EF roll
+                if left_bumper > 0 and right_bumper > 0:
+                    arm_input.effector_roll = 0
+                elif left_bumper > 0:
                     arm_input.effector_roll = -1
+                elif right_bumper > 0:
+                    arm_input.effector_roll = 1
 
-            else:  # Control arm axis
+                # A: brake
+                if button_a:
+                    arm_input.brake = True
 
-                # Axis 1
-                if abs(left_stick_x) > 0.15:
-                    arm_input.axis1 = round(left_stick_x)
-
-                # Axis 2
-                if abs(left_stick_y) > 0.15:
-                    arm_input.axis2 = -1 * round(left_stick_y)
-
-                # Axis 3
-                if abs(right_stick_y) > 0.15:
-                    arm_input.axis3 = -1 * round(right_stick_y)
+                # Y: linear actuator
+                if button_y:
+                    arm_input.linear_actuator = 1
 
             # BIO
             bio_input = BioControl(
