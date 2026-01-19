@@ -31,8 +31,8 @@ os.environ["SDL_AUDIODRIVER"] = (
 
 CORE_STOP_MSG = CoreControl()  # All zeros by default
 CORE_STOP_TWIST_MSG = Twist()  # "
-ARM_STOP_MSG = ArmManual()  # "
-BIO_STOP_MSG = BioControl()  # "
+ARM_STOP_MSG = ArmManual()     # "
+BIO_STOP_MSG = BioControl()    # "
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -173,6 +173,9 @@ class Headless(Node):
             new_ctrl_mode = "core"
 
         if new_ctrl_mode != self.ctrl_mode:
+            self.core_publisher.publish(CORE_STOP_MSG)
+            self.arm_publisher.publish(ARM_STOP_MSG)
+            self.bio_publisher.publish(BIO_STOP_MSG)
             self.gamepad.rumble(0.6, 0.7, 75)
             self.ctrl_mode = new_ctrl_mode
             self.get_logger().info(f"Switched to {self.ctrl_mode} control mode")
@@ -201,8 +204,6 @@ class Headless(Node):
             self.get_logger().info(f"[Ctrl] {output}")
 
             self.core_publisher.publish(input)
-            self.arm_publisher.publish(ARM_STOP_MSG)
-            # self.bio_publisher.publish(BIO_STOP_MSG)
 
         elif self.ctrl_mode == "core" and CORE_MODE == "twist":
             input = Twist()
@@ -222,8 +223,6 @@ class Headless(Node):
 
             # Publish
             self.core_twist_pub_.publish(input)
-            self.arm_publisher.publish(ARM_STOP_MSG)
-            # self.bio_publisher.publish(BIO_STOP_MSG)
             self.get_logger().info(
                 f"[Core Ctrl] Linear: {round(input.linear.x, 2)}, Angular: {round(input.angular.z, 2)}"
             )
@@ -383,9 +382,7 @@ class Headless(Node):
                     30 * (right_trigger - left_trigger)
                 )  # Max duty cycle 30%
 
-            self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(arm_input)
-            # self.bio_publisher.publish(bio_input)
 
 
 def deadzone(value: float, threshold=0.05) -> float:
