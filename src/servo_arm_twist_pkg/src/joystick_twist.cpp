@@ -107,23 +107,23 @@ bool convertJoyToCmd(const std::vector<float>& axes, const std::vector<int>& but
                      std::unique_ptr<geometry_msgs::msg::TwistStamped>& twist,
                      std::unique_ptr<control_msgs::msg::JointJog>& joint)
 {
-    // // Give joint jogging priority because it is only buttons
-    // // If any joint jog command is requested, we are only publishing joint commands
-    // if (buttons[A] || buttons[B] || buttons[X] || buttons[Y] || axes[D_PAD_X] || axes[D_PAD_Y])
-    // {
-    //   // Map the D_PAD to the proximal joints
-    //   joint->joint_names.push_back("panda_joint1");
-    //   joint->velocities.push_back(axes[D_PAD_X]);
-    //   joint->joint_names.push_back("panda_joint2");
-    //   joint->velocities.push_back(axes[D_PAD_Y]);
+    // Give joint jogging priority because it is only buttons
+    // If any joint jog command is requested, we are only publishing joint commands
+    if (0)
+    {
+      // Map the D_PAD to the proximal joints
+      joint->joint_names.push_back("panda_joint1");
+      joint->velocities.push_back(axes[D_PAD_X]);
+      joint->joint_names.push_back("panda_joint2");
+      joint->velocities.push_back(axes[D_PAD_Y]);
 
-    //   // Map the diamond to the distal joints
-    //   joint->joint_names.push_back("panda_joint7");
-    //   joint->velocities.push_back(buttons[B] - buttons[X]);
-    //   joint->joint_names.push_back("panda_joint6");
-    //   joint->velocities.push_back(buttons[Y] - buttons[A]);
-    //   return false;
-    // }
+      // Map the diamond to the distal joints
+      joint->joint_names.push_back("panda_joint7");
+      joint->velocities.push_back(buttons[B] - buttons[X]);
+      joint->joint_names.push_back("panda_joint6");
+      joint->velocities.push_back(buttons[Y] - buttons[A]);
+      return false;
+    }
 
     // The bread and butter: map buttons to twist commands
     twist->twist.linear.z = axes[RIGHT_STICK_Y];
@@ -243,13 +243,13 @@ public:
             twist_msg->header.stamp = this->now();
             twist_pub_->publish(std::move(twist_msg));
         }
-        // else
-        // {
-        //     // publish the JointJog
-        //     joint_msg->header.stamp = this->now();
-        //     joint_msg->header.frame_id = "panda_link3";
-        //     joint_pub_->publish(std::move(joint_msg));
-        // }
+        else
+        {
+            // publish the JointJog
+            joint_msg->header.stamp = this->now();
+            joint_msg->header.frame_id = "panda_link3";
+            joint_pub_->publish(std::move(joint_msg));
+        }
     }
 
 private:
