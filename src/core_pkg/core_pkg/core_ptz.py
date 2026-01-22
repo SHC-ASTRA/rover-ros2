@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-import rclpy
-from rclpy.node import Node
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import signal
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
+import rclpy
+from rclpy.node import Node
 from std_msgs.msg import String
+
 from astra_msgs.msg import PtzControl, PtzFeedback
 
 # Import the SIYI SDK
 from core_pkg.siyi_sdk import (
-    SiyiGimbalCamera,
-    CommandID,
-    DataStreamType,
-    DataStreamFrequency,
-    SingleAxis,
     AttitudeData,
+    CommandID,
+    DataStreamFrequency,
+    DataStreamType,
+    SingleAxis,
+    SiyiGimbalCamera,
 )
 
 
@@ -262,7 +263,7 @@ class PtzNode(Node):
             f"[{self.get_clock().now().nanoseconds / 1e9:.2f}] PTZ Node: {message_text}"
         )
         self.debug_pub.publish(msg)
-        self.get_logger().info(message_text)
+        self.get_logger().debug(message_text)
 
     def run_async_func(self, coro):
         """Run an async function in the event loop."""
