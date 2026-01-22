@@ -65,10 +65,10 @@ You can fake the presence of a Serial device (i.e., MCU) by using the following 
 $ socat -dd -v pty,rawer,crnl,link=/tmp/ttyACM9 pty,rawer,crnl,link=/tmp/ttyOUT
 ```
 
-When you go to run anchor, use the `PORT_OVERRIDE` environment variable to point it to the fake serial port, like so:
+When you go to run anchor, use the `port_override` launch parameter to point it to the fake serial port, like so:
 
 ```bash
-$ PORT_OVERRIDE=/tmp/ttyACM9 ros2 launch anchor_pkg rover.launch.py
+$ ros2 launch anchor_pkg rover.launch.py --ros-args -p port_override:=/tmp/ttyACM9
 ```
 
 ### Connecting the GuliKit Controller
@@ -121,23 +121,24 @@ A: Don't worry about it. If you had the workspace sourced, ROS2 will complain ab
 ...
 ```
 
-A: To find a microcontroller to talk to, Anchor sends a ping to every Serial port on your computer. If it does not receive a 'pong' in less than one second, then it aborts. There are a few possible fixes:
+A: To find a microcontroller to talk to, Anchor filters through your available serial ports to find microcontrollers. If the microcontroller fails
+to respond properly, or one is not found, it will abort. There are a few possible fixes:
 
 - Keep trying to run it until it works
 - Run `lsusb` to see if the microcontroller is detected by your computer.
 - Run `ls /dev/tty*0` to see if there is a valid Serial port enumerated for the microcontroller.
-- Check if you are in the `dialout` group (or whatever group shows up by running `ls -l /dev/tty*`).
+- Check if you are in the `dialout` group (or whatever group shows up by running `ls -l /dev/tty*`) by using the `groups` command.
 
 ## Packages
 
 - [anchor\_pkg](./src/anchor_pkg) - Handles Serial communication between the various other packages here and the microcontroller.
 - [arm\_pkg](./src/arm_pkg) - Relays controls and sensor data for the arm (socket and digit) between anchor and basestation/headless.
 - [astra\_descriptions](./src/astra_descriptions) - Submodule with URDF-related packages.
+- [astra\_msgs](./src/astra_msgs) - Contains custom message types for communication between basestation and the rover over ROS2.
 - [bio\_pkg](./src/bio_pkg) - Like arm_pkg, but for CITADEL and FAERIE
 - [core\_pkg](./src/core_pkg) - Like arm_pkg, but for Core
 - [headless\_pkg](./src/headless_pkg) - Simple, non-graphical controller node to work in place of basestation when controlling the rover by itself. This is autostarted with anchor to allow for setup-less control of the rover.
 - [latency\_tester](./src/latency_tester) - A temporary node to test comms latency over ROS2, Serial, and CAN.
-- [ros2\_interfaces\_pkg](./src/ros2_interfaces_pkg) - Contains custom message types for communication between basestation and the rover over ROS2. (being renamed to `astra_msgs`).
 - [servo\_arm\_twist\_pkg](./src/servo_arm_twist_pkg) - A temporary node to translate controller state from `ros2_joy` to `Twist` messages to control the Arm via IK.
 
 ## Maintainers
