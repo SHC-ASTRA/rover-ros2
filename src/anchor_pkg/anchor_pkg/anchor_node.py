@@ -7,6 +7,7 @@ from typing import cast
 import rclpy
 import serial
 import serial.tools.list_ports
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Header, String
@@ -48,10 +49,16 @@ class Anchor(Node):
         # Initalize node with name
         super().__init__("anchor_node")
 
-        self.declare_parameter("serial_port", None)
+        self.declare_parameter(
+            "port_override",
+            "",
+            ParameterDescriptor(
+                name="port_override", type=ParameterType.PARAMETER_STRING
+            ),
+        )
 
         # Serial port override
-        if port_override := self.get_parameter("serial_port").value:
+        if port_override := self.get_parameter("port_override").value:
             self.serial_port = cast(str, port_override)  # Cast to make the linter happy
 
         ##################################################
@@ -70,12 +77,12 @@ class Anchor(Node):
 
             # Guards
             if len(recog_ports) > 1:  # If we found too many
-                self.get_logger().error(
+                self.get_logger().fatal(
                     f"Found multiple recognized MCUs: {[p.device for p in recog_ports].__str__()}"
                 )
                 exit(1)
             if len(recog_ports) == 0:
-                self.get_logger().error(
+                self.get_logger().fatal(
                     f"Found no recognized MCUs: {[p.device for p in recog_ports].__str__()}"
                 )
                 exit(1)
