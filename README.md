@@ -68,7 +68,7 @@ $ socat -dd -v pty,rawer,crnl,link=/tmp/ttyACM9 pty,rawer,crnl,link=/tmp/ttyOUT
 When you go to run anchor, use the `port_override` launch parameter to point it to the fake serial port, like so:
 
 ```bash
-$ ros2 launch anchor_pkg rover.launch.py --ros-args -p port_override:=/tmp/ttyACM9
+$ ros2 launch anchor_pkg rover.launch.py port_override:=/tmp/ttyACM9
 ```
 
 ### Connecting the GuliKit Controller
