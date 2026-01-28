@@ -358,20 +358,22 @@ class Headless(Node):
                 # X: _
                 # Y: linear actuator
 
+                ARM_THRESHOLD = 0.2
+
                 # Right stick: EF yaw and axis 3
                 arm_input.effector_yaw = (
-                    0 if right_stick_x == 0 else int(copysign(1, right_stick_x))
+                    0 if abs(right_stick_x) < ARM_THRESHOLD else int(copysign(1, right_stick_x))
                 )
                 arm_input.axis3 = (
-                    0 if right_stick_y == 0 else int(copysign(-1, right_stick_y))
+                    0 if abs(right_stick_y) < ARM_THRESHOLD else int(-1 * copysign(1, right_stick_y))
                 )
 
                 # Left stick: axis 1 and 2
                 arm_input.axis1 = (
-                    0 if left_stick_x == 0 else int(copysign(1, left_stick_x))
+                    0 if abs(left_stick_x) < ARM_THRESHOLD else int(copysign(1, left_stick_x))
                 )
                 arm_input.axis2 = (
-                    0 if left_stick_y == 0 else int(copysign(-1, left_stick_y))
+                    0 if abs(left_stick_y) < ARM_THRESHOLD else int(-1 * copysign(1, left_stick_y))
                 )
 
                 # D-pad: axis 0 and _
