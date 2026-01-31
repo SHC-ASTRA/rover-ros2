@@ -49,7 +49,7 @@ class SerialRelay(Node):
 
         # Create subscribers
         self.man_sub = self.create_subscription(
-            ArmManual, "/arm/control/manual", self.send_manual, 10
+            ArmManual, "/arm/control/manual", self.send_manual, 2
         )
 
         # New messages
