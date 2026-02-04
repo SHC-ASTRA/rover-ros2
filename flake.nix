@@ -2,7 +2,7 @@
   description = "Development environment for ASTRA Anchor";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
   };
 
@@ -56,10 +56,12 @@
                   control-msgs
                   control-toolbox
                   moveit-core
+                  moveit-planners
                   moveit-common
                   moveit-msgs
                   moveit-ros-planning
                   moveit-ros-planning-interface
+		  moveit-ros-visualization
                   moveit-configs-utils
                   moveit-ros-move-group
                   moveit-servo
@@ -68,9 +70,9 @@
                   pilz-industrial-motion-planner
                   pick-ik
                   ompl
-                  chomp-motion-planner
                   joy
-                  # ros2-controllers nixpkg does not build :(
+                  ros2-controllers
+		  chomp-motion-planner
                 ];
               }
             )
