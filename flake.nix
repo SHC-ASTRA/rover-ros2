@@ -70,7 +70,7 @@
                   ompl
                   chomp-motion-planner
                   joy
-                  # ros2-controllers nixpkg does not build :(
+                  ros2-controllers
                 ];
               }
             )
