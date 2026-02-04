@@ -2,7 +2,7 @@
   description = "Development environment for ASTRA Anchor";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
   };
 
