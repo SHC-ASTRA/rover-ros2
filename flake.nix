@@ -39,6 +39,7 @@
               buildEnv {
                 paths = [
                   ros-core
+                  rqt-graph
                   ros2cli
                   ros2run
                   ros2bag
