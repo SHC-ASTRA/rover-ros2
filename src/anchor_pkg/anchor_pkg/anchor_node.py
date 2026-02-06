@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 from std_srvs.srv import Empty
 
 import signal
@@ -7,6 +8,7 @@ import time
 import atexit
 
 import serial
+import serial.tools.list_ports
 import os
 import sys
 import threading
@@ -15,69 +17,155 @@ import glob
 from std_msgs.msg import String, Header
 from astra_msgs.msg import VicCAN
 
-serial_pub = None
-thread = None
+KNOWN_USBS = [
+    (0x2E8A, 0x00C0),  # Raspberry Pi Pico
+    (0x1A86, 0x55D4),  # Adafruit Feather ESP32 V2
+    (0x10C4, 0xEA60),  # DOIT ESP32 Devkit V1
+    (0x1A86, 0x55D3),  # ESP32 S3 Development Board
+]
 
 
-"""
-Publishers:
-  * /anchor/from_vic/debug
-    - Every string received from the MCU is published here for debugging
-  * /anchor/from_vic/core
-    - VicCAN messages for Core node
-  * /anchor/from_vic/arm
-    - VicCAN messages for Arm node
-  * /anchor/from_vic/bio
-    - VicCAN messages for Bio node
+class Anchor(Node):
+    """
+    Publishers:
+    * /anchor/from_vic/debug
+        - Every string received from the MCU is published here for debugging
+    * /anchor/from_vic/core
+        - VicCAN messages for Core node
+    * /anchor/from_vic/arm
+        - VicCAN messages for Arm node
+    * /anchor/from_vic/bio
+        - VicCAN messages for Bio node
 
-Subscribers:
-  * /anchor/from_vic/mock_mcu
-    - For testing without an actual MCU, publish strings here as if they came from an MCU
-  * /anchor/to_vic/relay
-    - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
-  * /anchor/to_vic/relay_string
-    - Publish raw strings to this topic to send directly to the MCU for debugging
-"""
+    Subscribers:
+    * /anchor/from_vic/mock_mcu
+        - For testing without an actual MCU, publish strings here as if they came from an MCU
+    * /anchor/to_vic/relay
+        - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
+    * /anchor/to_vic/relay_string
+        - Publish raw strings to this topic to send directly to the MCU for debugging
+    """
 
-
-class SerialRelay(Node):
     def __init__(self):
         # Initalize node with name
         super().__init__("anchor_node")  # previously 'serial_publisher'
 
-        # Loop through all serial devices on the computer to check for the MCU
-        self.port = None
+        self.serial_port: str | None = None  # e.g., "/dev/ttyUSB0"
+
+        # Serial port override
         if port_override := os.getenv("PORT_OVERRIDE"):
-            self.port = port_override
-        ports = SerialRelay.list_serial_ports()
-        for i in range(4):
-            if self.port is not None:
-                break
-            for port in ports:
-                try:
-                    # connect and send a ping command
-                    ser = serial.Serial(port, 115200, timeout=1)
-                    # (f"Checking port {port}...")
-                    ser.write(b"ping\n")
-                    response = ser.read_until(bytes("\n", "utf8"))
+            self.serial_port = port_override
 
-                    # if pong is in response, then we are talking with the MCU
-                    if b"pong" in response:
-                        self.port = port
-                        self.get_logger().info(f"Found MCU at {self.port}!")
-                        break
-                except:
-                    pass
+        ##################################################
+        # Serial MCU Discovery
 
-        if self.port is None:
-            self.get_logger().info("Unable to find MCU...")
+        # If there was not a port override, look for a MCU over USB for Serial.
+        if self.serial_port is None:
+            comports = serial.tools.list_ports.comports()
+            real_ports = list(
+                filter(
+                    lambda p: p.vid is not None
+                    and p.pid is not None
+                    and p.device is not None,
+                    comports,
+                )
+            )
+            recog_ports = list(filter(lambda p: (p.vid, p.pid) in KNOWN_USBS, comports))
+
+            if len(recog_ports) == 1:  # Found singular recognized MCU
+                found_port = recog_ports[0]
+                self.get_logger().info(
+                    f"Selecting MCU '{found_port.description}' at {found_port.device}."
+                )
+                self.serial_port = found_port.device  # String, location of device file; e.g., '/dev/ttyACM0'
+            elif len(recog_ports) > 1:  # Found multiple recognized MCUs
+                # Kinda jank log message
+                self.get_logger().error(
+                    f"Found multiple recognized MCUs: {[p.device for p in recog_ports].__str__()}"
+                )
+                # Don't set self.serial_port; later if-statement will exit()
+            elif (
+                len(recog_ports) == 0 and len(real_ports) > 0
+            ):  # Found real ports but none recognized; i.e. maybe found an IMU or camera but not a MCU
+                self.get_logger().error(
+                    f"No recognized MCUs found; instead found {[p.device for p in real_ports].__str__()}."
+                )
+                # Don't set self.serial_port; later if-statement will exit()
+            else:  # Found jack shit
+                self.get_logger().error("No valid Serial ports specified or found.")
+                # Don't set self.serial_port; later if-statement will exit()
+
+        # We still don't have a serial port; fall back to legacy discovery (Areeb's code)
+        # Loop through all serial devices on the computer to check for the MCU
+        if self.serial_port is None:
+            self.get_logger().warning("Falling back to legacy MCU discovery...")
+            ports = Anchor.list_serial_ports()
+            for _ in range(4):
+                if self.serial_port is not None:
+                    break
+                for port in ports:
+                    try:
+                        # connect and send a ping command
+                        ser = serial.Serial(port, 115200, timeout=1)
+                        # (f"Checking port {port}...")
+                        ser.write(b"ping\n")
+                        response = ser.read_until(bytes("\n", "utf8"))
+
+                        # if pong is in response, then we are talking with the MCU
+                        if b"pong" in response:
+                            self.serial_port = port
+                            self.get_logger().info(f"Found MCU at {self.serial_port}!")
+                            break
+                    except:
+                        pass
+
+        # If port is still None then we ain't finding no mcu
+        if self.serial_port is None:
+            self.get_logger().error("Unable to find MCU. Exiting...")
             time.sleep(1)
             sys.exit(1)
+        # Found a Serial port, try to open it; above code has not officially opened a Serial port
+        else:
+            self.get_logger().debug(
+                f"Attempting to open Serial port '{self.serial_port}'..."
+            )
+            try:
+                self.serial_interface = serial.Serial(
+                    self.serial_port, 115200, timeout=1
+                )
 
-        self.ser = serial.Serial(self.port, 115200)
-        self.get_logger().info(f"Enabling Relay Mode")
-        self.ser.write(b"can_relay_mode,on\n")
+                # Attempt to get name of connected MCU
+                self.serial_interface.write(
+                    b"can_relay_mode,on\n"
+                )  # can_relay_ready,[mcu]
+                mcu_name: str = ""
+                for _ in range(4):
+                    response = self.serial_interface.read_until(bytes("\n", "utf8"))
+                    try:
+                        if b"can_relay_ready" in response:
+                            args: list[str] = response.decode("utf8").strip().split(",")
+                            if len(args) == 2:
+                                mcu_name = args[1]
+                            break
+                    except UnicodeDecodeError:
+                        pass  # ignore malformed responses
+                self.get_logger().info(
+                    f"MCU '{mcu_name}' is ready at '{self.serial_port}'."
+                )
+
+            except serial.SerialException as e:
+                self.get_logger().error(
+                    f"Could not open Serial port '{self.serial_port}' for reason:"
+                )
+                self.get_logger().error(e.strerror)
+                time.sleep(1)
+                sys.exit(1)
+
+        # Close serial port on exit
         atexit.register(self.cleanup)
+
+        ##################################################
+        # ROS2 Topic Setup
 
         # New pub/sub with VicCAN
         self.fromvic_debug_pub_ = self.create_publisher(
@@ -115,22 +203,10 @@ class SerialRelay(Node):
             String, "/anchor/relay", self.on_relay_tovic_string, 10
         )
 
-    def run(self):
-        # This thread makes all the update processes run in the background
-        global thread
-        thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
-        thread.start()
-
-        try:
-            while rclpy.ok():
-                self.read_MCU()  # Check the MCU for updates
-        except KeyboardInterrupt:
-            sys.exit(0)
-
     def read_MCU(self):
         """Check the USB serial port for new data from the MCU, and publish string to appropriate topics"""
         try:
-            output = str(self.ser.readline(), "utf8")
+            output = str(self.serial_interface.readline(), "utf8")
 
             if output:
                 self.relay_fromvic(output)
@@ -156,14 +232,20 @@ class SerialRelay(Node):
         except serial.SerialException as e:
             print(f"SerialException: {e}")
             print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
+            try:
+                if self.serial_interface.is_open:
+                    self.serial_interface.close()
+            except:
+                pass
             exit(1)
         except TypeError as e:
             print(f"TypeError: {e}")
             print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
+            try:
+                if self.serial_interface.is_open:
+                    self.serial_interface.close()
+            except:
+                pass
             exit(1)
         except Exception as e:
             print(f"Exception: {e}")
@@ -184,7 +266,7 @@ class SerialRelay(Node):
             output += f",{round(num, 7)}"  # limit to 7 decimal places
         output += "\n"
         # self.get_logger().info(f"VicCAN relay to MCU: {output}")
-        self.ser.write(bytes(output, "utf8"))
+        self.serial_interface.write(bytes(output, "utf8"))
 
     def relay_fromvic(self, msg: str):
         """Relay a string message from the MCU to the appropriate VicCAN topic"""
@@ -246,7 +328,7 @@ class SerialRelay(Node):
         """Relay a raw string message to the MCU for debugging"""
         message = msg.data
         # self.get_logger().info(f"Sending command to MCU: {msg}")
-        self.ser.write(bytes(message, "utf8"))
+        self.serial_interface.write(bytes(message, "utf8"))
 
     @staticmethod
     def list_serial_ports():
@@ -254,28 +336,29 @@ class SerialRelay(Node):
 
     def cleanup(self):
         print("Cleaning up before terminating...")
-        if self.ser.is_open:
-            self.ser.close()
-
-
-def myexcepthook(type, value, tb):
-    print("Uncaught exception:", type, value)
-    if serial_pub:
-        serial_pub.cleanup()
+        if self.serial_interface.is_open:
+            self.serial_interface.close()
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    sys.excepthook = myexcepthook
+    try:
+        rclpy.init(args=args)
+        anchor_node = Anchor()
 
-    global serial_pub
+        thread = threading.Thread(target=rclpy.spin, args=(anchor_node,), daemon=True)
+        thread.start()
 
-    serial_pub = SerialRelay()
-    serial_pub.run()
+        rate = anchor_node.create_rate(100)  # 100 Hz -- arbitrary rate
+        while rclpy.ok():
+            anchor_node.read_MCU()  # Check the MCU for updates
+            rate.sleep()
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal, shutting down...")
+    finally:
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
     signal.signal(
         signal.SIGTERM, lambda signum, frame: sys.exit(0)
     )  # Catch termination signals and exit cleanly

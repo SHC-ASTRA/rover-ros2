@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 from rclpy import qos
 from rclpy.duration import Duration
 
@@ -11,6 +12,8 @@ import os
 import sys
 import threading
 import glob
+import pwd
+import grp
 from math import copysign
 
 from std_msgs.msg import String
@@ -71,9 +74,36 @@ class Headless(Node):
             print("No gamepad found. Waiting...")
 
         # Initialize the gamepad
-        self.gamepad = pygame.joystick.Joystick(0)
-        self.gamepad.init()
-        print(f"Gamepad Found: {self.gamepad.get_name()}")
+        id = 0
+        while True:
+            self.num_gamepads = pygame.joystick.get_count()
+            if id >= self.num_gamepads:
+                self.get_logger().fatal("Ran out of controllers to try")
+                sys.exit(1)
+
+            try:
+                self.gamepad = pygame.joystick.Joystick(id)
+                self.gamepad.init()
+            except Exception as e:
+                self.get_logger().error("Error when initializing gamepad")
+                self.get_logger().error(e)
+                id += 1
+                continue
+            print(f"Gamepad Found: {self.gamepad.get_name()}")
+
+            if self.gamepad.get_numhats() == 0 or self.gamepad.get_numaxes() < 5:
+                self.get_logger().error("Controller not correctly initialized.")
+                if not is_user_in_group("input"):
+                    self.get_logger().warning(
+                        "If using NixOS, you may need to add yourself to the 'input' group."
+                    )
+                if is_user_in_group("plugdev"):
+                    self.get_logger().warning(
+                        "If using NixOS, you may need to remove yourself from the 'plugdev' group."
+                    )
+            else:
+                break
+            id += 1
 
         self.create_timer(0.15, self.send_controls)
 
@@ -115,7 +145,7 @@ class Headless(Node):
                 sys.exit(0)
 
         # Check if controller is still connected
-        if pygame.joystick.get_count() == 0:
+        if pygame.joystick.get_count() != self.num_gamepads:
             print("Gamepad disconnected. Exiting...")
             # Send one last zero control message
             self.core_publisher.publish(CORE_STOP_MSG)
@@ -296,11 +326,34 @@ def deadzone(value: float, threshold=0.05) -> float:
     return value
 
 
+def is_user_in_group(group_name: str) -> bool:
+    # Copied from https://zetcode.com/python/os-getgrouplist/
+    try:
+        username = os.getlogin()
+
+        # Get group ID from name
+        group_info = grp.getgrnam(group_name)
+        target_gid = group_info.gr_gid
+
+        # Get user's groups
+        user_info = pwd.getpwnam(username)
+        user_groups = os.getgrouplist(username, user_info.pw_gid)
+
+        return target_gid in user_groups
+    except KeyError:
+        return False
+
+
 def main(args=None):
-    rclpy.init(args=args)
-    node = Headless()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    try:
+        rclpy.init(args=args)
+
+        node = Headless()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
