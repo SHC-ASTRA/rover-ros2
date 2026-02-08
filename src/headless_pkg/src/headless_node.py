@@ -35,14 +35,14 @@ ARM_STOP_MSG = ArmManual()  # "
 BIO_STOP_MSG = BioControl()  # "
 
 control_qos = qos.QoSProfile(
-    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    # history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-    durability=qos.QoSDurabilityPolicy.VOLATILE,
-    deadline=Duration(seconds=1),
-    lifespan=Duration(nanoseconds=500_000_000),  # 500ms
-    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-    liveliness_lease_duration=Duration(seconds=5),
+    # reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    # durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
 )
 
 CORE_MODE = "twist"  # "twist" or "duty"
