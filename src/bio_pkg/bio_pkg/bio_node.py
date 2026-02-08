@@ -4,13 +4,12 @@ import threading
 import time
 
 import rclpy
+from astra_msgs.action import BioVacuum
+from astra_msgs.msg import BioControl, BioDistributor, VicCAN
+from astra_msgs.srv import BioTestTube
 from rclpy.action import ActionServer
 from rclpy.node import Node
 from std_msgs.msg import Header, String
-
-from astra_msgs.action import BioVacuum
-from astra_msgs.msg import BioControl, BioDistributor, BioFeedback, VicCAN
-from astra_msgs.srv import BioTestTube
 
 serial_pub = None
 thread = None
@@ -30,34 +29,27 @@ class SerialRelay(Node):
         # Initialize node
         super().__init__("bio_node")
 
-        # Get launch mode parameter
-        self.declare_parameter("launch_mode")
-        self.launch_mode = self.get_parameter("launch_mode").value
-        self.get_logger().info(f"bio launch_mode is: {self.launch_mode}")
-
         # Anchor Topics
-        if self.launch_mode == "anchor":
-            self.anchor_fromvic_sub_ = self.create_subscription(
-                VicCAN, "/anchor/from_vic/bio", self.relay_fromvic, 20
-            )
-            self.anchor_tovic_pub_ = self.create_publisher(
-                VicCAN, "/anchor/to_vic/relay", 20
-            )
+        self.anchor_fromvic_sub_ = self.create_subscription(
+            VicCAN, "/anchor/from_vic/bio", self.relay_fromvic, 20
+        )
+        self.anchor_tovic_pub_ = self.create_publisher(
+            VicCAN, "/anchor/to_vic/relay", 20
+        )
 
-            self.anchor_sub = self.create_subscription(
-                String, "/anchor/bio/feedback", self.anchor_feedback, 10
-            )
-            self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
+        self.anchor_sub = self.create_subscription(
+            String, "/anchor/bio/feedback", self.anchor_feedback, 10
+        )
+        self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
 
-            self.distributor_sub = self.create_subscription(
-                BioDistributor,
-                "/bio/control/distributor",
-                self.distributor_callback,
-                10,
-            )
+        self.distributor_sub = self.create_subscription(
+            BioDistributor,
+            "/bio/control/distributor",
+            self.distributor_callback,
+            10,
+        )
 
         # Services
-
         self.test_tube_service = self.create_service(
             BioTestTube, "/bio/control/test_tube", self.test_tube_callback
         )
@@ -82,12 +74,10 @@ class SerialRelay(Node):
         print("todo")
 
     def send_cmd(self, msg: str):
-        if (
-            self.launch_mode == "anchor"
-        ):  # if in anchor mode, send to anchor node to relay
-            output = String()
-            output.data = msg
-            self.anchor_pub.publish(output)
+        # send to anchor node to relay
+        output = String()
+        output.data = msg
+        self.anchor_pub.publish(output)
 
     def relay_fromvic(self, msg: VicCAN):
         # self.get_logger().info(msg)
@@ -95,9 +85,6 @@ class SerialRelay(Node):
             self.process_fromvic_citadel(msg)
 
     def process_fromvic_citadel(self, msg: VicCAN):
-        if msg.mcu_name != "citadel":
-            return
-
         # Check message len to prevent crashing on bad data
         if msg.command_id in viccan_citadel_msg_len_dict:
             expected_len = viccan_citadel_msg_len_dict[msg.command_id]
@@ -105,7 +92,7 @@ class SerialRelay(Node):
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
                 )
-                return
+            return
 
     def anchor_feedback(self, msg: String):
         output = msg.data
@@ -120,9 +107,9 @@ class SerialRelay(Node):
             mcu_name="citadel",
             command_id=40,
             data=[
-                to_short(distributor_arr[0]),
-                to_short(distributor_arr[1]),
-                to_short(distributor_arr[2]),
+                clamp_short(distributor_arr[0]),
+                clamp_short(distributor_arr[1]),
+                clamp_short(distributor_arr[2]),
                 0,
             ],
         )
@@ -205,7 +192,7 @@ class SerialRelay(Node):
         return BioVacuum.Result()
 
 
-def to_short(x: int) -> int:
+def clamp_short(x: int) -> int:
     return max(-32768, min(32767, x))
 
 

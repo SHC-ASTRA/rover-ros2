@@ -4,6 +4,8 @@
   inputs = {
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
+    # specify astra_msgs commit hash to the one we support
+    astra-msgs.url = "github:SHC-ASTRA/astra_msgs?ref=35d5ac0c2355cd9dc88ac746dbc627108a48bf81";
   };
 
   outputs =
@@ -11,6 +13,7 @@
       self,
       nix-ros-overlay,
       nixpkgs,
+      astra-msgs,
     }:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
       system:
