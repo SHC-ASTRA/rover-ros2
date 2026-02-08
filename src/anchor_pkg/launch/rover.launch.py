@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction, Shutdown
+from launch.actions import (
+    DeclareLaunchArgument,
+    OpaqueFunction,
+    Shutdown,
+    IncludeLaunchDescription,
+)
 from launch.substitutions import (
     LaunchConfiguration,
     ThisLaunchFileDir,
     PathJoinSubstitution,
 )
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 # Prevent making __pycache__ directories
@@ -133,4 +141,46 @@ def generate_launch_description():
         description="Launch mode: arm, core, bio, anchor, or ptz",
     )
 
-    return LaunchDescription([declare_arg, OpaqueFunction(function=launch_setup)])
+    ros2_control_arg = DeclareLaunchArgument(
+        "use_ros2_control",
+        default_value="false",
+        description="Whether to use DiffDriveController for driving instead of direct Twist",
+    )
+
+    rsp = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("core_description"),
+                    "launch",
+                    "robot_state_publisher.launch.py",
+                ]
+            )
+        ),
+        condition=IfCondition(LaunchConfiguration("use_ros2_control")),
+        launch_arguments={("hardware_mode", "physical")},
+    )
+
+    controllers = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution(
+                [
+                    FindPackageShare("core_description"),
+                    "launch",
+                    "spawn_controllers.launch.py",
+                ]
+            )
+        ),
+        condition=IfCondition(LaunchConfiguration("use_ros2_control")),
+        launch_arguments={("hardware_mode", "physical")},
+    )
+
+    return LaunchDescription(
+        [
+            declare_arg,
+            ros2_control_arg,
+            rsp,
+            controllers,
+            OpaqueFunction(function=launch_setup),
+        ]
+    )
