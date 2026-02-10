@@ -5,7 +5,7 @@
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
     # specify astra_msgs commit hash to the one we support
-    astra-msgs.url = "github:SHC-ASTRA/astra_msgs?ref=35d5ac0c2355cd9dc88ac746dbc627108a48bf81";
+    astra-msgs.url = "github:SHC-ASTRA/astra_msgs?ref=60bbb53085b09fbdb7e848b1dd168d526d9af281";
   };
 
   outputs =
@@ -27,6 +27,7 @@
         devShells.default = pkgs.mkShell {
           name = "ASTRA Anchor";
           packages = with pkgs; [
+            astra-msgs.packages.${system}.astra-msgs
             colcon
             (python313.withPackages (
               p: with p; [
