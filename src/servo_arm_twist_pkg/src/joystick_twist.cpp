@@ -43,16 +43,12 @@
 #include <control_msgs/msg/joint_jog.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <moveit_msgs/msg/planning_scene.hpp>
-#include <rclcpp/client.hpp>
-#include <rclcpp/experimental/buffers/intra_process_buffer.hpp>
+
 #include <rclcpp/node.hpp>
 #include <rclcpp/publisher.hpp>
-#include <rclcpp/qos.hpp>
-#include <rclcpp/qos_event.hpp>
 #include <rclcpp/subscription.hpp>
+#include <rclcpp/qos.hpp>
 #include <rclcpp/time.hpp>
-#include <rclcpp/utilities.hpp>
-#include <thread>
 
 // We'll just set up parameters here
 const std::string JOY_TOPIC = "/joy";
@@ -104,8 +100,9 @@ std::map<Button, double> BUTTON_DEFAULTS;
  * @return return true if you want to publish a Twist, false if you want to publish a JointJog
  */
 bool convertJoyToCmd(const std::vector<float>& axes, const std::vector<int>& buttons,
-                     std::unique_ptr<geometry_msgs::msg::TwistStamped>& twist,
-                     std::unique_ptr<control_msgs::msg::JointJog>& joint)
+                     std::unique_ptr<geometry_msgs::msg::TwistStamped>& twist
+                     // std::unique_ptr<control_msgs::msg::JointJog>& joint
+                    )
 {
     // // Give joint jogging priority because it is only buttons
     // // If any joint jog command is requested, we are only publishing joint commands
@@ -236,7 +233,7 @@ public:
         updateCmdFrame(frame_to_publish_, msg->buttons);
 
         // Convert the joystick message to Twist or JointJog and publish
-        if (convertJoyToCmd(msg->axes, msg->buttons, twist_msg, joint_msg))
+        if (convertJoyToCmd(msg->axes, msg->buttons, twist_msg))
         {
             // publish the TwistStamped
             twist_msg->header.frame_id = frame_to_publish_;
