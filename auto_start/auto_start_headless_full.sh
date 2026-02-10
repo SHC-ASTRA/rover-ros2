@@ -15,11 +15,7 @@ echo "[INFO] Network interface is up!"
 echo "[INFO] Starting ROS node..."
 
 # Source ROS 2 Humble setup script
-if command -v nixos-rebuild; then
-    echo "[INFO] running on NixOS"
-else
-    source /opt/ros/humble/setup.bash
-fi
+command -v ros2 || source /opt/ros/humble/setup.bash
 
 # Source your workspace setup script
 source $SCRIPT_DIR/../install/setup.bash

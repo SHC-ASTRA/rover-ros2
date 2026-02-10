@@ -1,6 +1,3 @@
 [submodule "src/astra_description"]
 	path = src/astra_descriptions
 	url = ../astra_descriptions
-[submodule "src/astra_msgs"]
-	path = src/astra_msgs
-	url = git@github.com:SHC-ASTRA/astra_msgs.git
