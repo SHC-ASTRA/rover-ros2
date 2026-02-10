@@ -48,7 +48,10 @@ def launch_setup(context, *args, **kwargs):
                 executable="core",  # change as needed
                 name="core",
                 output="both",
-                parameters=[{"launch_mode": mode}],
+                parameters=[
+                    {"launch_mode": mode},
+                    {"use_ros2_control": LaunchConfiguration("use_ros2_control", default=False)},
+                ],
                 on_exit=Shutdown(),
             )
         )

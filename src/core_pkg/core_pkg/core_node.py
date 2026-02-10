@@ -66,6 +66,10 @@ class SerialRelay(Node):
         self.launch_mode = self.get_parameter("launch_mode").value
         self.get_logger().info(f"Core launch_mode is: {self.launch_mode}")
 
+        self.declare_parameter("use_ros2_control", False)
+        self.use_ros2_control = self.get_parameter("use_ros2_control").value
+        self.get_logger().info(f"Use ros2_control: {self.use_ros2_control}")
+
         ##################################################
         # Topics
 
@@ -85,24 +89,28 @@ class SerialRelay(Node):
 
         # Control
 
-        # autonomy twist -- m/s and rad/s -- for autonomy, in particular Nav2
-        self.cmd_vel_sub_ = self.create_subscription(
-            TwistStamped, "/cmd_vel", self.cmd_vel_callback, 1
-        )
-        # manual twist -- [-1, 1] rather than real units
-        self.twist_man_sub_ = self.create_subscription(
-            Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
-        )
-        # manual flags -- brake mode and max duty cycle
-        self.control_state_sub_ = self.create_subscription(
-            CoreCtrlState,
-            "/core/control/state",
-            self.control_state_callback,
-            qos_profile=control_qos,
-        )
-        self.twist_max_duty = (
-            0.5  # max duty cycle for twist commands (0.0 - 1.0); walking speed is 0.5
-        )
+        if self.use_ros2_control:
+            # Joint state control for topic-based controller
+            self.joint_command_sub_ = self.create_subscription(
+                JointState, "/core/joint_commands", self.joint_command_callback, 2
+            )
+        else:
+            # autonomy twist -- m/s and rad/s -- for autonomy, in particular Nav2
+            self.cmd_vel_sub_ = self.create_subscription(
+                TwistStamped, "/cmd_vel", self.cmd_vel_callback, 1
+            )
+            # manual twist -- [-1, 1] rather than real units
+            self.twist_man_sub_ = self.create_subscription(
+                Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
+            )
+            # manual flags -- brake mode and max duty cycle
+            self.control_state_sub_ = self.create_subscription(
+                CoreCtrlState,
+                "/core/control/state",
+                self.control_state_callback,
+                qos_profile=control_qos,
+            )
+            self.twist_max_duty = 0.5  # max duty cycle for twist commands (0.0 - 1.0); walking speed is 0.5
 
         # Feedback
 
@@ -122,7 +130,7 @@ class SerialRelay(Node):
         )  # TODO: not sure about this
         # Joint states for topic-based controller
         self.joint_state_pub_ = self.create_publisher(
-            JointState, "/core/joint_states", qos_profile=qos.qos_profile_sensor_data
+            JointState, "/joint_states", qos_profile=qos.qos_profile_sensor_data
         )
         # IMU (embedded BNO-055)
         self.imu_pub_ = self.create_publisher(
@@ -148,10 +156,11 @@ class SerialRelay(Node):
 
         # Old
 
-        # /core/control
-        self.control_sub = self.create_subscription(
-            CoreControl, "/core/control", self.send_controls, 10
-        )  # old control method -- left_stick, right_stick, max_speed, brake, and some other random autonomy stuff
+        if not self.use_ros2_control:
+            # /core/control
+            self.control_sub = self.create_subscription(
+                CoreControl, "/core/control", self.send_controls, 10
+            )  # old control method -- left_stick, right_stick, max_speed, brake, and some other random autonomy stuff
         # /core/feedback
         self.feedback_pub = self.create_publisher(CoreFeedback, "/core/feedback", 10)
         self.core_feedback = CoreFeedback()
@@ -282,6 +291,40 @@ class SerialRelay(Node):
         self.send_cmd(command)
 
         # print(f"[Sys] Relaying: {command}")
+
+    def joint_command_callback(self, msg: JointState):
+        # So... topic based control node publishes JointState messages over /joint_commands
+        #  with len(msg.name) == 5 and len(msg.velocity) == 4... all 5 non-fixed joints
+        #  are included in msg.name, but ig it is implied that msg.velocity only
+        #  includes velocities for the commanded joints (ros__parameters.joints).
+        # So, this will be much more hacky and less adaptable than I would like it to be.
+        if len(msg.name) != 5 or len(msg.velocity) != 4 or len(msg.position) != 0:
+            self.get_logger().warning(
+                f"Received joint control message with unexpected number of joints. Ignoring."
+            )
+            return
+        if msg.name != [
+            "left_suspension_joint",
+            "bl_wheel_joint",
+            "br_wheel_joint",
+            "fl_wheel_joint",
+            "fr_wheel_joint",
+        ]:
+            self.get_logger().warning(
+                f"Received joint control message with unexpected name[]. Ignoring."
+            )
+            return
+
+        (bl_vel, br_vel, fl_vel, fr_vel) = msg.velocity
+
+        bl_rpm = radps_to_rpm(bl_vel) * CORE_GEAR_RATIO
+        br_rpm = radps_to_rpm(br_vel) * CORE_GEAR_RATIO
+        fl_rpm = radps_to_rpm(fl_vel) * CORE_GEAR_RATIO
+        fr_rpm = radps_to_rpm(fr_vel) * CORE_GEAR_RATIO
+
+        self.send_viccan(
+            20, [fl_rpm, bl_rpm, fr_rpm, br_rpm]
+        )  # order expected by embedded
 
     def cmd_vel_callback(self, msg: TwistStamped):
         linear = msg.twist.linear.x
@@ -528,21 +571,26 @@ class SerialRelay(Node):
                 match motorId:
                     case 1:
                         motor = self.feedback_new_state.fl_motor
-                        joint_state_msg.name = ["fl_motor_joint"]
+                        joint_state_msg.name = ["fl_wheel_joint"]
                     case 2:
                         motor = self.feedback_new_state.bl_motor
-                        joint_state_msg.name = ["bl_motor_joint"]
+                        joint_state_msg.name = ["bl_wheel_joint"]
                     case 3:
                         motor = self.feedback_new_state.fr_motor
-                        joint_state_msg.name = ["fr_motor_joint"]
+                        joint_state_msg.name = ["fr_wheel_joint"]
                     case 4:
                         motor = self.feedback_new_state.br_motor
-                        joint_state_msg.name = ["br_motor_joint"]
+                        joint_state_msg.name = ["br_wheel_joint"]
                     case _:
                         self.get_logger().warning(
                             f"Ignoring REV motor feedback 58 with invalid motorId {motorId}"
                         )
                         return
+
+                # make the fucking shit work
+                joint_state_msg.name.append("left_suspension_joint")
+                joint_state_msg.position.append(0.0)
+                joint_state_msg.velocity.append(0.0)
 
                 joint_state_msg.header.stamp = msg.header.stamp
                 self.joint_state_pub_.publish(joint_state_msg)
@@ -579,6 +627,10 @@ def map_range(
     value: float, in_min: float, in_max: float, out_min: float, out_max: float
 ):
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+
+def radps_to_rpm(radps: float):
+    return radps * 60 / (2 * pi)
 
 
 def main(args=None):
