@@ -2,7 +2,7 @@
   description = "Development environment for ASTRA Anchor";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
     # specify astra_msgs commit hash to the one we support
     astra-msgs.url = "github:SHC-ASTRA/astra_msgs?ref=35d5ac0c2355cd9dc88ac746dbc627108a48bf81";
@@ -28,7 +28,7 @@
           name = "ASTRA Anchor";
           packages = with pkgs; [
             colcon
-            (python312.withPackages (
+            (python313.withPackages (
               p: with p; [
                 pyserial
                 pygame
@@ -60,10 +60,12 @@
                   control-msgs
                   control-toolbox
                   moveit-core
+                  moveit-planners
                   moveit-common
                   moveit-msgs
                   moveit-ros-planning
                   moveit-ros-planning-interface
+		  moveit-ros-visualization
                   moveit-configs-utils
                   moveit-ros-move-group
                   moveit-servo
@@ -72,9 +74,9 @@
                   pilz-industrial-motion-planner
                   pick-ik
                   ompl
-                  chomp-motion-planner
                   joy
-                  # ros2-controllers nixpkg does not build :(
+                  ros2-controllers
+		  chomp-motion-planner
                 ];
               }
             )

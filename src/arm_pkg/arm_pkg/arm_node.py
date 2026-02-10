@@ -49,7 +49,7 @@ class SerialRelay(Node):
 
         # Create subscribers
         self.man_sub = self.create_subscription(
-            ArmManual, "/arm/control/manual", self.send_manual, 10
+            ArmManual, "/arm/control/manual", self.send_manual, 2
         )
 
         # New messages
@@ -190,7 +190,7 @@ class SerialRelay(Node):
 
         command += f"can_relay_tovic,digit,39,{msg.effector_yaw},{msg.effector_roll}\n"
 
-        # command += f"can_relay_tovic,digit,26,{msg.gripper}\n"  # no hardware rn
+        command += f"can_relay_tovic,digit,26,{msg.gripper}\n"  # no hardware rn
 
         command += f"can_relay_tovic,digit,28,{msg.laser}\n"
 

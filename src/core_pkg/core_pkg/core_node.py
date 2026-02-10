@@ -31,14 +31,14 @@ CORE_WHEEL_RADIUS = 0.171  # meters
 CORE_GEAR_RATIO = 100.0  # Clucky: 100:1, Testbed: 64:1
 
 control_qos = qos.QoSProfile(
-    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    # history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-    durability=qos.QoSDurabilityPolicy.VOLATILE,
-    deadline=Duration(seconds=1),
-    lifespan=Duration(nanoseconds=500_000_000),  # 500ms
-    liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-    liveliness_lease_duration=Duration(seconds=5),
+    # reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    # durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
 )
 
 # Used to verify the length of an incoming VicCAN feedback message
