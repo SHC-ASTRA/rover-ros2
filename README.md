@@ -57,6 +57,7 @@ Using the docker compose file automatically builds the workspace and allows you 
 $ docker compose run --rm --name rover-ros2-container cpu
   # Run on GPU (NVidia only)
 $ docker compose run --rm --name rover-ros2-container gpu
+```
 
 ## Running
 
