@@ -4,7 +4,7 @@ services:
     container_name: moveit2_container
     privileged: true
     network_mode: host
-    command: ["bash", "-c", "colcon build && source /ros2_ws/install/setup.bash && exec bash"]
+    command: ["bash", "-c", "colcon build --symlink-install && source /ros2_ws/install/setup.bash && exec bash"]
     volumes:
       - ./:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix
@@ -18,7 +18,7 @@ services:
     container_name: moveit2_container
     privileged: true
     network_mode: host
-    command: /bin/bash
+    command: ["bash", "-c", "colcon build --symlink-install && source /ros2_ws/install/setup.bash && exec bash"]
     deploy:
       resources:
         reservations:
@@ -27,8 +27,10 @@ services:
               count: 1
               capabilities: [gpu]
     volumes:
+      - ./:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix
       - $XAUTHORITY:/root/.Xauthority
+    working_dir: /ros2_ws
     environment:
       QT_X11_NO_MITSHM: 1
       DISPLAY: $DISPLAY
