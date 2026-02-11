@@ -11,6 +11,7 @@ You will use these packages to launch all rover-side ROS2 nodes.
 - [Software Prerequisites](#software-prerequisites)
   - [Nix](#nix)
   - [ROS2 Humble + rosdep](#ros2-humble--rosdep)
+  - [Docker](#docker)
 - [Running](#running)
   - [Testing Serial](#testing-serial)
   - [Connecting the GuliKit Controller](#connecting-the-gulikit-controller)
@@ -46,6 +47,16 @@ $ rosdep update
 $ cd path/to/rover-ros2
 $ rosdep install --from-paths src -y --ignore-src
 ```
+
+### Docker
+
+Using the docker compose file automatically builds the workspace and allows you to choose between running on the CPU or GPU for applications like Rviz2 and Gazebo:
+
+```bash
+  # Run on CPU
+$ docker compose run --rm --name rover-ros2-container cpu
+  # Run on GPU (NVidia only)
+$ docker compose run --rm --name rover-ros2-container gpu
 
 ## Running
 
