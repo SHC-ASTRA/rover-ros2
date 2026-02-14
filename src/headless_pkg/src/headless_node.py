@@ -354,9 +354,9 @@ class Headless(Node):
                 # Triggers: EF grippers
                 # Bumpers: EF roll
                 # A: brake
-                # B: _
+                # B: linear actuator in
                 # X: _
-                # Y: linear actuator
+                # Y: linear actuator out
 
                 ARM_THRESHOLD = 0.2
 
@@ -402,8 +402,13 @@ class Headless(Node):
                     arm_input.brake = True
 
                 # Y: linear actuator
-                if button_y:
+                if button_y and not button_b:
                     arm_input.linear_actuator = 1
+                elif button_b and not button_y:
+                    arm_input.linear_actuator = -1
+                else:
+                    arm_input.linear_actuator = 0
+                
 
             # BIO
             bio_input = BioControl(
