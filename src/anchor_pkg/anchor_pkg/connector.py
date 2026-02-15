@@ -63,19 +63,25 @@ class SerialConnector(Connector):
             self.logger.info(f"asking {port} for its name")
             serial_interface = serial.Serial(port, BAUD_RATE, timeout=1)
 
+            serial_interface.write(
+                b"can_relay_mode,on\n"
+            )
+
             for i in range(4):
                 self.logger.debug(f"attempt {i + 1} of 4 asking {port} for its name")
-                response = serial_interface.read_until(bytes("\n", "utf8"))
-                try:
-                    if b"can_relay_ready" in response:
-                        args = response.decode("utf8").strip().split(",")
-                        if len(args) == 2:
-                            return args[1]
-                        break
-                except UnicodeDecodeError as e:
-                    self.logger.debug(
-                        f"ignoring UnicodeDecodeError when asking for MCU name: {e}"
-                    )
+                for _ in range(4):
+                    response = serial_interface.read_until(bytes("\n", "utf8"))
+                    try:
+                        if b"can_relay_ready" in response:
+                            args: list[str] = response.decode("utf8").strip().split(",")
+                            if len(args) == 2:
+                                self.logger.info(f"we are talking to {args[1]}")
+                                return args[1]
+                            break
+                    except UnicodeDecodeError as e:
+                        self.logger.info(
+                            f"ignoring UnicodeDecodeError when asking for MCU name: {e}"
+                        )
 
             if serial_interface.is_open:
                 serial_interface.close()
@@ -95,13 +101,13 @@ class SerialConnector(Connector):
             map(  # get just device strings
                 lambda p: p.device,
                 filter(  # make sure we have a known device
-                    lambda p: (p.vid, p.pid, p.device) in KNOWN_USBS
+                    lambda p: (p.vid, p.pid) in KNOWN_USBS
                     and p.device is not None,
                     comports,
                 ),
             )
         )
-        self.logger.debug(f"found valid MCU ports: [ {', '.join(valid_ports)} ]")
+        self.logger.info(f"found valid MCU ports: [ {', '.join(valid_ports)} ]")
         return valid_ports
 
     def cleanup(self):
@@ -126,7 +132,7 @@ class SerialConnector(Connector):
 
         # check each of our ports to make sure one of them is responding
         port = ports[0]
-        mcu_name = "mock" if self.override else self._get_name(port)
+        mcu_name = self._get_name(port)
         if not mcu_name:
             raise NoWorkingDeviceException(
                 f"found {port}, but it did not respond with its name"

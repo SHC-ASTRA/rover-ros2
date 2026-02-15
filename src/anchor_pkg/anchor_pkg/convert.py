@@ -6,15 +6,15 @@ def string_to_viccan(msg: str, mcu_name, logger: RcutilsLogger):
 
     # don't need an extra check because len of .split output is always >= 1
     if parts[0] != "can_relay_fromvic":
-        logger.info(f"got non-CAN data from {mcu_name}: {msg}")
+        logger.debug(f"got non-CAN data from {mcu_name}: {msg}")
         return None
     elif len(parts) < 3:
-        logger.info(
+        logger.debug(
             f"got garbage (not enough parts) CAN data from {mcu_name}: {msg}"
         )
         return None
     elif len(parts) > 7:
-        logger.info(f"got garbage (too many parts) CAN data from {mcu_name}: {msg}")
+        logger.debug(f"got garbage (too many parts) CAN data from {mcu_name}: {msg}")
         return None
 
     return VicCAN(

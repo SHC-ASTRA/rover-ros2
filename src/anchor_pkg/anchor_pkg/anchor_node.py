@@ -86,7 +86,7 @@ class Anchor(Node):
                 try:
                     logger.info("trying CAN connector")
                     self.connector = CANConnector(self.get_logger())
-                except (NoValidDeviceException, NoWorkingDeviceException):
+                except (NoValidDeviceException, NoWorkingDeviceException, TypeError):
                     logger.info("CAN connector failed, trying serial connector")
                     self.connector = SerialConnector(self.get_logger())
             case _:
