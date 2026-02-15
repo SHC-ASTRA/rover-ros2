@@ -69,19 +69,18 @@ class SerialConnector(Connector):
 
             for i in range(4):
                 self.logger.debug(f"attempt {i + 1} of 4 asking {port} for its name")
-                for _ in range(4):
-                    response = serial_interface.read_until(bytes("\n", "utf8"))
-                    try:
-                        if b"can_relay_ready" in response:
-                            args: list[str] = response.decode("utf8").strip().split(",")
-                            if len(args) == 2:
-                                self.logger.info(f"we are talking to {args[1]}")
-                                return args[1]
-                            break
-                    except UnicodeDecodeError as e:
-                        self.logger.info(
-                            f"ignoring UnicodeDecodeError when asking for MCU name: {e}"
-                        )
+                response = serial_interface.read_until(bytes("\n", "utf8"))
+                try:
+                    if b"can_relay_ready" in response:
+                        args: list[str] = response.decode("utf8").strip().split(",")
+                        if len(args) == 2:
+                            self.logger.info(f"we are talking to {args[1]}")
+                            return args[1]
+                        break
+                except UnicodeDecodeError as e:
+                    self.logger.info(
+                        f"ignoring UnicodeDecodeError when asking for MCU name: {e}"
+                    )
 
             if serial_interface.is_open:
                 serial_interface.close()
