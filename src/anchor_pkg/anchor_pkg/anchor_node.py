@@ -21,13 +21,6 @@ import threading
 from std_msgs.msg import String, Header
 from astra_msgs.msg import VicCAN
 
-KNOWN_USBS = [
-    (0x2E8A, 0x00C0),  # Raspberry Pi Pico
-    (0x1A86, 0x55D4),  # Adafruit Feather ESP32 V2
-    (0x10C4, 0xEA60),  # DOIT ESP32 Devkit V1
-    (0x1A86, 0x55D3),  # ESP32 S3 Development Board
-]
-
 
 class Anchor(Node):
     """
