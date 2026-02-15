@@ -28,6 +28,7 @@
             (python313.withPackages (
               p: with p; [
                 pyserial
+		python-can
                 pygame
                 scipy
                 crccheck

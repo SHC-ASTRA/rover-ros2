@@ -3,13 +3,14 @@
 <package format="3">
   <name>anchor_pkg</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
+  <description>Anchor -- ROS and CAN relay node</description>
+  <maintainer email="rjm0037@uah.edu">Riley</maintainer>
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
   <depend>common_interfaces</depend>
   <depend>python3-serial</depend>
+  <depend>python3-can</depend>
 
   <build_depend>black</build_depend>
 
