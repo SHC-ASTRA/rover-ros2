@@ -1,11 +1,20 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 import signal
 import atexit
 
-from connector import Connector, SerialConnector, CANConnector
+from .connector import (
+    Connector,
+    MockConnector,
+    SerialConnector,
+    CANConnector,
+    NoValidDeviceException,
+    NoWorkingDeviceException,
+)
+from .convert import string_to_viccan
 import sys
 import threading
 
@@ -37,25 +46,61 @@ class Anchor(Node):
         - For testing without an actual MCU, publish strings here as if they came from an MCU
     * /anchor/to_vic/relay
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
-    * /anchor/to_vic/relay_string
-        - Publish raw strings to this topic to send directly to the MCU for debugging
     """
 
     connector: Connector
 
     def __init__(self):
-        # Initalize node with name
-        super().__init__("anchor_node")  # previously 'serial_publisher'
+        super().__init__("anchor_node")
 
-        self.connector = SerialConnector(self.get_logger())
+        logger = self.get_logger()
 
-        # Close serial port on exit
+        self.declare_parameter(
+            "connector",
+            "auto",
+            ParameterDescriptor(
+                name="connector",
+                description="Declares which MCU connector should be used. Defaults to 'auto'.",
+                type=ParameterType.PARAMETER_STRING,
+                additional_constraints="Must be 'serial', 'can', 'mock', or 'auto'.",
+            ),
+        )
+
+        # Determine which connector to use. Options are Mock, Serial, and CAN
+        connector_select = (
+            self.get_parameter("connector").get_parameter_value().string_value
+        )
+
+        match connector_select:
+            case "serial":
+                logger.info("using serial connector")
+                self.connector = SerialConnector(self.get_logger())
+            case "can":
+                logger.info("using CAN connector")
+                self.connector = CANConnector(self.get_logger())
+            case "mock":
+                logger.info("using mock connector")
+                self.connector = MockConnector(self.get_logger())
+            case "auto":
+                logger.info("automatically determining connector")
+                try:
+                    logger.info("trying CAN connector")
+                    self.connector = CANConnector(self.get_logger())
+                except (NoValidDeviceException, NoWorkingDeviceException):
+                    logger.info("CAN connector failed, trying serial connector")
+                    self.connector = SerialConnector(self.get_logger())
+            case _:
+                self.get_logger().fatal(
+                    f"invalid value for connector parameter: {connector_select}"
+                )
+                exit(1)
+
+        # Close devices on exit
         atexit.register(self.cleanup)
 
-        ##################################################
         # ROS2 Topic Setup
 
-        # Pub/sub with VicCAN
+        # Publishers
         self.fromvic_debug_pub_ = self.create_publisher(
             String, "/anchor/from_vic/debug", 20
         )
@@ -69,8 +114,12 @@ class Anchor(Node):
             VicCAN, "/anchor/from_vic/bio", 20
         )
 
+        # Subscribers
         self.tovic_sub_ = self.create_subscription(
             VicCAN, "/anchor/to_vic/relay", self.connector.write, 20
+        )
+        self.mock_mcu_sub_ = self.create_subscription(
+            String, "/anchor/from_vic/mock_mcu", self.on_mock_fromvic, 20
         )
 
     def cleanup(self):
@@ -95,6 +144,15 @@ class Anchor(Node):
             self.fromvic_arm_pub_.publish(msg)
         elif msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
+
+    def on_mock_fromvic(self, msg: String):
+        viccan = string_to_viccan(
+            msg.data,
+            "mock",
+            self.get_logger(),
+        )
+        if viccan:
+            self.relay_fromvic(viccan)
 
 
 def main(args=None):

@@ -3,6 +3,7 @@ import serial
 import serial.tools.list_ports
 from astra_msgs.msg import VicCAN
 from rclpy.impl.rcutils_logger import RcutilsLogger
+from .convert import string_to_viccan
 
 KNOWN_USBS = [
     (0x2E8A, 0x00C0),  # Raspberry Pi Pico
@@ -111,16 +112,10 @@ class SerialConnector(Connector):
         except Exception as e:
             self.logger.error(e)
 
-    def __init__(self, logger: RcutilsLogger, port_override: str | None = None):
+    def __init__(self, logger: RcutilsLogger):
         self.logger = logger
-        self.override = bool(port_override)
 
-        ports: list[str]
-
-        if port_override:
-            ports = [port_override]
-        else:
-            ports = self._find_ports()
+        ports = self._find_ports()
 
         if len(ports) <= 0:
             raise NoValidDeviceException("no valid serial device found")
@@ -150,35 +145,12 @@ class SerialConnector(Connector):
             if not raw:
                 return None
 
-            parts = raw.split(",")
-
-            # don't need an extra check because len of .split output is always >= 1
-            if parts[0] != "can_relay_fromvic":
-                self.logger.debug(f"got non-CAN data from {self.mcu_name}: {raw}")
-                return None
-            elif len(parts) < 3:
-                self.logger.debug(
-                    f"got garbage (not enough parts) CAN data from {self.mcu_name}: {raw}"
-                )
-                return None
-            elif len(parts) > 7:
-                self.logger.debug(
-                    f"got garbage (too many parts) CAN data from {self.mcu_name}: {raw}"
-                )
-                return None
-
-            return VicCAN(
-                mcu_name=parts[1],
-                command_id=parts[2],
-                data=[float(x) for x in parts[3:]],
-            )
+            return string_to_viccan(raw, self.mcu_name, self.logger)
         except serial.SerialException as e:
             self.logger.error(f"SerialException: {e}")
-            self._close_port()
             raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
         except TypeError as e:
             self.logger.error(f"TypeError: {e}")
-            self._close_port()
             raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
         except Exception:
             pass  # pretty much no other error matters
@@ -191,4 +163,16 @@ class SerialConnector(Connector):
 
 
 class CANConnector(Connector):
-    pass
+    def __init__(self, logger: RcutilsLogger):
+        pass
+
+
+class MockConnector(Connector):
+    def __init__(self, _: RcutilsLogger):
+        pass
+
+    def read(self) -> VicCAN | None:
+        return None
+
+    def write(self, msg: VicCAN):
+        print(msg)
