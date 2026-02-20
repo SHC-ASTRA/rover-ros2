@@ -3,18 +3,13 @@
 
   inputs = {
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
-    nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
-    # specify astra_msgs commit hash to the one we support
-    astra-msgs.url = "github:SHC-ASTRA/astra_msgs?ref=60bbb53085b09fbdb7e848b1dd168d526d9af281";
+    nixpkgs.follows = "nix-ros-overlay/nixpkgs";
+    astra-msgs.url =
+      "github:SHC-ASTRA/astra_msgs/8acbd807907ca6bd045aab8e50e7af995fc9a211";
   };
 
   outputs =
-    {
-      self,
-      nix-ros-overlay,
-      nixpkgs,
-      astra-msgs,
-    }:
+    { self, nix-ros-overlay, nixpkgs, astra-msgs }:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -22,24 +17,27 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+
+        astra_msgs_pkgs = astra-msgs.packages.${system};
+        rosDistro = "humble";
       in
       {
         devShells.default = pkgs.mkShell {
           name = "ASTRA Anchor";
+
           packages = with pkgs; [
-            astra-msgs.packages.${system}.astra-msgs
             colcon
-            (python313.withPackages (
-              p: with p; [
-                pyserial
-                pygame
-                scipy
-                crccheck
-                black
-              ]
-            ))
-            (
-              with rosPackages.humble;
+            astra_msgs_pkgs.astra-msgs
+
+            (pkgs.rosPackages.${rosDistro}.python3.withPackages (p: with p; [
+              pyserial
+              pygame
+              scipy
+              crccheck
+              black
+            ]))
+
+            (with rosPackages.${rosDistro};
               buildEnv {
                 paths = [
                   ros-core
@@ -66,7 +64,7 @@
                   moveit-msgs
                   moveit-ros-planning
                   moveit-ros-planning-interface
-		  moveit-ros-visualization
+                  moveit-ros-visualization
                   moveit-configs-utils
                   moveit-ros-move-group
                   moveit-servo
@@ -77,13 +75,16 @@
                   ompl
                   joy
                   ros2-controllers
-		  chomp-motion-planner
+                  chomp-motion-planner
                 ];
-              }
-            )
+              })
           ];
+
+          env = {
+            ASTRAMSGS = "${astra-msgs.outPath}";
+          };
+
           shellHook = ''
-            # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
           '';
@@ -93,6 +94,7 @@
 
   nixConfig = {
     extra-substituters = [ "https://ros.cachix.org" ];
-    extra-trusted-public-keys = [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" ];
+    extra-trusted-public-keys =
+      [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" ];
   };
 }

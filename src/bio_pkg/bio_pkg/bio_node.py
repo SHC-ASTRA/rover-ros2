@@ -5,7 +5,7 @@ import time
 
 import rclpy
 from astra_msgs.action import BioVacuum
-from astra_msgs.msg import BioControl, BioDistributor, VicCAN
+from astra_msgs.msg import BioControl, BioDistributor, FaerieControl, ScytheControl, VicCAN
 from astra_msgs.srv import BioTestTube
 from rclpy.action import ActionServer
 from rclpy.node import Node
@@ -47,6 +47,20 @@ class SerialRelay(Node):
             "/bio/control/distributor",
             self.distributor_callback,
             10,
+        )
+
+        self.anchor_sub = self.create_subscription(
+            FaerieControl, 
+            "/bio/control/faerie", 
+            self.faerie_callback,
+            10
+        )
+
+        self.anchor_sub = self.create_subscription(
+            ScytheControl, 
+            "/bio/control/scythe", 
+            self.scythe_callback, 
+            10
         )
 
         # Services
@@ -102,6 +116,7 @@ class SerialRelay(Node):
 
     def distributor_callback(self, msg: BioDistributor):
         distributor_arr = msg.distributor_id
+        # if (any in distributor > 
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="citadel",
@@ -114,6 +129,43 @@ class SerialRelay(Node):
             ],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
+    
+    def faerie_callback(self, msg: FaerieControl):
+        if msg.vibration_motor:
+            vic_cmd = VicCAN(
+                header=Header(stamp=self.get_clock().now().to_msg()),
+                mcu_name="faerie",
+                command_id=37,
+                data=[float(msg.vibration_motor)]
+            )
+            self.anchor_tovic_pub_.publish(vic_cmd)
+        else:
+            vic_cmd = VicCAN(
+                header=Header(stamp=self.get_clock().now().to_msg()),
+                mcu_name="faerie",
+                command_id=42,
+                data=[float(msg.move_faerie)],
+            )
+            self.anchor_tovic_pub_.publish(vic_cmd)
+
+    def scythe_callback(self, msg: ScytheControl):
+        if msg.scythe_reset:
+            vic_cmd = VicCAN(
+                header=Header(stamp=self.get_clock().now().to_msg()),
+                mcu_name="faerie",
+                command_id=29,
+                data=[],
+            )
+            self.anchor_tovic_pub_.publish(vic_cmd)
+        else:
+            vic_cmd = VicCAN(
+                header=Header(stamp=self.get_clock().now().to_msg()),
+                mcu_name="faerie",
+                command_id=24,
+                data=[float(msg.move_scythe)],
+            )
+            self.anchor_tovic_pub_.publish(vic_cmd)
+
 
     def test_tube_callback(self, request, response):
         tubes_cmd = VicCAN(
@@ -121,7 +173,7 @@ class SerialRelay(Node):
             mcu_name="citadel",
             command_id=40,
             data=[
-                float(int.from_bytes(request.tube_id)),
+                float(int(request.tube_id)),
                 float(request.milliliters),
             ],
         )
@@ -129,8 +181,8 @@ class SerialRelay(Node):
         return response
 
     def execute_vacuum(self, goal_handle):
-        valve_id = int.from_bytes(goal_handle.request.valve_id)
-        duty = int.from_bytes(goal_handle.request.fan_duty_cycle_percent)
+        valve_id = int(goal_handle.request.valve_id)
+        duty = int(goal_handle.request.fan_duty_cycle_percent)
         total = goal_handle.request.fan_time_ms
 
         # open valve
