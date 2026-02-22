@@ -5,7 +5,7 @@ import time
 
 import rclpy
 from astra_msgs.action import BioVacuum
-from astra_msgs.msg import BioControl, BioDistributor, FaerieControl, ScytheControl, VicCAN
+from astra_msgs.msg import BioControl, BioDistributor, BioLaser, FaerieControl, ScytheControl, VicCAN
 from astra_msgs.srv import BioTestTube
 from rclpy.action import ActionServer
 from rclpy.node import Node
@@ -49,18 +49,25 @@ class SerialRelay(Node):
             10,
         )
 
-        self.anchor_sub = self.create_subscription(
+        self.faerie_sub = self.create_subscription(
             FaerieControl, 
             "/bio/control/faerie", 
             self.faerie_callback,
-            10
+            10,
         )
 
-        self.anchor_sub = self.create_subscription(
+        self.scythe_sub = self.create_subscription(
             ScytheControl, 
             "/bio/control/scythe", 
             self.scythe_callback, 
-            10
+            10,
+        )
+
+        self.laser_sub = self.create_subscription(
+            ScytheControl, 
+            "/bio/control/laser", 
+            self.laser_callback, 
+            10,
         )
 
         # Services
@@ -131,44 +138,52 @@ class SerialRelay(Node):
         self.anchor_tovic_pub_.publish(vic_cmd)
     
     def faerie_callback(self, msg: FaerieControl):
-        if msg.vibration_motor:
-            vic_cmd = VicCAN(
-                header=Header(stamp=self.get_clock().now().to_msg()),
-                mcu_name="faerie",
-                command_id=37,
-                data=[float(msg.vibration_motor)]
-            )
-            self.anchor_tovic_pub_.publish(vic_cmd)
-        else:
-            vic_cmd = VicCAN(
-                header=Header(stamp=self.get_clock().now().to_msg()),
-                mcu_name="faerie",
-                command_id=42,
-                data=[float(msg.move_faerie)],
-            )
-            self.anchor_tovic_pub_.publish(vic_cmd)
+        # msg.vibration_motor:
+        vic_cmd = VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="faerie",
+            command_id=37,
+            data=[float(msg.vibration_motor)]
+        )
+        self.anchor_tovic_pub_.publish(vic_cmd)
+        # msg.move_faerie:
+        vic_cmd = VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="faerie",
+            command_id=42,
+            data=[float(msg.move_faerie)],
+        )
+        self.anchor_tovic_pub_.publish(vic_cmd)
+        # msg.drill_speed
+        vic_cmd = VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="faerie",
+            command_id=19,
+            data=[float(msg.drill_speed)],
+        )
+        self.anchor_tovic_pub_.publish(vic_cmd)
+
 
     def scythe_callback(self, msg: ScytheControl):
-        if msg.scythe_reset:
-            vic_cmd = VicCAN(
-                header=Header(stamp=self.get_clock().now().to_msg()),
-                mcu_name="faerie",
-                command_id=29,
-                data=[],
-            )
-            self.anchor_tovic_pub_.publish(vic_cmd)
-        else:
-            vic_cmd = VicCAN(
-                header=Header(stamp=self.get_clock().now().to_msg()),
-                mcu_name="faerie",
-                command_id=24,
-                data=[float(msg.move_scythe)],
-            )
-            self.anchor_tovic_pub_.publish(vic_cmd)
+        vic_cmd = VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="faerie",
+            command_id=24,
+            data=[float(msg.move_scythe)],
+        )
+        self.anchor_tovic_pub_.publish(vic_cmd)
 
+    def laser_callback(self, msg: BioLaser):
+        vic_cmd = VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="faerie",
+            command_id=24,
+            data=[float(msg.fire)],
+        )
+        self.anchor_tovic_pub_.publish(vic_cmd)
 
     def test_tube_callback(self, request, response):
-        tubes_cmd = VicCAN(
+        vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="citadel",
             command_id=40,
@@ -177,7 +192,7 @@ class SerialRelay(Node):
                 float(request.milliliters),
             ],
         )
-        self.anchor_tovic_pub_.publish(tubes_cmd)
+        self.anchor_tovic_pub_.publish(vic_cmd)
         return response
 
     def execute_vacuum(self, goal_handle):
