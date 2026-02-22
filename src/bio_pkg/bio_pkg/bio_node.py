@@ -141,7 +141,7 @@ class SerialRelay(Node):
         # msg.vibration_motor:
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="faerie",
+            mcu_name="digit",
             command_id=37,
             data=[float(msg.vibration_motor)]
         )
@@ -149,7 +149,7 @@ class SerialRelay(Node):
         # msg.move_faerie:
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="faerie",
+            mcu_name="digit",
             command_id=42,
             data=[float(msg.move_faerie)],
         )
@@ -157,7 +157,7 @@ class SerialRelay(Node):
         # msg.drill_speed
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="faerie",
+            mcu_name="digit",
             command_id=19,
             data=[float(msg.drill_speed)],
         )
@@ -167,7 +167,7 @@ class SerialRelay(Node):
     def scythe_callback(self, msg: ScytheControl):
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="faerie",
+            mcu_name="digit",
             command_id=24,
             data=[float(msg.move_scythe)],
         )
@@ -176,7 +176,7 @@ class SerialRelay(Node):
     def laser_callback(self, msg: BioLaser):
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="faerie",
+            mcu_name="digit",
             command_id=24,
             data=[float(msg.fire)],
         )
