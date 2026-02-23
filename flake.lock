@@ -10,17 +10,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1771573274,
-        "narHash": "sha256-YlUVTWtCxXzobbcHTCrMMzwLSrzQwo5Yz57gYS8ie04=",
+        "lastModified": 1771721097,
+        "narHash": "sha256-VIEvS1O0P44iHOgnCB5j0d6SvkwgDewskdc13q+sk8Q=",
         "owner": "SHC-ASTRA",
         "repo": "astra_msgs",
-        "rev": "8acbd807907ca6bd045aab8e50e7af995fc9a211",
+        "rev": "2a90e7712424d8f44093334f7a359696d9398216",
         "type": "github"
       },
       "original": {
         "owner": "SHC-ASTRA",
         "repo": "astra_msgs",
-        "rev": "8acbd807907ca6bd045aab8e50e7af995fc9a211",
+        "rev": "2a90e7712424d8f44093334f7a359696d9398216",
         "type": "github"
       }
     },
