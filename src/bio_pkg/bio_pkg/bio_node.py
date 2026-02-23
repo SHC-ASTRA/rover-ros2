@@ -5,8 +5,8 @@ import time
 
 import rclpy
 from astra_msgs.action import BioVacuum
-from astra_msgs.msg import BioControl, BioDistributor, BioLaser, FaerieControl, ScytheControl, VicCAN
-from astra_msgs.srv import BioTestTube
+from astra_msgs.msg import CitadelControl, FaerieControl, VicCAN
+from astra_msgs.srv import BioTestTube, LibsSystem
 from rclpy.action import ActionServer
 from rclpy.node import Node
 from std_msgs.msg import Header, String
@@ -42,37 +42,27 @@ class SerialRelay(Node):
         )
         self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
 
-        self.distributor_sub = self.create_subscription(
-            BioDistributor,
-            "/bio/control/distributor",
-            self.distributor_callback,
+        # Messages
+        self.citadel_sub = self.create_subscription(
+            CitadelControl,
+            "/bio/control/citadel",
+            self.citadel_callback,
             10,
         )
 
         self.faerie_sub = self.create_subscription(
-            FaerieControl, 
-            "/bio/control/faerie", 
+            FaerieControl,
+            "/bio/control/faerie",
             self.faerie_callback,
-            10,
-        )
-
-        self.scythe_sub = self.create_subscription(
-            ScytheControl, 
-            "/bio/control/scythe", 
-            self.scythe_callback, 
-            10,
-        )
-
-        self.laser_sub = self.create_subscription(
-            ScytheControl, 
-            "/bio/control/laser", 
-            self.laser_callback, 
             10,
         )
 
         # Services
         self.test_tube_service = self.create_service(
             BioTestTube, "/bio/control/test_tube", self.test_tube_callback
+        )
+        self.libs_service = self.create_service(
+            LibsSystem, "bio/control/libs_system", self.libs_callback
         )
 
         # Actions
@@ -90,9 +80,6 @@ class SerialRelay(Node):
                 time.sleep(0.1)
         except KeyboardInterrupt:
             pass
-
-    def send_control(self, msg: BioControl):
-        print("todo")
 
     def send_cmd(self, msg: str):
         # send to anchor node to relay
@@ -121,9 +108,9 @@ class SerialRelay(Node):
         self.get_logger().info(f"[Bio Anchor] {msg.data}")
         # no data planned to be received from citadel, not sure about lance
 
-    def distributor_callback(self, msg: BioDistributor):
+    def citadel_callback(self, msg: CitadelControl):
         distributor_arr = msg.distributor_id
-        # if (any in distributor > 
+        # Distributor Control
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="citadel",
@@ -136,17 +123,17 @@ class SerialRelay(Node):
             ],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
-    
-    def faerie_callback(self, msg: FaerieControl):
-        # msg.vibration_motor:
+        # Move Scythe
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="digit",
-            command_id=37,
-            data=[float(msg.vibration_motor)]
+            command_id=42,
+            data=[float(msg.move_scythe)],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
-        # msg.move_faerie:
+
+    def faerie_callback(self, msg: FaerieControl):
+        # Move Faerie
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="digit",
@@ -154,31 +141,22 @@ class SerialRelay(Node):
             data=[float(msg.move_faerie)],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
-        # msg.drill_speed
+        # Drill Speed
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="digit",
             command_id=19,
-            data=[float(msg.drill_speed)],
+            data=[
+                float(msg.drill_speed * 100)
+            ],  # change on embedded so we can go (-1,1)
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
-
-
-    def scythe_callback(self, msg: ScytheControl):
+        # Vanity Laser Control
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="digit",
-            command_id=24,
-            data=[float(msg.move_scythe)],
-        )
-        self.anchor_tovic_pub_.publish(vic_cmd)
-
-    def laser_callback(self, msg: BioLaser):
-        vic_cmd = VicCAN(
-            header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="digit",
-            command_id=24,
-            data=[float(msg.fire)],
+            command_id=28,
+            data=[float(msg.vanity_laser)],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
 
@@ -194,6 +172,9 @@ class SerialRelay(Node):
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
         return response
+
+    def libs_callback(self, request, response):
+        print("todo")
 
     def execute_vacuum(self, goal_handle):
         valve_id = int(goal_handle.request.valve_id)
