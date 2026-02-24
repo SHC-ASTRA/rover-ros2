@@ -191,20 +191,20 @@ class SerialRelay(Node):
             )
         )
 
-        # set fan duty cycle
-        self.anchor_tovic_pub_.publish(
-            VicCAN(
-                header=Header(stamp=self.get_clock().now().to_msg()),
-                mcu_name="citadel",
-                command_id=19,
-                data=[float(duty)],
-            )
-        )
-
         feedback = BioVacuum.Feedback()
         start = time.time()
 
         while True:
+            # set fan duty cycle
+            self.anchor_tovic_pub_.publish(
+                VicCAN(
+                    header=Header(stamp=self.get_clock().now().to_msg()),
+                    mcu_name="citadel",
+                    command_id=19,
+                    data=[float(duty)],
+                )
+            )
+
             elapsed = int((time.time() - start) * 1000)
             remaining = max(0, total - elapsed)
 
