@@ -124,8 +124,7 @@ class ArmNode(Node):
         thread.start()
 
         try:
-            while rclpy.ok():
-                pass
+            thread.join()
         except KeyboardInterrupt:
             pass
 
@@ -252,6 +251,7 @@ class ArmNode(Node):
                 self.arm_feedback_new.socket_voltage.v12 = float(msg.data[1]) / 100.0
                 self.arm_feedback_new.socket_voltage.v5 = float(msg.data[2]) / 100.0
                 self.arm_feedback_new.socket_voltage.v3 = float(msg.data[3]) / 100.0
+                self.arm_feedback_new.socket_voltage.header.stamp = msg.header.stamp
             case 55:  # Arm joint positions
                 angles = [angle / 10.0 for angle in msg.data]  # VicCAN sends deg*10
                 # Joint state publisher for URDF visualization
