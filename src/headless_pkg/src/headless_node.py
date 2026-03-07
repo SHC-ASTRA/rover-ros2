@@ -474,7 +474,7 @@ class Headless(Node):
             # Triggers: EF Grippers
             if left_trigger > 0 or right_trigger > 0:
                 arm_jointjog.joint_names.append(
-                    "Gripper_Slider_Left"  # TODO: Update joint name
+                    "ef_gripper_left_joint"
                 )
                 arm_jointjog.velocities.append(float(right_trigger - left_trigger))
 
