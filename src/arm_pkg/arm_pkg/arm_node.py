@@ -65,27 +65,34 @@ class ArmNode(Node):
         self.get_logger().info(f"arm launch_mode is: anchor")  # Hey I like the output
 
         ##################################################
+        # Parameters
+
+        self.declare_parameter("use_old_topics", True)
+        self.use_old_topics = self.get_parameter("use_old_topics").get_parameter_value().bool_value
+
+        ##################################################
         # Old topics
 
-        # Anchor topics
-        self.anchor_sub = self.create_subscription(
-            String, "/anchor/arm/feedback", self.anchor_feedback, 10
-        )
-        self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
+        if self.use_old_topics:
+            # Anchor topics
+            self.anchor_sub = self.create_subscription(
+                String, "/anchor/arm/feedback", self.anchor_feedback, 10
+            )
+            self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
 
-        # Create publishers
-        self.socket_pub = self.create_publisher(
-            SocketFeedback, "/arm/feedback/socket", 10
-        )
-        self.arm_feedback = SocketFeedback()
-        self.digit_pub = self.create_publisher(DigitFeedback, "/arm/feedback/digit", 10)
-        self.digit_feedback = DigitFeedback()
-        self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
+            # Create publishers
+            self.socket_pub = self.create_publisher(
+                SocketFeedback, "/arm/feedback/socket", 10
+            )
+            self.arm_feedback = SocketFeedback()
+            self.digit_pub = self.create_publisher(DigitFeedback, "/arm/feedback/digit", 10)
+            self.digit_feedback = DigitFeedback()
+            self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
 
-        # Create subscribers
-        self.man_sub = self.create_subscription(
-            ArmManual, "/arm/control/manual", self.send_manual, 10
-        )
+            # Create subscribers
+            self.man_sub = self.create_subscription(
+                ArmManual, "/arm/control/manual", self.send_manual, 10
+            )
 
         ###################################################
         # New topics
@@ -212,6 +219,7 @@ class ArmNode(Node):
         self.anchor_tovic_pub_.publish(digit_cmd)
 
     def send_manual(self, msg: ArmManual):
+        """TODO: Old"""
         axis0 = msg.axis0
         axis1 = -1 * msg.axis1
         axis2 = msg.axis2
@@ -236,10 +244,12 @@ class ArmNode(Node):
         return
 
     def send_cmd(self, msg: str):
+        """TODO: Old"""
         output = String(data=msg)
         self.anchor_pub.publish(output)
 
     def anchor_feedback(self, msg: String):
+        """TODO: Old"""
         output = msg.data
         if output.startswith("can_relay_fromvic,arm,55"):
             self.updateAngleFeedback(output)
@@ -389,10 +399,12 @@ class ArmNode(Node):
                 )  # Wrist yaw
 
     def publish_feedback(self):
+        """TODO: Old"""
         self.socket_pub.publish(self.arm_feedback)
         self.digit_pub.publish(self.digit_feedback)
 
     def updateAngleFeedback(self, msg: str):
+        """TODO: Old"""
         # Angle feedbacks,
         # split the msg.data by commas
         parts = msg.split(",")
@@ -411,6 +423,7 @@ class ArmNode(Node):
             self.get_logger().info("Invalid angle feedback input format")
 
     def updateBusVoltage(self, msg: str):
+        """TODO: Old"""
         # Bus Voltage feedbacks
         parts = msg.split(",")
         if len(parts) >= 7:
@@ -425,6 +438,7 @@ class ArmNode(Node):
             self.get_logger().info("Invalid voltage feedback input format")
 
     def updateMotorFeedback(self, msg: str):
+        """TODO: Old"""
         parts = str(msg.strip()).split(",")
         motorId = round(float(parts[3]))
         temp = float(parts[4]) / 10.0
