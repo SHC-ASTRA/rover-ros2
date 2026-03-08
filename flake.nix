@@ -25,7 +25,7 @@
           name = "ASTRA Anchor";
           packages = with pkgs; [
             colcon
-            (python312.withPackages (
+            (python313.withPackages (
               p: with p; [
                 pyserial
                 pygame
