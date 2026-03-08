@@ -37,21 +37,14 @@ ARM_STOP_MSG = ArmManual()  # "
 BIO_STOP_MSG = BioControl()  # "
 
 control_qos = qos.QoSProfile(
-    # history=qos.QoSHistoryPolicy.KEEP_LAST,
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
-    # reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-    # durability=qos.QoSDurabilityPolicy.VOLATILE,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
     # deadline=Duration(seconds=1),
     # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
     # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
     # liveliness_lease_duration=Duration(seconds=5),
-)
-
-arm_ik_qos = qos.QoSProfile(
-    history=qos.QoSHistoryPolicy.KEEP_LAST,
-    depth=1,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-    durability=qos.QoSDurabilityPolicy.VOLATILE,
 )
 
 
@@ -187,10 +180,10 @@ class Headless(Node):
         )
 
         self.arm_ik_twist_publisher = self.create_publisher(
-            TwistStamped, "/servo_node/delta_twist_cmds", arm_ik_qos
+            TwistStamped, "/servo_node/delta_twist_cmds", qos_profile=control_qos
         )
         self.arm_ik_jointjog_publisher = self.create_publisher(
-            JointJog, "/servo_node/delta_joint_cmds", arm_ik_qos
+            JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
         )
 
         ##################################################

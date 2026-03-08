@@ -14,16 +14,16 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual
 from astra_msgs.msg import ArmFeedback, VicCAN, RevMotorState
 
-# control_qos = qos.QoSProfile(
-#     history=qos.QoSHistoryPolicy.KEEP_LAST,
-#     depth=1,
-#     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-#     durability=qos.QoSDurabilityPolicy.VOLATILE,
-#     deadline=1000,
-#     lifespan=500,
-#     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-#     liveliness_lease_duration=5000
-# )
+control_qos = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
+)
 
 thread = None
 
@@ -112,11 +112,11 @@ class ArmNode(Node):
 
         # Manual: /arm/manual_new is published by Servo or Basestation
         self.jointjog_pub_ = self.create_subscription(
-            JointJog, "/arm/manual_new", self.jointjog_callback, 1
+            JointJog, "/arm/manual_new", self.jointjog_callback, qos_profile=control_qos
         )
         # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
         self.joint_command_sub_ = self.create_subscription(
-            JointState, "/joint_commands", self.joint_command_callback, 1
+            JointState, "/joint_commands", self.joint_command_callback, qos_profile=control_qos
         )
 
         # Feedback
