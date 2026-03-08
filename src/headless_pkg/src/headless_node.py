@@ -207,6 +207,14 @@ class Headless(Node):
         # Rumble when node is ready (returns False if rumble not supported)
         self.gamepad.rumble(0.7, 0.8, 150)
 
+    def stop_all(self):
+        if self.use_old_topics:
+            self.core_publisher.publish(CORE_STOP_MSG)
+            self.arm_publisher.publish(ARM_STOP_MSG)
+            self.bio_publisher.publish(BIO_STOP_MSG)
+        else:
+            self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
+
     def send_controls(self):
         """Read the gamepad state and publish control messages"""
         for event in pygame.event.get():
@@ -217,10 +225,8 @@ class Headless(Node):
         # Check if controller is still connected
         if pygame.joystick.get_count() != self.num_gamepads:
             print("Gamepad disconnected. Exiting...")
-            # Send one last zero control message
-            self.core_publisher.publish(CORE_STOP_MSG)
-            self.arm_publisher.publish(ARM_STOP_MSG)
-            self.bio_publisher.publish(BIO_STOP_MSG)
+            # Stop the rover if controller disconnected
+            self.stop_all()
             self.get_logger().info("Final stop commands sent. Shutting down.")
             # Clean up
             pygame.quit()
@@ -236,22 +242,41 @@ class Headless(Node):
             new_ctrl_mode = "core"
 
         if new_ctrl_mode != self.ctrl_mode:
-            self.core_publisher.publish(CORE_STOP_MSG)
-            self.arm_publisher.publish(ARM_STOP_MSG)
-            self.bio_publisher.publish(BIO_STOP_MSG)
+            self.stop_all()
             self.gamepad.rumble(0.6, 0.7, 75)
             self.ctrl_mode = new_ctrl_mode
             self.get_logger().info(f"Switched to {self.ctrl_mode} control mode")
 
-        # CORE
-        if self.ctrl_mode == "core" and self.use_old_topics:
+        # Actually send the controls
+        if self.ctrl_mode == "core":
+            self.send_core()
+            if self.use_old_topics:
+                self.arm_publisher.publish(ARM_STOP_MSG)
+        else:
+            self.send_arm()
+            # self.send_bio()
+            if self.use_old_topics:
+                self.core_publisher.publish(CORE_STOP_MSG)
+
+    def send_core(self):
+        # Collect controller state
+        left_stick_x = deadzone(self.gamepad.get_axis(0))
+        left_stick_y = deadzone(self.gamepad.get_axis(1))
+        left_trigger = deadzone(self.gamepad.get_axis(2))
+        right_stick_x = deadzone(self.gamepad.get_axis(3))
+        right_stick_y = deadzone(self.gamepad.get_axis(4))
+        right_trigger = deadzone(self.gamepad.get_axis(5))
+        button_a = self.gamepad.get_button(0)
+        button_b = self.gamepad.get_button(1)
+        button_x = self.gamepad.get_button(2)
+        button_y = self.gamepad.get_button(3)
+        left_bumper = self.gamepad.get_button(4)
+        right_bumper = self.gamepad.get_button(5)
+        dpad_input = self.gamepad.get_hat(0)
+
+        if self.use_old_topics:
             input = CoreControl()
             input.max_speed = 90
-
-            # Collect controller state
-            left_stick_y = deadzone(self.gamepad.get_axis(1))
-            right_stick_y = deadzone(self.gamepad.get_axis(4))
-            right_trigger = deadzone(self.gamepad.get_axis(5))
 
             # Right wheels
             input.right_stick = float(round(-1 * right_stick_y, 2))
@@ -268,15 +293,8 @@ class Headless(Node):
 
             self.core_publisher.publish(input)
 
-        elif self.ctrl_mode == "core" and not self.use_old_topics:
+        else:  # New topics
             input = Twist()
-
-            # Collect controller state
-            left_stick_y = deadzone(self.gamepad.get_axis(1))
-            right_stick_x = deadzone(self.gamepad.get_axis(3))
-            button_a = self.gamepad.get_button(0)
-            left_bumper = self.gamepad.get_button(4)
-            right_bumper = self.gamepad.get_button(5)
 
             # Forward/back and Turn
             input.linear.x = -1.0 * left_stick_y
@@ -310,30 +328,33 @@ class Headless(Node):
                 state_msg = CoreCtrlState()
                 state_msg.brake_mode = bool(self.core_brake_mode)
                 state_msg.max_duty = float(self.core_max_duty)
+
                 self.core_state_pub_.publish(state_msg)
                 self.get_logger().info(
                     f"[Core State] Brake: {self.core_brake_mode}, Max Duty: {self.core_max_duty}"
                 )
 
-        # ARM and BIO
-        if self.ctrl_mode == "arm" and self.arm_mode == "manual":
+    def send_arm(self):
+        # Collect controller state
+        left_stick_x = deadzone(self.gamepad.get_axis(0))
+        left_stick_y = deadzone(self.gamepad.get_axis(1))
+        left_trigger = deadzone(self.gamepad.get_axis(2))
+        right_stick_x = deadzone(self.gamepad.get_axis(3))
+        right_stick_y = deadzone(self.gamepad.get_axis(4))
+        right_trigger = deadzone(self.gamepad.get_axis(5))
+        button_a = self.gamepad.get_button(0)
+        button_b = self.gamepad.get_button(1)
+        button_x = self.gamepad.get_button(2)
+        button_y = self.gamepad.get_button(3)
+        left_bumper = self.gamepad.get_button(4)
+        right_bumper = self.gamepad.get_button(5)
+        dpad_input = self.gamepad.get_hat(0)
+
+        # OLD MANUAL
+        if self.arm_mode == "manual" and self.use_old_topics:
             arm_input = ArmManual()
 
-            # Collect controller state
-            left_stick_x = deadzone(self.gamepad.get_axis(0))
-            left_stick_y = deadzone(self.gamepad.get_axis(1))
-            left_trigger = deadzone(self.gamepad.get_axis(2))
-            right_stick_x = deadzone(self.gamepad.get_axis(3))
-            right_stick_y = deadzone(self.gamepad.get_axis(4))
-            right_trigger = deadzone(self.gamepad.get_axis(5))
-            button_a = self.gamepad.get_button(0)
-            button_b = self.gamepad.get_button(1)
-            button_x = self.gamepad.get_button(2)
-            button_y = self.gamepad.get_button(3)
-            left_bumper = self.gamepad.get_button(4)
-            right_bumper = self.gamepad.get_button(5)
-            dpad_input = self.gamepad.get_hat(0)
-
+            # OLD ARM CONTROL SCHEME
             if self.arm_manual_scheme == "old":
                 # EF Grippers
                 if left_trigger > 0 and right_trigger > 0:
@@ -377,6 +398,7 @@ class Headless(Node):
                     if abs(right_stick_y) > 0.15:
                         arm_input.axis3 = -1 * round(right_stick_y)
 
+            # NEW ARM CONTROL SCHEME
             if self.arm_manual_scheme == "new":
                 # Right stick: EF yaw and axis 3
                 # Left stick: axis 1 and 2
@@ -439,42 +461,20 @@ class Headless(Node):
                 else:
                     arm_input.linear_actuator = 0
 
-            # BIO
-            bio_input = BioControl(
-                bio_arm=int(left_stick_y * -100),
-                drill_arm=int(round(right_stick_y) * -100),
-            )
-
-            # Drill motor (FAERIE)
-            if deadzone(left_trigger) > 0 or deadzone(right_trigger) > 0:
-                bio_input.drill = int(
-                    30 * (right_trigger - left_trigger)
-                )  # Max duty cycle 30%
-
             self.arm_publisher.publish(arm_input)
 
-        if self.ctrl_mode == "arm" and self.arm_mode == "ik":
+        # NEW MANUAL
+        elif self.arm_mode == "manual" and not self.use_old_topics:
+            pass
+
+        # IK
+        elif self.arm_mode == "ik":
             arm_twist = TwistStamped()
             arm_twist.header.frame_id = "base_link"
             arm_twist.header.stamp = self.get_clock().now().to_msg()
             arm_jointjog = JointJog()
             arm_jointjog.header.frame_id = "base_link"
             arm_jointjog.header.stamp = self.get_clock().now().to_msg()
-
-            # Collect controller state
-            left_stick_x = deadzone(self.gamepad.get_axis(0))
-            left_stick_y = deadzone(self.gamepad.get_axis(1))
-            left_trigger = deadzone(self.gamepad.get_axis(2))
-            right_stick_x = deadzone(self.gamepad.get_axis(3))
-            right_stick_y = deadzone(self.gamepad.get_axis(4))
-            right_trigger = deadzone(self.gamepad.get_axis(5))
-            button_a = self.gamepad.get_button(0)
-            button_b = self.gamepad.get_button(1)
-            button_x = self.gamepad.get_button(2)
-            button_y = self.gamepad.get_button(3)
-            left_bumper = self.gamepad.get_button(4)
-            right_bumper = self.gamepad.get_button(5)
-            dpad_input = self.gamepad.get_hat(0)
 
             # Right stick: linear y and linear x
             # Left stick: angular z and linear z
@@ -515,6 +515,36 @@ class Headless(Node):
 
             self.arm_ik_twist_publisher.publish(arm_twist)
             # self.arm_ik_jointjog_publisher.publish(arm_jointjog)  # TODO: Figure this shit out
+
+    def send_bio(self):
+        # Collect controller state
+        left_stick_x = deadzone(self.gamepad.get_axis(0))
+        left_stick_y = deadzone(self.gamepad.get_axis(1))
+        left_trigger = deadzone(self.gamepad.get_axis(2))
+        right_stick_x = deadzone(self.gamepad.get_axis(3))
+        right_stick_y = deadzone(self.gamepad.get_axis(4))
+        right_trigger = deadzone(self.gamepad.get_axis(5))
+        button_a = self.gamepad.get_button(0)
+        button_b = self.gamepad.get_button(1)
+        button_x = self.gamepad.get_button(2)
+        button_y = self.gamepad.get_button(3)
+        left_bumper = self.gamepad.get_button(4)
+        right_bumper = self.gamepad.get_button(5)
+        dpad_input = self.gamepad.get_hat(0)
+
+        if self.use_old_topics:
+            bio_input = BioControl(
+                bio_arm=int(left_stick_y * -100),
+                drill_arm=int(round(right_stick_y) * -100),
+            )
+
+            # Drill motor (FAERIE)
+            if deadzone(left_trigger) > 0 or deadzone(right_trigger) > 0:
+                bio_input.drill = int(
+                    30 * (right_trigger - left_trigger)
+                )  # Max duty cycle 30%
+
+            self.bio_publisher.publish(bio_input)
 
 
 def deadzone(value: float, threshold=STICK_DEADZONE) -> float:
