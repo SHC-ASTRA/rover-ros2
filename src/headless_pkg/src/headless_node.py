@@ -59,6 +59,18 @@ STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
 
 
 class Headless(Node):
+    # Every non-fixed joint defined in Arm's URDF
+    # Used for JointState and JointJog messsages
+    all_joint_names = [
+        "axis_0_joint",
+        "axis_1_joint",
+        "axis_2_joint",
+        "axis_3_joint",
+        "wrist_yaw_joint",
+        "wrist_roll_joint",
+        "ef_gripper_left_joint",
+    ]
+
     def __init__(self):
         # Initialize pygame first
         pygame.init()
@@ -168,6 +180,10 @@ class Headless(Node):
         )
         self.core_state_pub_ = self.create_publisher(
             CoreCtrlState, "/core/control/state", qos_profile=control_qos
+        )
+
+        self.arm_manual_pub_ = self.create_publisher(
+            JointJog, "/arm/manual_new", qos_profile=control_qos
         )
 
         self.arm_ik_twist_publisher = self.create_publisher(
@@ -465,7 +481,63 @@ class Headless(Node):
 
         # NEW MANUAL
         elif self.arm_mode == "manual" and not self.use_old_topics:
-            pass
+            arm_input = JointJog()
+            arm_input.header.frame_id = "base_link"
+            arm_input.header.stamp = self.get_clock().now().to_msg()
+            arm_input.joint_names = self.all_joint_names
+            arm_input.velocities = [0.0] * len(self.all_joint_names)
+
+            # Right stick: EF yaw and axis 3
+            # Left stick: axis 1 and 2
+            # D-pad: axis 0 and _
+            # Triggers: EF grippers
+            # Bumpers: EF roll
+            # A: brake
+            # B: linear actuator in
+            # X: _
+            # Y: linear actuator out
+
+            ARM_THRESHOLD = 0.2
+
+            # Right stick: EF yaw and axis 3
+            arm_input.velocities[self.all_joint_names.index("wrist_yaw_joint")] = (
+                float(copysign(1, right_stick_x)) if abs(right_stick_x) >= ARM_THRESHOLD else 0.0
+            )
+            arm_input.velocities[self.all_joint_names.index("axis_3_joint")] = (
+                float(-1 * copysign(1, right_stick_y)) if abs(right_stick_y) >= ARM_THRESHOLD else 0.0
+            )
+
+            # Left stick: axis 1 and 2
+            arm_input.velocities[self.all_joint_names.index("axis_1_joint")] = (
+                float(copysign(1, left_stick_x)) if abs(left_stick_x) >= ARM_THRESHOLD else 0.0
+            )
+            arm_input.velocities[self.all_joint_names.index("axis_2_joint")] = (
+                float(-1 * copysign(1, left_stick_y)) if abs(left_stick_y) >= ARM_THRESHOLD else 0.0
+            )
+
+            # D-pad: axis 0 and _
+            arm_input.velocities[self.all_joint_names.index("axis_0_joint")] = (
+                float(copysign(1, dpad_input[0])) if dpad_input[0] != 0 else 0.0
+            )
+
+            # Triggers: EF Grippers
+            if left_trigger > 0 and right_trigger > 0:
+                arm_input.velocities[self.all_joint_names.index("ef_gripper_left_joint")] = 0.0
+            elif left_trigger > 0:
+                arm_input.velocities[self.all_joint_names.index("ef_gripper_left_joint")] = -1.0
+            elif right_trigger > 0:
+                arm_input.velocities[self.all_joint_names.index("ef_gripper_left_joint")] = 1.0
+
+            # Bumpers: EF roll
+            arm_input.velocities[self.all_joint_names.index("wrist_roll_joint")] = right_bumper - left_bumper
+
+            # A: brake
+            # TODO: Brake mode
+
+            # Y: linear actuator
+            # TODO: linear actuator
+
+            self.arm_manual_pub_.publish(arm_input)
 
         # IK
         elif self.arm_mode == "ik":
