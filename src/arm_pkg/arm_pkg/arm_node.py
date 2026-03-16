@@ -156,7 +156,7 @@ class ArmNode(Node):
         # Grab velocities from message
         velocities = [
             (
-                msg.velocities[msg.joint_names.index(joint_name)]
+                msg.velocities[msg.joint_names.index(joint_name)]  # type: ignore
                 if joint_name in msg.joint_names
                 else 0.0
             )

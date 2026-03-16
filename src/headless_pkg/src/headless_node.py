@@ -39,6 +39,7 @@ os.environ["SDL_AUDIODRIVER"] = (
 CORE_STOP_MSG = CoreControl()  # All zeros by default
 CORE_STOP_TWIST_MSG = Twist()  # "
 ARM_STOP_MSG = ArmManual()  # "
+ARM_IK_STOP_MSG = TwistStamped()  # "
 BIO_STOP_MSG = BioControl()  # "
 
 control_qos = qos.QoSProfile(
@@ -148,25 +149,26 @@ class Headless(Node):
         self.declare_parameter("use_bio", False)
         self.use_bio = self.get_parameter("use_bio").get_parameter_value().bool_value
 
-        self.declare_parameter("arm_mode", "manual")
-        self.arm_mode = (
-            self.get_parameter("arm_mode").get_parameter_value().string_value
+        self.declare_parameter("use_arm_ik", False)
+        self.use_arm_ik = (
+            self.get_parameter("use_arm_ik").get_parameter_value().bool_value
         )
 
         # NOTE: only applicable if use_old_topics == True
-        self.declare_parameter("arm_manual_scheme", "old")
-        self.arm_manual_scheme = (
-            self.get_parameter("arm_manual_scheme").get_parameter_value().string_value
+        self.declare_parameter("use_new_arm_manual_scheme", True)
+        self.use_new_arm_manual_scheme = (
+            self.get_parameter("use_new_arm_manual_scheme")
+            .get_parameter_value()
+            .bool_value
         )
 
         # Check parameter validity
-        if self.arm_mode not in ["manual", "ik"]:
+        if self.use_arm_ik and self.use_old_topics:
+            self.get_logger().fatal("Old topics do not support arm IK control.")
+            sys.exit(1)
+        if not self.use_new_arm_manual_scheme and not self.use_old_topics:
             self.get_logger().warn(
-                f"Invalid value '{self.arm_mode}' for arm_mode parameter. Defaulting to 'manual' (per-axis control)."
-            )
-        if self.arm_manual_scheme not in ["old", "new"]:
-            self.get_logger().warn(
-                f"Invalid value '{self.arm_manual_scheme}' for arm_manual_scheme parameter. Defaulting to 'old' ('24 and '25 controls)."
+                f"New arm manual does not support old control scheme. Defaulting to new scheme."
             )
 
         self.ctrl_mode = "core"  # Start in core mode
@@ -205,6 +207,8 @@ class Headless(Node):
                 JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
             )
 
+            # TODO: add new bio topics
+
         ##################################################
         # Timers
 
@@ -215,7 +219,7 @@ class Headless(Node):
 
         # If using IK control, we have to "start" the servo node to enable it to accept commands
         self.servo_start_client = None
-        if self.arm_mode == "ik":
+        if self.use_arm_ik:
             self.get_logger().info("Starting servo node for IK control...")
             self.servo_start_client = self.create_client(
                 Trigger, "/servo_node/start_servo"
@@ -242,7 +246,11 @@ class Headless(Node):
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
             self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
-            self.arm_manual_pub_.publish(ARM_STOP_JOG_MSG)
+            if self.use_arm_ik:
+                self.arm_ik_twist_publisher.publish(ARM_IK_STOP_MSG)
+            else:
+                self.arm_manual_pub_.publish(ARM_STOP_JOG_MSG)
+            # TODO: add bio here after implementing new topics
 
     def send_controls(self):
         """Read the gamepad state and publish control messages"""
@@ -389,11 +397,13 @@ class Headless(Node):
         dpad_input = self.gamepad.get_hat(0)
 
         # OLD MANUAL
-        if self.arm_mode == "manual" and self.use_old_topics:
+        # ==========
+
+        if not self.use_arm_ik and self.use_old_topics:
             arm_input = ArmManual()
 
-            # OLD ARM CONTROL SCHEME
-            if self.arm_manual_scheme == "old":
+            # OLD ARM MANUAL CONTROL SCHEME
+            if not self.use_new_arm_manual_scheme:
                 # EF Grippers
                 if left_trigger > 0 and right_trigger > 0:
                     arm_input.gripper = 0
@@ -436,8 +446,8 @@ class Headless(Node):
                     if abs(right_stick_y) > 0.15:
                         arm_input.axis3 = -1 * round(right_stick_y)
 
-            # NEW ARM CONTROL SCHEME
-            if self.arm_manual_scheme == "new":
+            # NEW ARM MANUAL CONTROL SCHEME
+            if self.use_new_arm_manual_scheme:
                 # Right stick: EF yaw and axis 3
                 # Left stick: axis 1 and 2
                 # D-pad: axis 0 and _
@@ -490,7 +500,9 @@ class Headless(Node):
             self.arm_publisher.publish(arm_input)
 
         # NEW MANUAL
-        elif self.arm_mode == "manual" and not self.use_old_topics:
+        # ==========
+
+        elif not self.use_arm_ik and not self.use_old_topics:
             arm_input = JointJog()
             arm_input.header.frame_id = "base_link"
             arm_input.header.stamp = self.get_clock().now().to_msg()
@@ -557,8 +569,10 @@ class Headless(Node):
 
             self.arm_manual_pub_.publish(arm_input)
 
-        # IK
-        elif self.arm_mode == "ik" and not self.use_old_topics:
+        # IK (ONLY NEW)
+        # =============
+
+        elif self.use_arm_ik:
             arm_twist = TwistStamped()
             arm_twist.header.frame_id = "base_link"
             arm_twist.header.stamp = self.get_clock().now().to_msg()
@@ -592,7 +606,7 @@ class Headless(Node):
 
             # Triggers: EF Grippers
             if left_trigger > 0 or right_trigger > 0:
-                arm_jointjog.joint_names.append("ef_gripper_left_joint")
+                arm_jointjog.joint_names.append("ef_gripper_left_joint")  # type: ignore
                 arm_jointjog.velocities.append(float(right_trigger - left_trigger))
 
             # Bumpers: angular x
@@ -635,6 +649,9 @@ class Headless(Node):
                 )  # Max duty cycle 30%
 
             self.bio_publisher.publish(bio_input)
+
+        else:
+            pass  # TODO: implement new bio control topics
 
 
 def stick_deadzone(value: float, threshold=STICK_DEADZONE) -> float:
