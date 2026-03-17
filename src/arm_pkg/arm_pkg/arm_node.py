@@ -69,7 +69,9 @@ class ArmNode(Node):
         # Parameters
 
         self.declare_parameter("use_old_topics", True)
-        self.use_old_topics = self.get_parameter("use_old_topics").get_parameter_value().bool_value
+        self.use_old_topics = (
+            self.get_parameter("use_old_topics").get_parameter_value().bool_value
+        )
 
         ##################################################
         # Old topics
@@ -86,7 +88,9 @@ class ArmNode(Node):
                 SocketFeedback, "/arm/feedback/socket", 10
             )
             self.arm_feedback = SocketFeedback()
-            self.digit_pub = self.create_publisher(DigitFeedback, "/arm/feedback/digit", 10)
+            self.digit_pub = self.create_publisher(
+                DigitFeedback, "/arm/feedback/digit", 10
+            )
             self.digit_feedback = DigitFeedback()
             self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
 
@@ -113,11 +117,17 @@ class ArmNode(Node):
 
         # Manual: /arm/manual_new is published by Servo or Basestation
         self.man_jointjog_pub_ = self.create_subscription(
-            JointJog, "/arm/manual/joint_jog", self.jointjog_callback, qos_profile=control_qos
+            JointJog,
+            "/arm/manual/joint_jog",
+            self.jointjog_callback,
+            qos_profile=control_qos,
         )
         # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
         self.joint_command_sub_ = self.create_subscription(
-            JointState, "/joint_commands", self.joint_command_callback, qos_profile=control_qos
+            JointState,
+            "/joint_commands",
+            self.joint_command_callback,
+            qos_profile=control_qos,
         )
 
         # Feedback
