@@ -172,31 +172,9 @@ class ArmNode(Node):
         ]
         # Deadzone
         velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
-        # ROS2's rad/s to VicCAN's deg/s*10; don't convert gripper's m/s
-        velocities = [
-            math.degrees(vel) * 10 if i < 6 else vel for i, vel in enumerate(velocities)
-        ]
 
-        # Send Axis 0-3
-        self.anchor_tovic_pub_.publish(
-            VicCAN(
-                mcu_name="arm", command_id=43, data=velocities[0:3], header=msg.header
-            )
-        )
-        # Send Wrist yaw and roll
-        # TODO: Verify embedded
-        self.anchor_tovic_pub_.publish(
-            VicCAN(
-                mcu_name="digit", command_id=43, data=velocities[4:5], header=msg.header
-            )
-        )
-        # Send End Effector Gripper
-        # TODO: Verify m/s received correctly by embedded
-        self.anchor_tovic_pub_.publish(
-            VicCAN(
-                mcu_name="digit", command_id=26, data=[velocities[6]], header=msg.header
-            )
-        )
+        self.send_velocities(velocities, msg.header)
+
         # TODO: use msg.duration
 
     def joint_command_callback(self, msg: JointState):
@@ -204,22 +182,38 @@ class ArmNode(Node):
             self.get_logger().debug("Ignoring malformed /joint_command message.")
             return  # command needs either position or velocity for all 7 joints
 
-        # Assumed order: Axis0, Axis1, Axis2, Axis3, Wrist_Yaw, Wrist_Roll, Gripper
-        # TODO: refactor to depend on joint names
-        # Embedded takes deg*10, ROS2 uses Radians
+        # Grab velocities from message
         velocities = [
-            math.degrees(vel) * 10 if abs(vel) > 0.05 else 0.0 for vel in msg.velocity
+            (
+                msg.velocity[msg.name.index(joint_name)]  # type: ignore
+                if joint_name in msg.name
+                else 0.0
+            )
+            for joint_name in self.all_joint_names
         ]
 
-        # Axis 0-3
-        arm_cmd = VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3])
-        arm_cmd.header = Header(stamp=self.get_clock().now().to_msg())
-        # Wrist yaw and roll, gripper included for future use when have adequate hardware
-        digit_cmd = VicCAN(mcu_name="digit", command_id=43, data=velocities[4:6])
-        digit_cmd.header = Header(stamp=self.get_clock().now().to_msg())
+        self.send_velocities(velocities, msg.header)
 
-        self.anchor_tovic_pub_.publish(arm_cmd)
-        self.anchor_tovic_pub_.publish(digit_cmd)
+    def send_velocities(self, velocities: list[float], header: Header):
+        # ROS2's rad/s to VicCAN's deg/s*10; don't convert gripper's m/s
+        velocities = [
+            math.degrees(vel) * 10 if i < 6 else vel for i, vel in enumerate(velocities)
+        ]
+
+        # Send Axis 0-3
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3], header=header)
+        )
+        # Send Wrist yaw and roll
+        # TODO: Verify embedded
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:5], header=header)
+        )
+        # Send End Effector Gripper
+        # TODO: Verify m/s received correctly by embedded
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="digit", command_id=26, data=[velocities[6]], header=header)
+        )
 
     @deprecated("Uses an old message type. Will be removed at some point.")
     def send_manual(self, msg: ArmManual):
