@@ -39,8 +39,8 @@ os.environ["SDL_AUDIODRIVER"] = (
 CORE_STOP_MSG = CoreControl()  # All zeros by default
 CORE_STOP_TWIST_MSG = Twist()  # "
 ARM_STOP_MSG = ArmManual()  # "
-ARM_IK_STOP_MSG = TwistStamped()  # "
 BIO_STOP_MSG = BioControl()  # "
+
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -75,15 +75,7 @@ class Headless(Node):
         # Initialize pygame first
         pygame.init()
         pygame.joystick.init()
-        super().__init__("headless")
-
-        # TODO: move the STOP_MSGs somewhere better
-        global ARM_STOP_JOG_MSG
-        ARM_STOP_JOG_MSG = JointJog(
-            header=Header(frame_id="base_link", stamp=self.get_clock().now().to_msg()),
-            joint_names=self.all_joint_names,
-            velocities=[0.0] * len(self.all_joint_names),
-        )
+        super().__init__("headless_node")
 
         ##################################################
         # Preamble
@@ -247,9 +239,9 @@ class Headless(Node):
         else:
             self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
-                self.arm_ik_twist_publisher.publish(ARM_IK_STOP_MSG)
+                self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
-                self.arm_manual_pub_.publish(ARM_STOP_JOG_MSG)
+                self.arm_manual_pub_.publish(self.arm_manual_stop_msg())
             # TODO: add bio here after implementing new topics
 
     def send_controls(self):
@@ -519,14 +511,12 @@ class Headless(Node):
             # X: _
             # Y: linear actuator out
 
-            ARM_THRESHOLD = 0.2
-
             # Right stick: EF yaw and axis 3
             arm_input.velocities[self.all_joint_names.index("wrist_yaw_joint")] = float(
                 stick_to_arm_direction(right_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_3_joint")] = float(
-                -1 * stick_to_arm_direction(right_stick_y)
+                stick_to_arm_direction(right_stick_y)
             )
 
             # Left stick: axis 1 and 2
@@ -534,7 +524,7 @@ class Headless(Node):
                 stick_to_arm_direction(left_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_2_joint")] = float(
-                -1 * stick_to_arm_direction(left_stick_y)
+                stick_to_arm_direction(left_stick_y)
             )
 
             # D-pad: axis 0 and _
@@ -652,6 +642,18 @@ class Headless(Node):
 
         else:
             pass  # TODO: implement new bio control topics
+
+    def arm_manual_stop_msg(self):
+        return JointJog(
+            header=Header(frame_id="base_link", stamp=self.get_clock().now().to_msg()),
+            joint_names=self.all_joint_names,
+            velocities=[0.0] * len(self.all_joint_names),
+        )
+
+    def arm_ik_twist_stop_msg(self):
+        return TwistStamped(
+            header=Header(frame_id="base_link", stamp=self.get_clock().now().to_msg())
+        )
 
 
 def stick_deadzone(value: float, threshold=STICK_DEADZONE) -> float:
