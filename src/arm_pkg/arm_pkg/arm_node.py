@@ -115,8 +115,8 @@ class ArmNode(Node):
 
         # Control
 
-        # Manual: /arm/manual_new is published by Servo or Basestation
-        self.man_jointjog_pub_ = self.create_subscription(
+        # Manual: /arm/manual/joint_jog is published by Basestation or Headless
+        self.man_jointjog_sub_ = self.create_subscription(
             JointJog,
             "/arm/manual/joint_jog",
             self.jointjog_callback,
