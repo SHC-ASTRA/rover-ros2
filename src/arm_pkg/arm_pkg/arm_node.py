@@ -1,181 +1,221 @@
-import rclpy
-from rclpy.node import Node
-import serial
 import sys
 import threading
-import glob
-import time
-import atexit
 import signal
-from std_msgs.msg import String
-from astra_msgs.msg import ArmManual
-from astra_msgs.msg import SocketFeedback
-from astra_msgs.msg import DigitFeedback
-from sensor_msgs.msg import JointState
 import math
+from warnings import deprecated
 
-# control_qos = qos.QoSProfile(
-#     history=qos.QoSHistoryPolicy.KEEP_LAST,
-#     depth=1,
-#     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
-#     durability=qos.QoSDurabilityPolicy.VOLATILE,
-#     deadline=1000,
-#     lifespan=500,
-#     liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
-#     liveliness_lease_duration=5000
-# )
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
+from rclpy import qos
 
-serial_pub = None
+from std_msgs.msg import String, Header
+from sensor_msgs.msg import JointState
+from control_msgs.msg import JointJog
+from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual  # TODO: Old topics
+from astra_msgs.msg import ArmFeedback, VicCAN, RevMotorState
+
+control_qos = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
+)
+
 thread = None
 
 
-class SerialRelay(Node):
+class ArmNode(Node):
+    """Relay between Anchor and Basestation/Headless/Moveit2 for Arm related topics."""
+
+    # Every non-fixed joint defined in Arm's URDF
+    # Used for JointState and JointJog messsages
+    all_joint_names = [
+        "axis_0_joint",
+        "axis_1_joint",
+        "axis_2_joint",
+        "axis_3_joint",
+        "wrist_yaw_joint",
+        "wrist_roll_joint",
+        "ef_gripper_left_joint",
+    ]
+
+    # Used to verify the length of an incoming VicCAN feedback message
+    # Key is VicCAN command_id, value is expected length of data list
+    viccan_socket_msg_len_dict = {
+        53: 4,
+        54: 4,
+        55: 4,
+        58: 4,
+        59: 4,
+    }
+
+    viccan_digit_msg_len_dict = {
+        54: 4,
+        55: 2,
+        59: 2,
+    }
+
     def __init__(self):
-        # Initialize node
         super().__init__("arm_node")
 
-        # Get launch mode parameter
-        self.declare_parameter("launch_mode", "arm")
-        self.launch_mode = self.get_parameter("launch_mode").value
-        self.get_logger().info(f"arm launch_mode is: {self.launch_mode}")
+        self.get_logger().info(f"arm launch_mode is: anchor")  # Hey I like the output
 
-        # Create publishers
-        self.debug_pub = self.create_publisher(String, "/arm/feedback/debug", 10)
-        self.socket_pub = self.create_publisher(
-            SocketFeedback, "/arm/feedback/socket", 10
-        )
-        self.digit_pub = self.create_publisher(DigitFeedback, "/arm/feedback/digit", 10)
-        self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
+        ##################################################
+        # Parameters
 
-        # Create subscribers
-        self.man_sub = self.create_subscription(
-            ArmManual, "/arm/control/manual", self.send_manual, 2
+        self.declare_parameter("use_old_topics", True)
+        self.use_old_topics = (
+            self.get_parameter("use_old_topics").get_parameter_value().bool_value
         )
 
-        # New messages
-        self.joint_state_pub = self.create_publisher(JointState, "joint_states", 10)
-        self.joint_state = JointState()
-        self.joint_state.name = [
-            "Axis_0_Joint",
-            "Axis_1_Joint",
-            "Axis_2_Joint",
-            "Axis_3_Joint",
-            "Wrist_Differential_Joint",
-            "Wrist-EF_Roll_Joint",
-            "Gripper_Slider_Left",
-        ]
-        self.joint_state.position = [0.0] * len(
-            self.joint_state.name
-        )  # Initialize with zeros
+        ##################################################
+        # Old topics
 
-        self.joint_command_sub = self.create_subscription(
-            JointState, "/joint_commands", self.joint_command_callback, 10
-        )
-
-        # Topics used in anchor mode
-        if self.launch_mode == "anchor":
+        if self.use_old_topics:
+            # Anchor topics
             self.anchor_sub = self.create_subscription(
                 String, "/anchor/arm/feedback", self.anchor_feedback, 10
             )
             self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
 
-        self.arm_feedback = SocketFeedback()
-        self.digit_feedback = DigitFeedback()
+            # Create publishers
+            self.socket_pub = self.create_publisher(
+                SocketFeedback, "/arm/feedback/socket", 10
+            )
+            self.arm_feedback = SocketFeedback()
+            self.digit_pub = self.create_publisher(
+                DigitFeedback, "/arm/feedback/digit", 10
+            )
+            self.digit_feedback = DigitFeedback()
+            self.feedback_timer = self.create_timer(0.25, self.publish_feedback)
 
-        # Search for ports IF in 'arm' (standalone) and not 'anchor' mode
-        if self.launch_mode == "arm":
-            # Loop through all serial devices on the computer to check for the MCU
-            self.port = None
-            ports = SerialRelay.list_serial_ports()
-            for _ in range(4):
-                for port in ports:
-                    try:
-                        # connect and send a ping command
-                        ser = serial.Serial(port, 115200, timeout=1)
-                        # print(f"Checking port {port}...")
-                        ser.write(b"ping\n")
-                        response = ser.read_until("\n")  # type: ignore
+            # Create subscribers
+            self.man_sub = self.create_subscription(
+                ArmManual, "/arm/control/manual", self.send_manual, 10
+            )
 
-                        # if pong is in response, then we are talking with the MCU
-                        if b"pong" in response:
-                            self.port = port
-                            self.get_logger().info(f"Found MCU at {self.port}!")
-                            break
-                    except:
-                        pass
-                if self.port is not None:
-                    break
+        ###################################################
+        # New topics
 
-            if self.port is None:
-                self.get_logger().info(
-                    "Unable to find MCU... please make sure it is connected."
-                )
-                time.sleep(1)
-                sys.exit(1)
+        # Anchor topics
 
-            self.ser = serial.Serial(self.port, 115200)
-            atexit.register(self.cleanup)
+        # from_vic
+        self.anchor_fromvic_sub_ = self.create_subscription(
+            VicCAN, "/anchor/from_vic/arm", self.relay_fromvic, 20
+        )
+        # to_vic
+        self.anchor_tovic_pub_ = self.create_publisher(
+            VicCAN, "/anchor/to_vic/relay", 20
+        )
 
-    def run(self):
-        global thread
-        thread = threading.Thread(target=rclpy.spin, args=(self,), daemon=True)
-        thread.start()
+        # Control
 
-        # if in arm mode, will need to read from the MCU
+        # Manual: /arm/manual/joint_jog is published by Basestation or Headless
+        self.man_jointjog_sub_ = self.create_subscription(
+            JointJog,
+            "/arm/manual/joint_jog",
+            self.jointjog_callback,
+            qos_profile=control_qos,
+        )
+        # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
+        self.joint_command_sub_ = self.create_subscription(
+            JointState,
+            "/joint_commands",
+            self.joint_command_callback,
+            qos_profile=control_qos,
+        )
 
-        try:
-            while rclpy.ok():
-                if self.launch_mode == "arm":
-                    if self.ser.in_waiting:
-                        self.read_mcu()
-                    else:
-                        time.sleep(0.1)
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self.cleanup()
+        # Feedback
 
-    # Currently will just spit out all values over the /arm/feedback/debug topic as strings
-    def read_mcu(self):
-        try:
-            output = str(self.ser.readline(), "utf8")
-            if output:
-                # self.get_logger().info(f"[MCU] {output}")
-                msg = String()
-                msg.data = output
-                self.debug_pub.publish(msg)
-        except serial.SerialException:
-            self.get_logger().info("SerialException caught... closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            pass
-        except TypeError as e:
-            self.get_logger().info(f"TypeError: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            pass
-        except Exception as e:
-            print(f"Exception: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            pass
+        # Combined Socket and Digit feedback
+        self.arm_feedback_pub_ = self.create_publisher(
+            ArmFeedback,
+            "/arm/feedback",
+            qos_profile=qos.qos_profile_sensor_data,
+        )
+        # IK arm pose: /joint_states is published from here to topic_based_control
+        self.joint_state_pub_ = self.create_publisher(
+            JointState, "/joint_states", qos_profile=qos.qos_profile_sensor_data
+        )
+
+        ###################################################
+        # Saved state
+
+        # Combined Socket and Digit feedback
+        self.arm_feedback_new = ArmFeedback()
+
+        # IK Arm pose
+        self.saved_joint_state = JointState()
+        self.saved_joint_state.name = self.all_joint_names
+        # ... initialize with zeros
+        self.saved_joint_state.position = [0.0] * len(self.saved_joint_state.name)
+        self.saved_joint_state.velocity = [0.0] * len(self.saved_joint_state.name)
+
+    def jointjog_callback(self, msg: JointJog):
+        if len(msg.joint_names) != len(msg.velocities):
+            self.get_logger().debug("Ignoring malformed /arm/manual/joint_jog message.")
+            return
+
+        # Grab velocities from message
+        velocities = [
+            (
+                msg.velocities[msg.joint_names.index(joint_name)]  # type: ignore
+                if joint_name in msg.joint_names
+                else 0.0
+            )
+            for joint_name in self.all_joint_names
+        ]
+        # Deadzone
+        velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
+
+        self.send_velocities(velocities, msg.header)
+
+        # TODO: use msg.duration
 
     def joint_command_callback(self, msg: JointState):
-        # Embedded takes deg*10, ROS2 uses Radians
-        positions = [math.degrees(pos) * 10 for pos in msg.position]
-        # Axis 2 & 3 URDF direction is inverted
-        positions[2] = -positions[2]
-        positions[3] = -positions[3]
+        if len(msg.position) < 7 and len(msg.velocity) < 7:
+            self.get_logger().debug("Ignoring malformed /joint_command message.")
+            return  # command needs either position or velocity for all 7 joints
 
-        # Set target angles for each arm axis for embedded IK PID to handle
-        command = f"can_relay_tovic,arm,32,{positions[0]},{positions[1]},{positions[2]},{positions[3]}\n"
-        # Wrist yaw and roll
-        command += f"can_relay_tovic,digit,32,{positions[4]},{positions[5]}\n"
-        # Gripper IK does not have adequate hardware yet
-        self.send_cmd(command)
+        # Grab velocities from message
+        velocities = [
+            (
+                msg.velocity[msg.name.index(joint_name)]  # type: ignore
+                if joint_name in msg.name
+                else 0.0
+            )
+            for joint_name in self.all_joint_names
+        ]
 
+        self.send_velocities(velocities, msg.header)
+
+    def send_velocities(self, velocities: list[float], header: Header):
+        # ROS2's rad/s to VicCAN's deg/s*10; don't convert gripper's m/s
+        velocities = [
+            math.degrees(vel) * 10 if i < 6 else vel for i, vel in enumerate(velocities)
+        ]
+
+        # Send Axis 0-3
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3], header=header)
+        )
+        # Send Wrist yaw and roll
+        # TODO: Verify embedded
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:5], header=header)
+        )
+        # Send End Effector Gripper
+        # TODO: Verify m/s received correctly by embedded
+        self.anchor_tovic_pub_.publish(
+            VicCAN(mcu_name="digit", command_id=26, data=[velocities[6]], header=header)
+        )
+
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def send_manual(self, msg: ArmManual):
         axis0 = msg.axis0
         axis1 = -1 * msg.axis1
@@ -200,24 +240,17 @@ class SerialRelay(Node):
 
         return
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def send_cmd(self, msg: str):
-        if (
-            self.launch_mode == "anchor"
-        ):  # if in anchor mode, send to anchor node to relay
-            output = String()
-            output.data = msg
-            self.anchor_pub.publish(output)
-        elif self.launch_mode == "arm":  # if in standalone mode, send to MCU directly
-            self.get_logger().info(f"[Arm to MCU] {msg}")
-            self.ser.write(bytes(msg, "utf8"))
+        output = String(data=msg)
+        self.anchor_pub.publish(output)
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def anchor_feedback(self, msg: String):
         output = msg.data
         if output.startswith("can_relay_fromvic,arm,55"):
-            # pass
             self.updateAngleFeedback(output)
         elif output.startswith("can_relay_fromvic,arm,54"):
-            # pass
             self.updateBusVoltage(output)
         elif output.startswith("can_relay_fromvic,arm,53"):
             self.updateMotorFeedback(output)
@@ -235,19 +268,133 @@ class SerialRelay(Node):
             if len(parts) >= 4:
                 self.digit_feedback.wrist_angle = float(parts[3])
                 # self.digit_feedback.wrist_roll = float(parts[4])
-                self.joint_state.position[4] = math.radians(
-                    float(parts[4])
-                )  # Wrist roll
-                self.joint_state.position[5] = math.radians(
-                    float(parts[3])
-                )  # Wrist yaw
         else:
             return
 
+    def relay_fromvic(self, msg: VicCAN):
+        # Code for socket and digit are broken out for cleaner code
+        if msg.mcu_name == "arm":
+            self.process_fromvic_arm(msg)
+        elif msg.mcu_name == "digit":
+            self.process_fromvic_digit(msg)
+
+    def process_fromvic_arm(self, msg: VicCAN):
+        assert msg.mcu_name == "arm"
+
+        # Check message len to prevent crashing on bad data
+        if msg.command_id in self.viccan_socket_msg_len_dict:
+            expected_len = self.viccan_socket_msg_len_dict[msg.command_id]
+            if len(msg.data) != expected_len:
+                self.get_logger().warning(
+                    f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
+                )
+                return
+
+        match msg.command_id:
+            case 53:  # REV SPARK MAX feedback
+                motorId = round(msg.data[0])
+                motor: RevMotorState | None = None
+                match motorId:
+                    case 1:
+                        motor = self.arm_feedback_new.axis1_motor
+                    case 2:
+                        motor = self.arm_feedback_new.axis2_motor
+                    case 3:
+                        motor = self.arm_feedback_new.axis3_motor
+                    case 4:
+                        motor = self.arm_feedback_new.axis0_motor
+
+                if motor:
+                    motor.temperature = float(msg.data[1]) / 10.0
+                    motor.voltage = float(msg.data[2]) / 10.0
+                    motor.current = float(msg.data[3]) / 10.0
+                    motor.header.stamp = msg.header.stamp
+
+                self.arm_feedback_pub_.publish(self.arm_feedback_new)
+            case 54:  # Board voltages
+                self.arm_feedback_new.socket_voltage.vbatt = float(msg.data[0]) / 100.0
+                self.arm_feedback_new.socket_voltage.v12 = float(msg.data[1]) / 100.0
+                self.arm_feedback_new.socket_voltage.v5 = float(msg.data[2]) / 100.0
+                self.arm_feedback_new.socket_voltage.v3 = float(msg.data[3]) / 100.0
+                self.arm_feedback_new.socket_voltage.header.stamp = msg.header.stamp
+            case 55:  # Arm joint positions
+                angles = [angle / 10.0 for angle in msg.data]  # VicCAN sends deg*10
+                # Joint state publisher for URDF visualization
+                self.saved_joint_state.position[0] = math.radians(angles[0])  # Axis 0
+                self.saved_joint_state.position[1] = math.radians(angles[1])  # Axis 1
+                self.saved_joint_state.position[2] = math.radians(angles[2])  # Axis 2
+                self.saved_joint_state.position[3] = math.radians(angles[3])  # Axis 3
+                # Wrist is handled by digit feedback
+                self.saved_joint_state.header.stamp = msg.header.stamp
+                self.joint_state_pub_.publish(self.saved_joint_state)
+            case 58:  # REV SPARK MAX position and velocity feedback
+                motorId = round(msg.data[0])
+                motor: RevMotorState | None = None
+                match motorId:
+                    case 1:
+                        motor = self.arm_feedback_new.axis1_motor
+                    case 2:
+                        motor = self.arm_feedback_new.axis2_motor
+                    case 3:
+                        motor = self.arm_feedback_new.axis3_motor
+                    case 4:
+                        motor = self.arm_feedback_new.axis0_motor
+
+                if motor:
+                    motor.position = float(msg.data[1])
+                    motor.velocity = float(msg.data[2])
+                    motor.header.stamp = msg.header.stamp
+
+                self.arm_feedback_pub_.publish(self.arm_feedback_new)
+            case 59:  # Arm joint velocities
+                velocities = [vel / 100.0 for vel in msg.data]  # VicCAN sends deg/s*100
+                self.saved_joint_state.velocity[0] = math.radians(
+                    velocities[0]
+                )  # Axis 0
+                self.saved_joint_state.velocity[1] = math.radians(
+                    velocities[1]
+                )  # Axis 1
+                self.saved_joint_state.velocity[2] = math.radians(
+                    velocities[2]
+                )  # Axis 2
+                self.saved_joint_state.velocity[3] = math.radians(
+                    velocities[3]
+                )  # Axis 3
+                # Wrist is handled by digit feedback
+                self.saved_joint_state.header.stamp = msg.header.stamp
+                self.joint_state_pub_.publish(self.saved_joint_state)
+
+    def process_fromvic_digit(self, msg: VicCAN):
+        assert msg.mcu_name == "digit"
+
+        # Check message len to prevent crashing on bad data
+        if msg.command_id in self.viccan_digit_msg_len_dict:
+            expected_len = self.viccan_digit_msg_len_dict[msg.command_id]
+            if len(msg.data) != expected_len:
+                self.get_logger().warning(
+                    f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
+                )
+                return
+
+        match msg.command_id:
+            case 54:  # Board voltages
+                self.arm_feedback_new.digit_voltage.vbatt = float(msg.data[0]) / 100.0
+                self.arm_feedback_new.digit_voltage.v12 = float(msg.data[1]) / 100.0
+                self.arm_feedback_new.digit_voltage.v5 = float(msg.data[2]) / 100.0
+            case 55:  # Arm joint positions
+                self.saved_joint_state.position[4] = math.radians(
+                    msg.data[0]
+                )  # Wrist roll
+                self.saved_joint_state.position[5] = math.radians(
+                    msg.data[1]
+                )  # Wrist yaw
+
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):
         self.socket_pub.publish(self.arm_feedback)
         self.digit_pub.publish(self.digit_feedback)
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def updateAngleFeedback(self, msg: str):
         # Angle feedbacks,
         # split the msg.data by commas
@@ -263,19 +410,10 @@ class SerialRelay(Node):
             self.arm_feedback.axis1_angle = angles[1]
             self.arm_feedback.axis2_angle = angles[2]
             self.arm_feedback.axis3_angle = angles[3]
-
-            # Joint state publisher for URDF visualization
-            self.joint_state.position[0] = math.radians(angles[0])  # Axis 0
-            self.joint_state.position[1] = math.radians(angles[1])  # Axis 1
-            self.joint_state.position[2] = math.radians(-angles[2])  # Axis 2 (inverted)
-            self.joint_state.position[3] = math.radians(-angles[3])  # Axis 3 (inverted)
-            # Wrist is handled by digit feedback
-            self.joint_state.header.stamp = self.get_clock().now().to_msg()
-            self.joint_state_pub.publish(self.joint_state)
-
         else:
             self.get_logger().info("Invalid angle feedback input format")
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def updateBusVoltage(self, msg: str):
         # Bus Voltage feedbacks
         parts = msg.split(",")
@@ -290,6 +428,7 @@ class SerialRelay(Node):
         else:
             self.get_logger().info("Invalid voltage feedback input format")
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def updateMotorFeedback(self, msg: str):
         parts = str(msg.strip()).split(",")
         motorId = round(float(parts[3]))
@@ -313,38 +452,28 @@ class SerialRelay(Node):
             self.arm_feedback.axis0_voltage = voltage
             self.arm_feedback.axis0_current = current
 
-    @staticmethod
-    def list_serial_ports():
-        return glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
-        # return glob.glob("/dev/tty[A-Za-z]*")
 
-    def cleanup(self):
-        print("Cleaning up...")
-        try:
-            if self.ser.is_open:
-                self.ser.close()
-        except Exception as e:
-            exit(0)
-
-
-def myexcepthook(type, value, tb):
-    print("Uncaught exception:", type, value)
-    if serial_pub:
-        serial_pub.cleanup()
+def exit_handler(signum, frame):
+    print("Caught SIGTERM. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
 
 
 def main(args=None):
     rclpy.init(args=args)
-    sys.excepthook = myexcepthook
 
-    global serial_pub
-    serial_pub = SerialRelay()
-    serial_pub.run()
+    # Catch termination signals and exit cleanly
+    signal.signal(signal.SIGTERM, exit_handler)
+
+    arm_node = ArmNode()
+
+    try:
+        rclpy.spin(arm_node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
-    signal.signal(
-        signal.SIGTERM, lambda signum, frame: sys.exit(0)
-    )  # Catch termination signals and exit cleanly
     main()
