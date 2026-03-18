@@ -6,6 +6,7 @@ from .convert import string_to_viccan
 # CAN
 import can
 import can.interfaces.socketcan
+import struct
 
 # Serial
 import serial
@@ -176,6 +177,235 @@ class SerialConnector(Connector):
 class CANConnector(Connector):
     def __init__(self, logger: RcutilsLogger):
         super().__init__(logger)
+
+        self.can_channel: str | None = None
+        self.can_bus: can.BusABC | None = None
+
+        if self.can_channel is None:
+            avail = can.interfaces.socketcan.SocketcanBus._detect_available_configs()
+
+            if len(avail) == 0:
+                raise NoValidDeviceException("no CAN interfaces found")
+            if (l := len(avail)) > 1:
+                channels = ", ".join(str(b.get("channel")) for b in avail)
+                raise MultipleValidDevicesException(
+                    f"too many ({l}) CAN interfaces found: [{channels}]"
+                )
+
+            bus = avail[0]
+            self.can_channel = str(bus.get("channel"))
+            self.logger.info(f"found CAN interface '{self.can_channel}'")
+
+        try:
+            self.can_bus = can.Bus(
+                interface="socketcan",
+                channel=self.can_channel,
+                bitrate=1_000_000,
+            )
+        except can.CanError as e:
+            raise NoWorkingDeviceException(
+                f"could not open CAN channel '{self.can_channel}': {e}"
+            )
+
+        if self.can_channel and self.can_channel.startswith("v"):
+            self.logger.warn("using virtual CAN interface; this is likely vcan*")
+
+    def read(self) -> VicCAN | None:
+        if not self.can_bus:
+            raise DeviceClosedException("CAN bus not initialized")
+
+        try:
+            message = self.can_bus.recv(timeout=0.0)
+        except can.CanError as e:
+            self.logger.error(f"CAN error while receiving: {e}")
+            raise DeviceClosedException("CAN bus closed unexpectedly")
+
+        if message is None:
+            return None
+
+        arbitration_id = message.arbitration_id & 0x7FF
+        data_bytes = bytes(message.data)
+
+        mcu_key = (arbitration_id >> 8) & 0b111
+        data_type_key = (arbitration_id >> 6) & 0b11
+        command = arbitration_id & 0x3F
+
+        key_to_mcu: dict[int, str] = {
+            1: "broadcast",
+            2: "core",
+            3: "arm",
+            4: "digit",
+            5: "faerie",
+            6: "citadel",
+        }
+
+        mcu_name = key_to_mcu.get(mcu_key)
+        if mcu_name is None:
+            self.logger.warn(
+                f"received CAN frame with unknown MCU key {mcu_key}; id=0x{arbitration_id:X}"
+            )
+            return None
+
+        data: list[float] = []
+
+        try:
+            if data_type_key == 3:
+                data = []
+            elif data_type_key == 0:
+                if len(data_bytes) < 8:
+                    self.logger.warn(
+                        f"received double payload with insufficient length {len(data_bytes)}; dropping frame"
+                    )
+                    return None
+                (value,) = struct.unpack("<d", data_bytes[:8])
+                data = [float(value)]
+            elif data_type_key == 1:
+                if len(data_bytes) < 8:
+                    self.logger.warn(
+                        f"received float32x2 payload with insufficient length {len(data_bytes)}; dropping frame"
+                    )
+                    return None
+                v1, v2 = struct.unpack("<ff", data_bytes[:8])
+                data = [float(v1), float(v2)]
+            elif data_type_key == 2:
+                if len(data_bytes) < 8:
+                    self.logger.warn(
+                        f"received int16x4 payload with insufficient length {len(data_bytes)}; dropping frame"
+                    )
+                    return None
+                i1, i2, i3, i4 = struct.unpack("<hhhh", data_bytes[:8])
+                data = [float(i1), float(i2), float(i3), float(i4)]
+            else:
+                self.logger.warn(
+                    f"received CAN frame with unknown data_type_key {data_type_key}; id=0x{arbitration_id:X}"
+                )
+                return None
+        except struct.error as e:
+            self.logger.error(f"error unpacking CAN payload: {e}")
+            return None
+
+        viccan = VicCAN(
+            mcu_name=mcu_name,
+            command_id=int(command),
+            data=data,
+        )
+
+        self.logger.debug(
+            f"received CAN frame id=0x{message.arbitration_id:X}, "
+            f"decoded as VicCAN(mcu_name={viccan.mcu_name}, command_id={viccan.command_id}, data={viccan.data})"
+        )
+
+        return viccan
+
+    def write(self, msg: VicCAN):
+        if not self.can_bus:
+            raise DeviceClosedException("CAN bus not initialized")
+
+        # Build 11-bit arbitration ID according to the VicCAN scheme:
+        # bits 10..8: targeted MCU key
+        # bits 7..6:  data type key
+        # bits 5..0:  command
+
+        # Map MCU name to 3-bit key.
+        mcu_name = (msg.mcu_name or "").lower()
+        mcu_key_map: dict[str, int] = {
+            "broadcast": 1,
+            "core": 2,
+            "arm": 3,
+            "digit": 4,
+            "faerie": 5,
+            "citadel": 6,
+        }
+
+        if mcu_name not in mcu_key_map:
+            self.logger.error(f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message")
+            return
+
+        mcu_key = mcu_key_map[mcu_name] & 0b111
+
+        # Infer data type key from payload length according to the table:
+        # 0: double x1, 1: float32 x2, 2: int16 x4, 3: empty
+        data_len = len(msg.data)
+        if data_len == 0:
+            data_type_key = 3
+        elif data_len == 1:
+            data_type_key = 0
+        elif data_len == 2:
+            data_type_key = 1
+        elif data_len == 4:
+            data_type_key = 2
+        else:
+            # Fallback: treat any other non-zero length as float32 x2
+            self.logger.warn(
+                f"unexpected VicCAN data length {data_len}; encoding as float32 x2 (key=1) and truncating/padding as needed"
+            )
+            data_type_key = 1
+
+        # Command is limited to 6 bits.
+        command = int(msg.command_id)
+        if command < 0:
+            self.logger.error(f"invalid negative command_id for CAN frame: {command}")
+            return
+        if command > 0x3F:
+            self.logger.warn(
+                f"command_id 0x{command:X} exceeds 6-bit range; truncating to lower 6 bits"
+            )
+            command &= 0x3F
+
+        arbitration_id = ((mcu_key & 0b111) << 8) | ((data_type_key & 0b11) << 6) | (command & 0x3F)
+
+        # Map VicCAN.data (floats) to up to 8 CAN data bytes.
+        raw_bytes: list[int] = []
+        for value in msg.data:
+            try:
+                b = int(round(value))
+            except (TypeError, ValueError):
+                self.logger.error(
+                    f"non-numeric VicCAN data value: {value}; dropping message"
+                )
+                return
+
+            if b < 0 or b > 255:
+                self.logger.warn(
+                    f"VicCAN data value {value} out of byte range; clamping into [0, 255]"
+                )
+                b = max(0, min(255, b))
+
+            raw_bytes.append(b)
+
+        if len(raw_bytes) > 8:
+            self.logger.warn(
+                f"VicCAN data too long for single CAN frame ({len(raw_bytes)} > 8); truncating"
+            )
+            raw_bytes = raw_bytes[:8]
+
+        try:
+            can_message = can.Message(
+                arbitration_id=arbitration_id,
+                data=raw_bytes,
+                is_extended_id=False,
+            )
+        except Exception as e:
+            self.logger.error(f"failed to construct CAN message: {e}")
+            return
+
+        try:
+            self.can_bus.send(can_message)
+            self.logger.debug(
+                f"sent CAN frame id=0x{can_message.arbitration_id:X}, "
+                f"data={list(can_message.data)}"
+            )
+        except can.CanError as e:
+            self.logger.error(f"CAN error while sending: {e}")
+            raise DeviceClosedException("CAN bus closed unexpectedly")
+
+    def cleanup(self):
+        try:
+            if self.can_bus is not None:
+                self.logger.info("shutting down CAN bus")
+                self.can_bus.shutdown()
+        except Exception as e:
+            self.logger.error(e)
 
 
 class MockConnector(Connector):

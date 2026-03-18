@@ -19,6 +19,7 @@ dont_write_bytecode = True
 def launch_setup(context, *args, **kwargs):
     # Retrieve the resolved value of the launch argument 'mode'
     mode = LaunchConfiguration("mode").perform(context)
+    connector = LaunchConfiguration("connector").perform(context)
     nodes = []
 
     if mode == "anchor":
@@ -70,7 +71,7 @@ def launch_setup(context, *args, **kwargs):
                 executable="anchor",  # change as needed
                 name="anchor",
                 output="both",
-                parameters=[{"launch_mode": mode}],
+                parameters=[{"launch_mode": mode, "connector": connector}],
                 on_exit=Shutdown(),
             )
         )
