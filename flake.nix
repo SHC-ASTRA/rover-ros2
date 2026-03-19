@@ -4,6 +4,11 @@
   inputs = {
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
+
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -11,7 +16,8 @@
       self,
       nix-ros-overlay,
       nixpkgs,
-    }:
+      ...
+    }@inputs:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -28,7 +34,7 @@
             (python313.withPackages (
               p: with p; [
                 pyserial
-		python-can
+                python-can
                 pygame
                 scipy
                 crccheck
@@ -62,7 +68,7 @@
                   moveit-msgs
                   moveit-ros-planning
                   moveit-ros-planning-interface
-		  moveit-ros-visualization
+                  moveit-ros-visualization
                   moveit-configs-utils
                   moveit-ros-move-group
                   moveit-servo
@@ -73,7 +79,7 @@
                   ompl
                   joy
                   ros2-controllers
-		  chomp-motion-planner
+                  chomp-motion-planner
                 ];
               }
             )
@@ -84,6 +90,8 @@
             export QT_X11_NO_MITSHM=1
           '';
         };
+
+        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
       }
     );
 

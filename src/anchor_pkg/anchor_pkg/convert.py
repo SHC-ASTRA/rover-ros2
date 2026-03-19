@@ -1,6 +1,7 @@
 from astra_msgs.msg import VicCAN
 from rclpy.impl.rcutils_logger import RcutilsLogger
 
+
 def string_to_viccan(msg: str, mcu_name: str, logger: RcutilsLogger):
     """
     Converts the serial string VicCAN format to a ROS2 VicCAN message.
@@ -27,9 +28,7 @@ def string_to_viccan(msg: str, mcu_name: str, logger: RcutilsLogger):
         logger.debug(f"got non-CAN data from {mcu_name}: {msg}")
         return None
     elif len(parts) < 3:
-        logger.debug(
-            f"got garbage (not enough parts) CAN data from {mcu_name}: {msg}"
-        )
+        logger.debug(f"got garbage (not enough parts) CAN data from {mcu_name}: {msg}")
         return None
     elif len(parts) > 7:
         logger.debug(f"got garbage (too many parts) CAN data from {mcu_name}: {msg}")

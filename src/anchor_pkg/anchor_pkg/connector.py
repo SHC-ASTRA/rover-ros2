@@ -318,7 +318,9 @@ class CANConnector(Connector):
         }
 
         if mcu_name not in mcu_key_map:
-            self.logger.error(f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message")
+            self.logger.error(
+                f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
+            )
             return
 
         mcu_key = mcu_key_map[mcu_name] & 0b111
@@ -352,7 +354,9 @@ class CANConnector(Connector):
             )
             command &= 0x3F
 
-        arbitration_id = ((mcu_key & 0b111) << 8) | ((data_type_key & 0b11) << 6) | (command & 0x3F)
+        arbitration_id = (
+            ((mcu_key & 0b111) << 8) | ((data_type_key & 0b11) << 6) | (command & 0x3F)
+        )
 
         # Map VicCAN.data (floats) to up to 8 CAN data bytes.
         raw_bytes: list[int] = []
