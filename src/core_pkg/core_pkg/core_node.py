@@ -1,20 +1,14 @@
-import rclpy
-from rclpy.node import Node
-from rclpy import qos
-from rclpy.duration import Duration
-from std_srvs.srv import Empty
-
-import signal
-import time
-import atexit
-
-import serial
-import os
 import sys
-import threading
-import glob
+import signal
 from scipy.spatial.transform import Rotation
 from math import copysign, pi
+from warnings import deprecated
+
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
+from rclpy import qos
+from rclpy.duration import Duration
 
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
@@ -22,9 +16,6 @@ from geometry_msgs.msg import TwistStamped, Twist
 from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
-
-serial_pub = None
-thread = None
 
 CORE_WHEELBASE = 0.836  # meters
 CORE_WHEEL_RADIUS = 0.171  # meters
@@ -41,51 +32,69 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
-# Used to verify the length of an incoming VicCAN feedback message
-# Key is VicCAN command_id, value is expected length of data list
-viccan_msg_len_dict = {
-    48: 1,
-    49: 1,
-    50: 2,
-    51: 4,
-    52: 4,
-    53: 4,
-    54: 4,
-    56: 4,  # really 3, but viccan
-    58: 4,  # ditto
-}
 
+class CoreNode(Node):
+    """Relay between Anchor and Basestation/Headless/Moveit2 for Core related topics."""
 
-class SerialRelay(Node):
+    # Used to verify the length of an incoming VicCAN feedback message
+    # Key is VicCAN command_id, value is expected length of data list
+    viccan_msg_len_dict = {
+        48: 1,
+        49: 1,
+        50: 2,
+        51: 4,
+        52: 4,
+        53: 4,
+        54: 4,
+        56: 4,  # really 3, but viccan
+        58: 4,  # ditto
+    }
+
     def __init__(self):
-        # Initalize node with name
         super().__init__("core_node")
 
-        # Launch mode -- anchor vs core
-        self.declare_parameter("launch_mode", "core")
-        self.launch_mode = self.get_parameter("launch_mode").value
-        self.get_logger().info(f"Core launch_mode is: {self.launch_mode}")
-
-        self.declare_parameter("use_ros2_control", False)
-        self.use_ros2_control = self.get_parameter("use_ros2_control").value
-        self.get_logger().info(f"Use ros2_control: {self.use_ros2_control}")
+        self.get_logger().info(f"core launch_mode is: anchor")
 
         ##################################################
-        # Topics
+        # Parameters
+
+        self.declare_parameter("use_ros2_control", False)
+        self.use_ros2_control = (
+            self.get_parameter("use_ros2_control").get_parameter_value().bool_value
+        )
+
+        ##################################################
+        # Old Topics
+
+        self.anchor_sub = self.create_subscription(
+            String, "/anchor/core/feedback", self.anchor_feedback, 10
+        )
+        self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
+
+        if not self.use_ros2_control:
+            # /core/control
+            self.control_sub = self.create_subscription(
+                CoreControl, "/core/control", self.send_controls, 10
+            )  # old control method -- left_stick, right_stick, max_speed, brake, and some other random autonomy stuff
+        # /core/feedback
+        self.feedback_pub = self.create_publisher(CoreFeedback, "/core/feedback", 10)
+        self.core_feedback = CoreFeedback()
+
+        self.telemetry_pub_timer = self.create_timer(
+            1.0, self.publish_feedback
+        )
+
+        ##################################################
+        # New Topics
 
         # Anchor
-        if self.launch_mode == "anchor":
-            self.anchor_fromvic_sub_ = self.create_subscription(
-                VicCAN, "/anchor/from_vic/core", self.relay_fromvic, 20
-            )
-            self.anchor_tovic_pub_ = self.create_publisher(
-                VicCAN, "/anchor/to_vic/relay", 20
-            )
 
-            self.anchor_sub = self.create_subscription(
-                String, "/anchor/core/feedback", self.anchor_feedback, 10
-            )
-            self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
+        self.anchor_fromvic_sub_ = self.create_subscription(
+            VicCAN, "/anchor/from_vic/core", self.relay_fromvic, 20
+        )
+        self.anchor_tovic_pub_ = self.create_publisher(
+            VicCAN, "/anchor/to_vic/relay", 20
+        )
 
         # Control
 
@@ -100,6 +109,7 @@ class SerialRelay(Node):
                 TwistStamped, "/cmd_vel", self.cmd_vel_callback, 1
             )
             # manual twist -- [-1, 1] rather than real units
+            # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
                 Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
             )
@@ -114,143 +124,60 @@ class SerialRelay(Node):
 
         # Feedback
 
-        # Consolidated and organized core feedback
+        # Consolidated and organized main core feedback
+        # TODO: change topic to something like '/core/feedback/main'
         self.feedback_new_pub_ = self.create_publisher(
             NewCoreFeedback,
             "/core/feedback_new",
             qos_profile=qos.qos_profile_sensor_data,
         )
+
+        # Joint states for topic-based controller
+        self.joint_state_pub_ = self.create_publisher(
+            JointState, "/joint_states", qos_profile=qos.qos_profile_sensor_data
+        )
+
+        # IMU (embedded BNO-055)
+        self.imu_pub_ = self.create_publisher(
+            Imu, "/core/imu", qos_profile=qos.qos_profile_sensor_data
+        )
+
+        # GPS (embedded u-blox M9N)
+        self.gps_pub_ = self.create_publisher(
+            NavSatFix, "/gps/fix", qos_profile=qos.qos_profile_sensor_data
+        )
+
+        # Barometer (embedded BMP-388)
+        self.baro_pub_ = self.create_publisher(
+            Barometer, "/core/feedback/baro", qos_profile=qos.qos_profile_sensor_data
+        )
+
+        ###################################################
+        # Saved state
+
+        # Main Core feedback
         self.feedback_new_state = NewCoreFeedback()
         self.feedback_new_state.fl_motor.id = 1
         self.feedback_new_state.bl_motor.id = 2
         self.feedback_new_state.fr_motor.id = 3
         self.feedback_new_state.br_motor.id = 4
-        self.telemetry_pub_timer = self.create_timer(
-            1.0, self.publish_feedback
-        )  # TODO: not sure about this
-        # Joint states for topic-based controller
-        self.joint_state_pub_ = self.create_publisher(
-            JointState, "/joint_states", qos_profile=qos.qos_profile_sensor_data
-        )
-        # IMU (embedded BNO-055)
-        self.imu_pub_ = self.create_publisher(
-            Imu, "/core/imu", qos_profile=qos.qos_profile_sensor_data
-        )
+
+        # IMU
         self.imu_state = Imu()
         self.imu_state.header.frame_id = "core_bno055"
-        # GPS (embedded u-blox M9N)
-        self.gps_pub_ = self.create_publisher(
-            NavSatFix, "/gps/fix", qos_profile=qos.qos_profile_sensor_data
-        )
+
+        # GPS
         self.gps_state = NavSatFix()
         self.gps_state.header.frame_id = "core_gps_antenna"
         self.gps_state.status.service = NavSatStatus.SERVICE_GPS
         self.gps_state.status.status = NavSatStatus.STATUS_NO_FIX
         self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
-        # Barometer (embedded BMP-388)
-        self.baro_pub_ = self.create_publisher(
-            Barometer, "/core/baro", qos_profile=qos.qos_profile_sensor_data
-        )
+
+        # Barometer
         self.baro_state = Barometer()
         self.baro_state.header.frame_id = "core_bmp388"
 
-        # Old
-
-        if not self.use_ros2_control:
-            # /core/control
-            self.control_sub = self.create_subscription(
-                CoreControl, "/core/control", self.send_controls, 10
-            )  # old control method -- left_stick, right_stick, max_speed, brake, and some other random autonomy stuff
-        # /core/feedback
-        self.feedback_pub = self.create_publisher(CoreFeedback, "/core/feedback", 10)
-        self.core_feedback = CoreFeedback()
-        # Debug
-        self.debug_pub = self.create_publisher(String, "/core/debug", 10)
-        self.ping_service = self.create_service(
-            Empty, "/astra/core/ping", self.ping_callback
-        )
-
-        ##################################################
-        # Find microcontroller (Non-anchor only)
-
-        # Core (non-anchor) specific
-        if self.launch_mode == "core":
-            # Loop through all serial devices on the computer to check for the MCU
-            self.port = None
-            ports = SerialRelay.list_serial_ports()
-            for i in range(2):
-                for port in ports:
-                    try:
-                        # connect and send a ping command
-                        ser = serial.Serial(port, 115200, timeout=1)
-                        # (f"Checking port {port}...")
-                        ser.write(b"ping\n")
-                        response = ser.read_until("\n")  # type: ignore
-
-                        # if pong is in response, then we are talking with the MCU
-                        if b"pong" in response:
-                            self.port = port
-                            self.get_logger().info(f"Found MCU at {self.port}!")
-                            self.get_logger().info(f"Enabling Relay Mode")
-                            ser.write(b"can_relay_mode,on\n")
-                            break
-                    except:
-                        pass
-                if self.port is not None:
-                    break
-
-            if self.port is None:
-                self.get_logger().info("Unable to find MCU...")
-                time.sleep(1)
-                sys.exit(1)
-
-            self.ser = serial.Serial(self.port, 115200)
-            atexit.register(self.cleanup)
-        # end __init__()
-
-    def run(self):
-        # This thread makes all the update processes run in the background
-        global thread
-        thread = threading.Thread(target=rclpy.spin, args={self}, daemon=True)
-        thread.start()
-
-        try:
-            while rclpy.ok():
-                if self.launch_mode == "core":
-                    self.read_MCU()  # Check the MCU for updates
-        except KeyboardInterrupt:
-            sys.exit(0)
-
-    def read_MCU(self):  # NON-ANCHOR SPECIFIC
-        try:
-            output = str(self.ser.readline(), "utf8")
-
-            if output:
-                # All output over debug temporarily
-                print(f"[MCU] {output}")
-                msg = String()
-                msg.data = output
-                self.debug_pub.publish(msg)
-                return
-        except serial.SerialException as e:
-            print(f"SerialException: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            sys.exit(1)
-        except TypeError as e:
-            print(f"TypeError: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            sys.exit(1)
-        except Exception as e:
-            print(f"Exception: {e}")
-            print("Closing serial port.")
-            if self.ser.is_open:
-                self.ser.close()
-            sys.exit(1)
-
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def scale_duty(self, value: float, max_speed: float):
         leftMin = -1
         leftMax = 1
@@ -267,6 +194,7 @@ class SerialRelay(Node):
         # Convert the 0-1 range into a value in the right range.
         return str(rightMin + (valueScaled * rightSpan))
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def send_controls(self, msg: CoreControl):
         if msg.turn_to_enable:
             command = (
@@ -377,15 +305,9 @@ class SerialRelay(Node):
         # Max duty cycle
         self.twist_max_duty = msg.max_duty  # twist_man_callback will handle this
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def send_cmd(self, msg: str):
-        if self.launch_mode == "anchor":
-            # self.get_logger().info(f"[Core to Anchor Relay] {msg}")
-            output = String()  # Convert to std_msg string
-            output.data = msg
-            self.anchor_pub.publish(output)
-        elif self.launch_mode == "core":
-            self.get_logger().info(f"[Core to MCU] {msg}")
-            self.ser.write(bytes(msg, "utf8"))
+        self.anchor_pub.publish(String(data=msg))  # Publish to anchor for relay
 
     def send_viccan(self, cmd_id: int, data: list[float]):
         self.anchor_tovic_pub_.publish(
@@ -397,6 +319,7 @@ class SerialRelay(Node):
             )
         )
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def anchor_feedback(self, msg: String):
         output = msg.data
         parts = str(output.strip()).split(",")
@@ -466,8 +389,8 @@ class SerialRelay(Node):
         # skill diff if not
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in viccan_msg_len_dict:
-            expected_len = viccan_msg_len_dict[msg.command_id]
+        if msg.command_id in self.viccan_msg_len_dict:
+            expected_len = self.viccan_msg_len_dict[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
@@ -597,30 +520,10 @@ class SerialRelay(Node):
             case _:
                 return
 
+    @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):
         # self.get_logger().info(f"[Core] {self.core_feedback}")
         self.feedback_pub.publish(self.core_feedback)
-
-    def ping_callback(self, request, response):
-        return response
-
-    @staticmethod
-    def list_serial_ports():
-        return glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
-
-    def cleanup(self):
-        print("Cleaning up before terminating...")
-        try:
-            if self.ser.is_open:
-                self.ser.close()
-        except Exception as e:
-            exit(0)
-
-
-def myexcepthook(type, value, tb):
-    print("Uncaught exception:", type, value)
-    if serial_pub:
-        serial_pub.cleanup()
 
 
 def map_range(
@@ -633,19 +536,27 @@ def radps_to_rpm(radps: float):
     return radps * 60 / (2 * pi)
 
 
+def exit_handler(signum, frame):
+    print("Caught SIGTERM. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
 def main(args=None):
     rclpy.init(args=args)
-    sys.excepthook = myexcepthook
 
-    global serial_pub
+    # Catch termination signals and exit cleanly
+    signal.signal(signal.SIGTERM, exit_handler)
 
-    serial_pub = SerialRelay()
-    serial_pub.run()
+    core_node = CoreNode()
+
+    try:
+        rclpy.spin(core_node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
-    signal.signal(
-        signal.SIGTERM, lambda signum, frame: sys.exit(0)
-    )  # Catch termination signals and exit cleanly
     main()

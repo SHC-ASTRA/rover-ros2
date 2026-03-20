@@ -1,5 +1,4 @@
 import sys
-import threading
 import signal
 import math
 from warnings import deprecated
@@ -25,8 +24,6 @@ control_qos = qos.QoSProfile(
     # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
     # liveliness_lease_duration=Duration(seconds=5),
 )
-
-thread = None
 
 
 class ArmNode(Node):
