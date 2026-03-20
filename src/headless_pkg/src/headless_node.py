@@ -139,7 +139,9 @@ class Headless(Node):
         )
 
         self.declare_parameter("use_cmd_vel", False)
-        self.using_cmd_vel = self.get_parameter("use_cmd_vel").value
+        self.use_cmd_vel = (
+            self.get_parameter("use_cmd_vel").get_parameter_value().bool_value
+        )
 
         self.declare_parameter("use_bio", False)
         self.use_bio = self.get_parameter("use_bio").get_parameter_value().bool_value
@@ -157,7 +159,7 @@ class Headless(Node):
         )
 
         # Check parameter validity
-        if self.using_cmd_vel:
+        if self.use_cmd_vel:
             self.get_logger().info("Using cmd_vel for core control")
             global CORE_MODE
             CORE_MODE = "twist"
@@ -252,7 +254,10 @@ class Headless(Node):
             self.arm_publisher.publish(ARM_STOP_MSG)
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
-            self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
+            if self.use_cmd_vel:
+                self.core_cmd_vel_pub_.publish(self.core_cmd_vel_stop_msg())
+            else:
+                self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
@@ -355,16 +360,18 @@ class Headless(Node):
                 right_stick_x**2, right_stick_x
             )  # Exponent for finer control (curve)
 
-            if self.using_cmd_vel:
+            # This kinda looks dumb being seperate from the following block, but this
+            # maintains the separation between modifying the control message and sending it
+            if self.use_cmd_vel:
                 twist.linear.x *= 1.5
                 twist.angular.z *= 0.5
 
             # Publish
-            if not self.using_cmd_vel:
-                self.core_twist_pub_.publish(twist)
-            else:
+            if self.use_cmd_vel:
                 header = Header(stamp=self.get_clock().now().to_msg())
                 self.core_cmd_vel_pub_.publish(TwistStamped(header=header, twist=twist))
+            else:
+                self.core_twist_pub_.publish(twist)
             self.get_logger().debug(
                 f"[Core Ctrl] Linear: {round(twist.linear.x, 2)}, Angular: {round(twist.angular.z, 2)}"
             )
@@ -665,6 +672,11 @@ class Headless(Node):
 
         else:
             pass  # TODO: implement new bio control topics
+
+    def core_cmd_vel_stop_msg(self):
+        return TwistStamped(
+            header=Header(frame_id="base_link", stamp=self.get_clock().now().to_msg())
+        )
 
     def arm_manual_stop_msg(self):
         return JointJog(
