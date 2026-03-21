@@ -14,12 +14,11 @@ from .connector import (
     NoValidDeviceException,
     NoWorkingDeviceException,
 )
-from .convert import string_to_viccan
-import sys
+from .convert import string_to_viccan, viccan_to_string
 import threading
 
-from std_msgs.msg import String, Header
 from astra_msgs.msg import VicCAN
+from std_msgs.msg import String
 
 
 class Anchor(Node):
@@ -33,12 +32,16 @@ class Anchor(Node):
         - VicCAN messages for Arm node
     * /anchor/from_vic/bio
         - VicCAN messages for Bio node
+    * /anchor/to_vic/debug
+        - A string copy of the messages published to ./relay are published here
 
     Subscribers:
     * /anchor/from_vic/mock_mcu
         - For testing without an actual MCU, publish strings here as if they came from an MCU
     * /anchor/to_vic/relay
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
+    * /anchor/to_vic/relay_string
+        - Send raw strings to connectors. Does not work for connectors that require conversion (like CANConnector)
     """
 
     connector: Connector
@@ -59,31 +62,96 @@ class Anchor(Node):
             ),
         )
 
+        self.declare_parameter(
+            "can_override",
+            "",
+            ParameterDescriptor(
+                name="can_override",
+                description="Overrides which CAN channel will be used. Defaults to ''.",
+                type=ParameterType.PARAMETER_STRING,
+                additional_constraints="Must be a valid CAN network that shows up in `ip link show`.",
+            ),
+        )
+
+        # ROS2 Topic Setup
+
+        # Publishers
+        self.fromvic_debug_pub_ = self.create_publisher(  # only used by serial
+            String,
+            "/anchor/from_vic/debug",
+            20,
+        )
+        self.fromvic_core_pub_ = self.create_publisher(
+            VicCAN,
+            "/anchor/from_vic/core",
+            20,
+        )
+        self.fromvic_arm_pub_ = self.create_publisher(
+            VicCAN,
+            "/anchor/from_vic/arm",
+            20,
+        )
+        self.fromvic_bio_pub_ = self.create_publisher(
+            VicCAN,
+            "/anchor/from_vic/bio",
+            20,
+        )
+        # Debug publisher
+        self.tovic_debug_pub_ = self.create_publisher(
+            VicCAN,
+            "/anchor/to_vic/debug",
+            20,
+        )
+
+        # Subscribers
+        self.tovic_sub_ = self.create_subscription(
+            VicCAN,
+            "/anchor/to_vic/relay",
+            self.write_connector,
+            20,
+        )
+        self.mock_mcu_sub_ = self.create_subscription(
+            String,
+            "/anchor/from_vic/mock_mcu",
+            self.on_mock_fromvic,
+            20,
+        )
+        self.tovic_string_sub_ = self.create_subscription(
+            String,
+            "/anchor/to_vic/relay_string",
+            self.connector.write_raw,
+            20,
+        )
+
         # Determine which connector to use. Options are Mock, Serial, and CAN
         connector_select = (
             self.get_parameter("connector").get_parameter_value().string_value
         )
-
+        can_override = (
+            self.get_parameter("can_override").get_parameter_value().string_value
+        )
         match connector_select:
             case "serial":
                 logger.info("using serial connector")
-                self.connector = SerialConnector(self.get_logger())
+                self.connector = SerialConnector(logger, self.get_clock())
             case "can":
                 logger.info("using CAN connector")
-                self.connector = CANConnector(self.get_logger())
+                self.connector = CANConnector(logger, self.get_clock(), can_override)
             case "mock":
                 logger.info("using mock connector")
-                self.connector = MockConnector(self.get_logger())
+                self.connector = MockConnector(logger, self.get_clock())
             case "auto":
                 logger.info("automatically determining connector")
                 try:
                     logger.info("trying CAN connector")
-                    self.connector = CANConnector(self.get_logger())
+                    self.connector = CANConnector(
+                        logger, self.get_clock(), can_override
+                    )
                 except (NoValidDeviceException, NoWorkingDeviceException, TypeError):
                     logger.info("CAN connector failed, trying serial connector")
-                    self.connector = SerialConnector(self.get_logger())
+                    self.connector = SerialConnector(logger, self.get_clock())
             case _:
-                self.get_logger().fatal(
+                logger.fatal(
                     f"invalid value for connector parameter: {connector_select}"
                 )
                 exit(1)
@@ -91,46 +159,26 @@ class Anchor(Node):
         # Close devices on exit
         atexit.register(self.cleanup)
 
-        # ROS2 Topic Setup
-
-        # Publishers
-        self.fromvic_debug_pub_ = self.create_publisher(
-            String, "/anchor/from_vic/debug", 20
-        )
-        self.fromvic_core_pub_ = self.create_publisher(
-            VicCAN, "/anchor/from_vic/core", 20
-        )
-        self.fromvic_arm_pub_ = self.create_publisher(
-            VicCAN, "/anchor/from_vic/arm", 20
-        )
-        self.fromvic_bio_pub_ = self.create_publisher(
-            VicCAN, "/anchor/from_vic/bio", 20
-        )
-
-        # Subscribers
-        self.tovic_sub_ = self.create_subscription(
-            VicCAN, "/anchor/to_vic/relay", self.connector.write, 20
-        )
-        self.mock_mcu_sub_ = self.create_subscription(
-            String, "/anchor/from_vic/mock_mcu", self.on_mock_fromvic, 20
-        )
-
     def cleanup(self):
         self.connector.cleanup()
 
-    def read_MCU(self):
-        """Check the USB serial port for new data from the MCU, and publish string to appropriate topics"""
-        output = self.connector.read()
+    def read_connector(self):
+        """Check the connector for new data from the MCU, and publish string to appropriate topics"""
+        viccan, raw = self.connector.read()
 
-        if not output:
-            return
+        if raw:
+            self.fromvic_debug_pub_.publish(String(data=raw))
 
-        self.relay_fromvic(output)
+        if viccan:
+            self.relay_fromvic(viccan)
+
+    def write_connector(self, msg: VicCAN):
+        """Write to the connector and send a copy to /anchor/to_vic/debug"""
+        self.connector.write(msg)
+        self.tovic_debug_pub_.publish(viccan_to_string(msg))
 
     def relay_fromvic(self, msg: VicCAN):
-        """Relay a string message from the MCU to the appropriate VicCAN topic"""
-        msg.header = Header(stamp=self.get_clock().now().to_msg(), frame_id="from_vic")
-
+        """Relay a message from the MCU to the appropriate VicCAN topic"""
         if msg.mcu_name == "core":
             self.fromvic_core_pub_.publish(msg)
         elif msg.mcu_name == "arm" or msg.mcu_name == "digit":
@@ -139,10 +187,12 @@ class Anchor(Node):
             self.fromvic_bio_pub_.publish(msg)
 
     def on_mock_fromvic(self, msg: String):
+        """Relay a message as if it came from the MCU"""
         viccan = string_to_viccan(
             msg.data,
             "mock",
             self.get_logger(),
+            self.get_clock().now().to_msg(),
         )
         if viccan:
             self.relay_fromvic(viccan)
@@ -158,16 +208,9 @@ def main(args=None):
 
         rate = anchor_node.create_rate(100)  # 100 Hz -- arbitrary rate
         while rclpy.ok():
-            anchor_node.read_MCU()  # Check the MCU for updates
+            anchor_node.read_connector()  # Check the connector for updates
             rate.sleep()
     except (KeyboardInterrupt, ExternalShutdownException):
         print("Caught shutdown signal, shutting down...")
     finally:
         rclpy.try_shutdown()
-
-
-if __name__ == "__main__":
-    signal.signal(
-        signal.SIGTERM, lambda signum, frame: sys.exit(0)
-    )  # Catch termination signals and exit cleanly
-    main()

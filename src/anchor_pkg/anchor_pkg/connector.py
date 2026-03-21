@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from astra_msgs.msg import VicCAN
+from rclpy.clock import Clock
 from rclpy.impl.rcutils_logger import RcutilsLogger
-from .convert import string_to_viccan
+from .convert import string_to_viccan as _string_to_viccan, viccan_to_string
 
 # CAN
 import can
@@ -39,16 +40,34 @@ class DeviceClosedException(Exception):
 
 class Connector(ABC):
     logger: RcutilsLogger
+    clock: Clock
 
-    def __init__(self, logger: RcutilsLogger):
+    def string_to_viccan(self, msg: str, mcu_name: str):
+        """function currying so that we do not need to pass logger and clock every time"""
+        return _string_to_viccan(
+            msg,
+            mcu_name,
+            self.logger,
+            self.clock.now().to_msg(),
+        )
+
+    def __init__(self, logger: RcutilsLogger, clock: Clock):
         self.logger = logger
+        self.clock = clock
 
     @abstractmethod
-    def read(self) -> VicCAN | None:
+    def read(self) -> tuple[VicCAN | None, str | None]:
+        """
+        Must return a tuple of (VicCAN, debug message or string repr of VicCAN)
+        """
         pass
 
     @abstractmethod
     def write(self, msg: VicCAN):
+        pass
+
+    @abstractmethod
+    def write_raw(self, msg: str):
         pass
 
     def cleanup(self):
@@ -61,8 +80,8 @@ class SerialConnector(Connector):
     serial_interface: serial.Serial
     override: bool
 
-    def __init__(self, logger: RcutilsLogger):
-        super().__init__(logger)
+    def __init__(self, logger: RcutilsLogger, clock: Clock):
+        super().__init__(logger, clock)
 
         ports = self._find_ports()
 
@@ -136,34 +155,36 @@ class SerialConnector(Connector):
                     )
 
             if serial_interface.is_open:
+                # turn relay mode off if it failed to respond with its name
+                serial_interface.write(b"can_relay_mode,off\n")
                 serial_interface.close()
         except serial.SerialException as e:
             self.logger.error(f"SerialException when asking for MCU name: {e}")
 
         return None
 
-    def read(self) -> VicCAN | None:
+    def read(self) -> tuple[VicCAN | None, str | None]:
         try:
             raw = str(self.serial_interface.readline(), "utf8")
 
             if not raw:
-                return None
+                return (None, None)
 
-            return string_to_viccan(raw, self.mcu_name, self.logger)
+            return (
+                self.string_to_viccan(raw, self.mcu_name),
+                raw,
+            )
         except serial.SerialException as e:
             self.logger.error(f"SerialException: {e}")
             raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
-        except TypeError as e:
-            self.logger.error(f"TypeError: {e}")
-            raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
         except Exception:
-            pass  # pretty much no other error matters
+            return (None, None)  # pretty much no other error matters
 
     def write(self, msg: VicCAN):
-        # go from [ w, x, y, z ] -> "w,x,y,z" & round to 7 digits max
-        data = ",".join([str(round(x, 7)) for x in msg.data])
-        output = f"can_relay_tovic,{msg.mcu_name},{msg.command_id},{data}\n"
-        self.serial_interface.write(bytes(output, "utf8"))
+        self.write_raw(viccan_to_string(msg))
+
+    def write_raw(self, msg: str):
+        self.serial_interface.write(bytes(msg, "utf8"))
 
     def cleanup(self):
         self.logger.info(f"closing serial port if open {self.port}")
@@ -175,26 +196,35 @@ class SerialConnector(Connector):
 
 
 class CANConnector(Connector):
-    def __init__(self, logger: RcutilsLogger):
-        super().__init__(logger)
+    def __init__(self, logger: RcutilsLogger, clock: Clock, can_override: str):
+        super().__init__(logger, clock)
 
         self.can_channel: str | None = None
         self.can_bus: can.BusABC | None = None
 
-        if self.can_channel is None:
-            avail = can.interfaces.socketcan.SocketcanBus._detect_available_configs()
+        avail = can.interfaces.socketcan.SocketcanBus._detect_available_configs()
 
-            if len(avail) == 0:
-                raise NoValidDeviceException("no CAN interfaces found")
-            if (l := len(avail)) > 1:
-                channels = ", ".join(str(b.get("channel")) for b in avail)
-                raise MultipleValidDevicesException(
-                    f"too many ({l}) CAN interfaces found: [{channels}]"
+        if len(avail) == 0:
+            raise NoValidDeviceException("no CAN interfaces found")
+
+        # filter to busses whose channel matches the can_override
+        if can_override:
+            avail = list(
+                filter(
+                    lambda b: b.get("channel") == can_override,
+                    avail,
                 )
+            )
 
-            bus = avail[0]
-            self.can_channel = str(bus.get("channel"))
-            self.logger.info(f"found CAN interface '{self.can_channel}'")
+        if (l := len(avail)) > 1:
+            channels = ", ".join(str(b.get("channel")) for b in avail)
+            raise MultipleValidDevicesException(
+                f"too many ({l}) CAN interfaces found: [{channels}]"
+            )
+
+        bus = avail[0]
+        self.can_channel = str(bus.get("channel"))
+        self.logger.info(f"found CAN interface '{self.can_channel}'")
 
         try:
             self.can_bus = can.Bus(
@@ -208,9 +238,9 @@ class CANConnector(Connector):
             )
 
         if self.can_channel and self.can_channel.startswith("v"):
-            self.logger.warn("using virtual CAN interface; this is likely vcan*")
+            self.logger.warn("likely using virtual CAN interface")
 
-    def read(self) -> VicCAN | None:
+    def read(self) -> tuple[VicCAN | None, str | None]:
         if not self.can_bus:
             raise DeviceClosedException("CAN bus not initialized")
 
@@ -221,7 +251,7 @@ class CANConnector(Connector):
             raise DeviceClosedException("CAN bus closed unexpectedly")
 
         if message is None:
-            return None
+            return (None, None)
 
         arbitration_id = message.arbitration_id & 0x7FF
         data_bytes = bytes(message.data)
@@ -244,7 +274,7 @@ class CANConnector(Connector):
             self.logger.warn(
                 f"received CAN frame with unknown MCU key {mcu_key}; id=0x{arbitration_id:X}"
             )
-            return None
+            return (None, None)
 
         data: list[float] = []
 
@@ -256,7 +286,7 @@ class CANConnector(Connector):
                     self.logger.warn(
                         f"received double payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
-                    return None
+                    return (None, None)
                 (value,) = struct.unpack("<d", data_bytes[:8])
                 data = [float(value)]
             elif data_type_key == 1:
@@ -264,7 +294,7 @@ class CANConnector(Connector):
                     self.logger.warn(
                         f"received float32x2 payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
-                    return None
+                    return (None, None)
                 v1, v2 = struct.unpack("<ff", data_bytes[:8])
                 data = [float(v1), float(v2)]
             elif data_type_key == 2:
@@ -272,17 +302,17 @@ class CANConnector(Connector):
                     self.logger.warn(
                         f"received int16x4 payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
-                    return None
+                    return (None, None)
                 i1, i2, i3, i4 = struct.unpack("<hhhh", data_bytes[:8])
                 data = [float(i1), float(i2), float(i3), float(i4)]
             else:
                 self.logger.warn(
                     f"received CAN frame with unknown data_type_key {data_type_key}; id=0x{arbitration_id:X}"
                 )
-                return None
+                return (None, None)
         except struct.error as e:
             self.logger.error(f"error unpacking CAN payload: {e}")
-            return None
+            return (None, None)
 
         viccan = VicCAN(
             mcu_name=mcu_name,
@@ -295,7 +325,11 @@ class CANConnector(Connector):
             f"decoded as VicCAN(mcu_name={viccan.mcu_name}, command_id={viccan.command_id}, data={viccan.data})"
         )
 
-        return viccan
+        return (
+            viccan,
+            f"{viccan.mcu_name},{viccan.command_id},"
+            + ",".join(map(str, list(viccan.data))),
+        )
 
     def write(self, msg: VicCAN):
         if not self.can_bus:
@@ -403,6 +437,9 @@ class CANConnector(Connector):
             self.logger.error(f"CAN error while sending: {e}")
             raise DeviceClosedException("CAN bus closed unexpectedly")
 
+    def write_raw(self, msg: str):
+        self.logger.warn(f"write_raw is not supported for CANConnector. msg: {msg}")
+
     def cleanup(self):
         try:
             if self.can_bus is not None:
@@ -413,11 +450,15 @@ class CANConnector(Connector):
 
 
 class MockConnector(Connector):
-    def __init__(self, logger: RcutilsLogger):
-        super().__init__(logger)
+    def __init__(self, logger: RcutilsLogger, clock: Clock):
+        super().__init__(logger, clock)
+        # No hardware interface for MockConnector. Publish to `/anchor/from_vic/mock_mcu` instead.
 
-    def read(self) -> VicCAN | None:
-        return None
+    def read(self) -> tuple[VicCAN | None, str | None]:
+        return (None, None)
 
     def write(self, msg: VicCAN):
-        print(msg)
+        pass
+
+    def write_raw(self, msg: str):
+        pass
