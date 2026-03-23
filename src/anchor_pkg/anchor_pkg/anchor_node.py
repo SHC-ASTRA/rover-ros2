@@ -73,6 +73,39 @@ class Anchor(Node):
             ),
         )
 
+        # Determine which connector to use. Options are Mock, Serial, and CAN
+        connector_select = (
+            self.get_parameter("connector").get_parameter_value().string_value
+        )
+        can_override = (
+            self.get_parameter("can_override").get_parameter_value().string_value
+        )
+        match connector_select:
+            case "serial":
+                logger.info("using serial connector")
+                self.connector = SerialConnector(logger, self.get_clock())
+            case "can":
+                logger.info("using CAN connector")
+                self.connector = CANConnector(logger, self.get_clock(), can_override)
+            case "mock":
+                logger.info("using mock connector")
+                self.connector = MockConnector(logger, self.get_clock())
+            case "auto":
+                logger.info("automatically determining connector")
+                try:
+                    logger.info("trying CAN connector")
+                    self.connector = CANConnector(
+                        logger, self.get_clock(), can_override
+                    )
+                except (NoValidDeviceException, NoWorkingDeviceException, TypeError):
+                    logger.info("CAN connector failed, trying serial connector")
+                    self.connector = SerialConnector(logger, self.get_clock())
+            case _:
+                logger.fatal(
+                    f"invalid value for connector parameter: {connector_select}"
+                )
+                exit(1)
+
         # ROS2 Topic Setup
 
         # Publishers
@@ -122,39 +155,6 @@ class Anchor(Node):
             self.connector.write_raw,
             20,
         )
-
-        # Determine which connector to use. Options are Mock, Serial, and CAN
-        connector_select = (
-            self.get_parameter("connector").get_parameter_value().string_value
-        )
-        can_override = (
-            self.get_parameter("can_override").get_parameter_value().string_value
-        )
-        match connector_select:
-            case "serial":
-                logger.info("using serial connector")
-                self.connector = SerialConnector(logger, self.get_clock())
-            case "can":
-                logger.info("using CAN connector")
-                self.connector = CANConnector(logger, self.get_clock(), can_override)
-            case "mock":
-                logger.info("using mock connector")
-                self.connector = MockConnector(logger, self.get_clock())
-            case "auto":
-                logger.info("automatically determining connector")
-                try:
-                    logger.info("trying CAN connector")
-                    self.connector = CANConnector(
-                        logger, self.get_clock(), can_override
-                    )
-                except (NoValidDeviceException, NoWorkingDeviceException, TypeError):
-                    logger.info("CAN connector failed, trying serial connector")
-                    self.connector = SerialConnector(logger, self.get_clock())
-            case _:
-                logger.fatal(
-                    f"invalid value for connector parameter: {connector_select}"
-                )
-                exit(1)
 
         # Close devices on exit
         atexit.register(self.cleanup)
