@@ -60,6 +60,20 @@ $ ros2 launch anchor_pkg rover.launch.py  # Must be run on a computer connected 
 $ ros2 run headless_pkg headless_full  # Optionally run in a separate shell on the same or different computer.
 ```
 
+### Using the Mock Connector
+
+Anchor provides a mock connector meant for testing and scripting purposes. You can select the mock connector by running anchor with this command:
+
+```bash
+$ ros2 launch anchor_pkg rover.launch.py connector:="mock"
+```
+
+You can see all data sent to it in a string format with this command:
+
+```bash
+$ ros2 topic echo /anchor/to_vic/debug
+```
+
 ### Testing Serial
 
 You can fake the presence of a Serial device (i.e., MCU) by using the following command:
@@ -68,10 +82,31 @@ You can fake the presence of a Serial device (i.e., MCU) by using the following 
 $ socat -dd -v pty,rawer,crnl,link=/tmp/ttyACM9 pty,rawer,crnl,link=/tmp/ttyOUT
 ```
 
-When you go to run anchor, use the `PORT_OVERRIDE` environment variable to point it to the fake serial port, like so:
+When you go to run anchor, use the `serial_override` ROS2 parameter to point it to the fake serial port, like so:
 
 ```bash
-$ PORT_OVERRIDE=/tmp/ttyACM9 ros2 launch anchor_pkg rover.launch.py
+$ ros2 launch anchor_pkg rover.launch.py connector:=serial serial_override:=/tmp/ttyACM9
+```
+
+### Testing CAN
+
+You can create a virtual CAN network by using the following commands to create and then enable it:
+
+```bash
+sudo ip link add dev vcan0 type vcan
+sudo ip link set vcan0 up
+```
+
+When you go to run anchor, use the `can_override` ROS2 parameter to point it to the virtual CAN network, like so:
+
+```bash
+$ ros2 launch anchor_pkg rover.launch.py connector:=can can_override:=vcan0
+```
+
+Once you're done, you should delete the virtual network so that anchor doesn't get confused if you plug in a real CAN adapter:
+
+```bash
+$ sudo ip link delete vcan0
 ```
 
 ### Connecting the GuliKit Controller

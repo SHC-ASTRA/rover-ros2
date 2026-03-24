@@ -51,6 +51,8 @@ class Anchor(Node):
 
         logger = self.get_logger()
 
+        # ROS2 Parameter Setup
+
         self.declare_parameter(
             "connector",
             "auto",
@@ -73,6 +75,17 @@ class Anchor(Node):
             ),
         )
 
+        self.declare_parameter(
+            "serial_override",
+            "",
+            ParameterDescriptor(
+                name="serial_override",
+                description="Overrides which serial port will be used. Defaults to ''.",
+                type=ParameterType.PARAMETER_STRING,
+                additional_constraints="Must be a valid path to a serial device file that shows up in `ls /dev/tty*`.",
+            ),
+        )
+
         # Determine which connector to use. Options are Mock, Serial, and CAN
         connector_select = (
             self.get_parameter("connector").get_parameter_value().string_value
@@ -80,10 +93,15 @@ class Anchor(Node):
         can_override = (
             self.get_parameter("can_override").get_parameter_value().string_value
         )
+        serial_override = (
+            self.get_parameter("serial_override").get_parameter_value().string_value
+        )
         match connector_select:
             case "serial":
                 logger.info("using serial connector")
-                self.connector = SerialConnector(logger, self.get_clock())
+                self.connector = SerialConnector(
+                    logger, self.get_clock(), serial_override
+                )
             case "can":
                 logger.info("using CAN connector")
                 self.connector = CANConnector(logger, self.get_clock(), can_override)
@@ -99,7 +117,9 @@ class Anchor(Node):
                     )
                 except (NoValidDeviceException, NoWorkingDeviceException, TypeError):
                     logger.info("CAN connector failed, trying serial connector")
-                    self.connector = SerialConnector(logger, self.get_clock())
+                    self.connector = SerialConnector(
+                        logger, self.get_clock(), serial_override
+                    )
             case _:
                 logger.fatal(
                     f"invalid value for connector parameter: {connector_select}"

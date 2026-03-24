@@ -7,6 +7,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     connector = LaunchConfiguration("connector")
+    serial_override = LaunchConfiguration("serial_override")
+    can_override = LaunchConfiguration("can_override")
     use_ptz = LaunchConfiguration("use_ptz")
 
     ld = LaunchDescription()
@@ -16,7 +18,23 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "connector",
             default_value="auto",
-            description="Connector parameter for anchor node (default: auto)",
+            description="Connector parameter for anchor node (default: 'auto')",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "serial_override",
+            default_value="",
+            description="Serial port override parameter for anchor node (default: '')",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "can_override",
+            default_value="auto",
+            description="CAN network override parameter for anchor node (default: '')",
         )
     )
 
@@ -82,6 +100,8 @@ def generate_launch_description():
                 {
                     "launch_mode": "anchor",
                     "connector": connector,
+                    "serial_override": serial_override,
+                    "can_override": can_override,
                 }
             ],
             on_exit=Shutdown(),

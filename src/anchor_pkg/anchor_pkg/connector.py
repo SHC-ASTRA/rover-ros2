@@ -78,12 +78,19 @@ class SerialConnector(Connector):
     port: str
     mcu_name: str
     serial_interface: serial.Serial
-    override: bool
 
-    def __init__(self, logger: RcutilsLogger, clock: Clock):
+    def __init__(self, logger: RcutilsLogger, clock: Clock, serial_override: str = ""):
         super().__init__(logger, clock)
 
         ports = self._find_ports()
+        mcu_name: str | None = None
+
+        if serial_override:
+            logger.warn(
+                f"using serial_override: `{serial_override}`! this will bypass several checks."
+            )
+            ports = [serial_override]
+            mcu_name = "override"
 
         if len(ports) <= 0:
             raise NoValidDeviceException("no valid serial device found")
@@ -94,7 +101,8 @@ class SerialConnector(Connector):
 
         # check each of our ports to make sure one of them is responding
         port = ports[0]
-        mcu_name = self._get_name(port)
+        # we might already have a name by now if we overrode earlier
+        mcu_name = mcu_name or self._get_name(port)
         if not mcu_name:
             raise NoWorkingDeviceException(
                 f"found {port}, but it did not respond with its name"
