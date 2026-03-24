@@ -397,6 +397,8 @@ class CoreNode(Node):
                 )
                 return
 
+        self.feedback_new_state.header.stamp = msg.header.stamp
+
         match msg.command_id:
             # GNSS
             case 48:  # GNSS Latitude
