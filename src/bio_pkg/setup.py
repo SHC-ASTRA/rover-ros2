@@ -14,8 +14,8 @@ setup(
     zip_safe=True,
     maintainer="tristan",
     maintainer_email="tristanmcginnis26@gmail.com",
-    description="TODO: Package description",
-    license="TODO: License declaration",
+    description="Relays topics related to Biosensor between VicCAN (through Anchor) and basestation.",
+    license="AGPL-3.0-only",
     entry_points={
         "console_scripts": ["bio = bio_pkg.bio_node:main"],
     },
