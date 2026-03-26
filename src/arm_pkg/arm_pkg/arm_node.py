@@ -12,7 +12,7 @@ from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
 from control_msgs.msg import JointJog
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual  # TODO: Old topics
-from astra_msgs.msg import ArmFeedback, VicCAN, RevMotorState
+from astra_msgs.msg import ArmFeedback, ArmCtrlState, VicCAN, RevMotorState
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -78,7 +78,9 @@ class ArmNode(Node):
             self.anchor_sub = self.create_subscription(
                 String, "/anchor/arm/feedback", self.anchor_feedback, 10
             )
-            self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
+            self.anchor_pub = self.create_publisher(
+                String, "/anchor/to_vic/relay_string", 10
+            )
 
             # Create publishers
             self.socket_pub = self.create_publisher(
@@ -112,10 +114,10 @@ class ArmNode(Node):
 
         # Control
 
-        # Manual: /arm/manual/joint_jog is published by Basestation or Headless
+        # Manual: /arm/control/joint_jog is published by Basestation or Headless
         self.man_jointjog_sub_ = self.create_subscription(
             JointJog,
-            "/arm/manual/joint_jog",
+            "/arm/control/joint_jog",
             self.jointjog_callback,
             qos_profile=control_qos,
         )
@@ -124,6 +126,13 @@ class ArmNode(Node):
             JointState,
             "/joint_commands",
             self.joint_command_callback,
+            qos_profile=control_qos,
+        )
+        # State: /arm/control/state is published by Basestation or Headless
+        self.man_state_sub_ = self.create_subscription(
+            ArmCtrlState,
+            "/arm/control/state",
+            self.man_state_callback,
             qos_profile=control_qos,
         )
 
@@ -203,6 +212,25 @@ class ArmNode(Node):
         )
 
         # TODO: use msg.duration
+
+    def man_state_callback(self, msg: ArmCtrlState):
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=18,
+                data=[1.0 if msg.brake_mode else 0.0],
+                header=Header(stamp=self.get_clock().now().to_msg()),
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=34,
+                data=[1.0 if msg.laser else 0.0],
+                header=Header(stamp=self.get_clock().now().to_msg()),
+            )
+        )
 
     def joint_command_callback(self, msg: JointState):
         if len(msg.position) < 7 and len(msg.velocity) < 7:

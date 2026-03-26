@@ -18,7 +18,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Twist, TwistStamped
 from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
-from astra_msgs.msg import CoreCtrlState
+from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
 import warnings
 
@@ -177,6 +177,8 @@ class Headless(Node):
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
+        self.arm_brake_mode = False
+        self.arm_laser = False
 
         ##################################################
         # Old Topics
@@ -203,7 +205,10 @@ class Headless(Node):
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/manual_new", qos_profile=control_qos
+                JointJog, "/arm/control/joint_jog", qos_profile=control_qos
+            )
+            self.arm_state_pub_ = self.create_publisher(
+                ArmCtrlState, "/arm/control/state", qos_profile=control_qos
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
@@ -582,12 +587,25 @@ class Headless(Node):
             )
 
             # A: brake
-            # TODO: Brake mode
+            new_brake_mode = button_a
 
-            # Y: linear actuator
-            # TODO: linear actuator
+            # X: laser
+            new_laser = button_x
 
             self.arm_manual_pub_.publish(arm_input)
+
+            # Only publish state if needed
+            if new_brake_mode != self.arm_brake_mode or new_laser != self.arm_laser:
+                self.arm_brake_mode = new_brake_mode
+                self.arm_laser = new_laser
+                state_msg = ArmCtrlState()
+                state_msg.brake_mode = bool(self.arm_brake_mode)
+                state_msg.laser = bool(self.arm_laser)
+
+                self.arm_state_pub_.publish(state_msg)
+                self.get_logger().info(
+                    f"[Arm State] Brake: {self.arm_brake_mode}, Laser: {self.arm_laser}"
+                )
 
         # IK (ONLY NEW)
         # =============
