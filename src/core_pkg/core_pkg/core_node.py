@@ -104,10 +104,6 @@ class CoreNode(Node):
                 JointState, "/core/joint_commands", self.joint_command_callback, 2
             )
         else:
-            # autonomy twist -- m/s and rad/s -- for autonomy, in particular Nav2
-            self.cmd_vel_sub_ = self.create_subscription(
-                TwistStamped, "/cmd_vel", self.cmd_vel_callback, 1
-            )
             # manual twist -- [-1, 1] rather than real units
             # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
@@ -253,18 +249,6 @@ class CoreNode(Node):
         self.send_viccan(
             20, [fl_rpm, bl_rpm, fr_rpm, br_rpm]
         )  # order expected by embedded
-
-    def cmd_vel_callback(self, msg: TwistStamped):
-        linear = msg.twist.linear.x
-        angular = -msg.twist.angular.z
-
-        vel_left_rads = (linear - (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
-        vel_right_rads = (linear + (angular * CORE_WHEELBASE / 2)) / CORE_WHEEL_RADIUS
-
-        vel_left_rpm = round((vel_left_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
-        vel_right_rpm = round((vel_right_rads * 60) / (2 * 3.14159)) * CORE_GEAR_RATIO
-
-        self.send_viccan(20, [vel_left_rpm, vel_right_rpm])
 
     def twist_man_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
