@@ -145,6 +145,10 @@ class ArmNode(Node):
 
         # Combined Socket and Digit feedback
         self.arm_feedback_new = ArmFeedback()
+        self.arm_feedback_new.axis0_motor.id = 1
+        self.arm_feedback_new.axis1_motor.id = 2
+        self.arm_feedback_new.axis2_motor.id = 3
+        self.arm_feedback_new.axis3_motor.id = 4
 
         # IK Arm pose
         self.saved_joint_state = JointState()
@@ -287,6 +291,8 @@ class ArmNode(Node):
                 )
                 return
 
+        self.arm_feedback_new.header.stamp = msg.header.stamp
+
         match msg.command_id:
             case 53:  # REV SPARK MAX feedback
                 motorId = round(msg.data[0])
@@ -373,11 +379,14 @@ class ArmNode(Node):
                 )
                 return
 
+        self.arm_feedback_new.header.stamp = msg.header.stamp
+
         match msg.command_id:
             case 54:  # Board voltages
                 self.arm_feedback_new.digit_voltage.vbatt = float(msg.data[0]) / 100.0
                 self.arm_feedback_new.digit_voltage.v12 = float(msg.data[1]) / 100.0
                 self.arm_feedback_new.digit_voltage.v5 = float(msg.data[2]) / 100.0
+                self.arm_feedback_new.digit_voltage.header.stamp = msg.header.stamp
             case 55:  # Arm joint positions
                 self.saved_joint_state.position[4] = math.radians(
                     msg.data[0]
