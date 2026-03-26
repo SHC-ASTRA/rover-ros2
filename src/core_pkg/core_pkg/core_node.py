@@ -425,6 +425,7 @@ class CoreNode(Node):
                 self.imu_state.linear_acceleration.x = float(msg.data[0])
                 self.imu_state.linear_acceleration.y = float(msg.data[1])
                 self.imu_state.linear_acceleration.z = float(msg.data[2])
+                self.feedback_new_state.orientation = float(msg.data[3])
                 # Deal with quaternion
                 r = Rotation.from_euler("z", float(msg.data[3]), degrees=True)
                 q = r.as_quat()
@@ -469,6 +470,7 @@ class CoreNode(Node):
                 self.feedback_new_state.board_voltage.v12 = float(msg.data[1]) / 100.0
                 self.feedback_new_state.board_voltage.v5 = float(msg.data[2]) / 100.0
                 self.feedback_new_state.board_voltage.v3 = float(msg.data[3]) / 100.0
+                self.feedback_new_state.board_voltage.header.stamp = msg.header.stamp
             # Baro
             case 56:  # BMP temperature, altitude, pressure
                 self.baro_state.temperature = float(msg.data[0])
@@ -483,7 +485,7 @@ class CoreNode(Node):
                 velocity = float(msg.data[2])
                 joint_state_msg = (
                     JointState()
-                )  # TODO: not sure if all motors should be in each message or not
+                )
                 joint_state_msg.position = [
                     position * (2 * pi) / CORE_GEAR_RATIO
                 ]  # revolutions to radians
@@ -511,6 +513,10 @@ class CoreNode(Node):
                             f"Ignoring REV motor feedback 58 with invalid motorId {motorId}"
                         )
                         return
+                
+                if motor:
+                    motor.position = position
+                    motor.velocity = velocity
 
                 # make the fucking shit work
                 joint_state_msg.name.append("left_suspension_joint")
