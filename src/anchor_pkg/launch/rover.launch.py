@@ -51,6 +51,7 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[
                     {"launch_mode": mode},
                     {"use_ros2_control": LaunchConfiguration("use_ros2_control", default=False)},
+                    {"is_testbed", LaunchConfiguration("is_testbed", default=False)},
                 ],
                 on_exit=Shutdown(),
             )
@@ -151,6 +152,12 @@ def generate_launch_description():
         description="Whether to use DiffDriveController for driving instead of direct Twist",
     )
 
+    testbed_arg = DeclareLaunchArgument(
+        "is_testbed",
+        default_value="false",
+        description="Whether using Testbed (true) or Clucky (false)",
+    )
+
     rsp = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
@@ -183,6 +190,7 @@ def generate_launch_description():
         [
             declare_arg,
             ros2_control_arg,
+            testbed_arg,
             rsp,
             controllers,
             OpaqueFunction(function=launch_setup),

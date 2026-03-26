@@ -19,7 +19,12 @@ from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
 CORE_WHEELBASE = 0.836  # meters
 CORE_WHEEL_RADIUS = 0.171  # meters
-CORE_GEAR_RATIO = 100.0  # Clucky: 100:1, Testbed: 64:1
+CORE_GEAR_RATIO = 100.0  # Clucky: 100:1
+
+# TODO: update core_description or add testbed_description
+TESTBED_WHEELBASE = 0.368  # meters
+TESTBED_WHEEL_RADIUS = 0.108  # meters
+TESTBED_GEAR_RATIO = 64  # Testbed: 64:1
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -63,6 +68,22 @@ class CoreNode(Node):
             self.get_parameter("use_ros2_control").get_parameter_value().bool_value
         )
 
+        self.declare_parameter("is_testbed", False)
+        self.is_testbed = (
+            self.get_parameter("is_testbed").get_parameter_value().bool_value
+        )
+
+        if self.is_testbed:
+            global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
+            self.wheelbase = TESTBED_WHEELBASE
+            self.wheel_radius = TESTBED_WHEEL_RADIUS
+            self.gear_ratio = TESTBED_GEAR_RATIO
+        else:
+            global CORE_WHEELBASE, CORE_WHEEL_RADIUS, CORE_GEAR_RATIO
+            self.wheelbase = CORE_WHEELBASE
+            self.wheel_radius = CORE_WHEEL_RADIUS
+            self.gear_ratio = CORE_GEAR_RATIO
+
         ##################################################
         # Old Topics
 
@@ -80,9 +101,7 @@ class CoreNode(Node):
         self.feedback_pub = self.create_publisher(CoreFeedback, "/core/feedback", 10)
         self.core_feedback = CoreFeedback()
 
-        self.telemetry_pub_timer = self.create_timer(
-            1.0, self.publish_feedback
-        )
+        self.telemetry_pub_timer = self.create_timer(1.0, self.publish_feedback)
 
         ##################################################
         # New Topics
@@ -222,13 +241,16 @@ class CoreNode(Node):
         #  are included in msg.name, but ig it is implied that msg.velocity only
         #  includes velocities for the commanded joints (ros__parameters.joints).
         # So, this will be much more hacky and less adaptable than I would like it to be.
-        if len(msg.name) != 5 or len(msg.velocity) != 4 or len(msg.position) != 0:
+        if (
+            len(msg.name) != (4 if self.is_testbed else 5)
+            or len(msg.velocity) != 4
+            or len(msg.position) != 0
+        ):
             self.get_logger().warning(
                 f"Received joint control message with unexpected number of joints. Ignoring."
             )
             return
-        if msg.name != [
-            "left_suspension_joint",
+        if msg.name[-4:] != [  # type: ignore
             "bl_wheel_joint",
             "br_wheel_joint",
             "fl_wheel_joint",
@@ -241,10 +263,10 @@ class CoreNode(Node):
 
         (bl_vel, br_vel, fl_vel, fr_vel) = msg.velocity
 
-        bl_rpm = radps_to_rpm(bl_vel) * CORE_GEAR_RATIO
-        br_rpm = radps_to_rpm(br_vel) * CORE_GEAR_RATIO
-        fl_rpm = radps_to_rpm(fl_vel) * CORE_GEAR_RATIO
-        fr_rpm = radps_to_rpm(fr_vel) * CORE_GEAR_RATIO
+        bl_rpm = radps_to_rpm(bl_vel) * self.gear_ratio
+        br_rpm = radps_to_rpm(br_vel) * self.gear_ratio
+        fl_rpm = radps_to_rpm(fl_vel) * self.gear_ratio
+        fr_rpm = radps_to_rpm(fr_vel) * self.gear_ratio
 
         self.send_viccan(
             20, [fl_rpm, bl_rpm, fr_rpm, br_rpm]
@@ -467,14 +489,12 @@ class CoreNode(Node):
                 motorId = round(float(msg.data[0]))
                 position = float(msg.data[1])
                 velocity = float(msg.data[2])
-                joint_state_msg = (
-                    JointState()
-                )
+                joint_state_msg = JointState()
                 joint_state_msg.position = [
-                    position * (2 * pi) / CORE_GEAR_RATIO
+                    position * (2 * pi) / self.gear_ratio
                 ]  # revolutions to radians
                 joint_state_msg.velocity = [
-                    velocity * (2 * pi / 60.0) / CORE_GEAR_RATIO
+                    velocity * (2 * pi / 60.0) / self.gear_ratio
                 ]  # RPM to rad/s
 
                 motor: RevMotorState | None = None
@@ -497,15 +517,16 @@ class CoreNode(Node):
                             f"Ignoring REV motor feedback 58 with invalid motorId {motorId}"
                         )
                         return
-                
+
                 if motor:
                     motor.position = position
                     motor.velocity = velocity
 
                 # make the fucking shit work
-                joint_state_msg.name.append("left_suspension_joint")
-                joint_state_msg.position.append(0.0)
-                joint_state_msg.velocity.append(0.0)
+                if not self.is_testbed:
+                    joint_state_msg.name.append("left_suspension_joint")
+                    joint_state_msg.position.append(0.0)
+                    joint_state_msg.velocity.append(0.0)
 
                 joint_state_msg.header.stamp = msg.header.stamp
                 self.joint_state_pub_.publish(joint_state_msg)
