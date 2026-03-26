@@ -152,6 +152,7 @@ class ArmNode(Node):
 
         # IK Arm pose
         self.saved_joint_state = JointState()
+        self.saved_joint_state.header.frame_id = "base_link"
         self.saved_joint_state.name = self.all_joint_names
         # ... initialize with zeros
         self.saved_joint_state.position = [0.0] * len(self.saved_joint_state.name)
@@ -174,7 +175,32 @@ class ArmNode(Node):
         # Deadzone
         velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
 
-        self.send_velocities(velocities, msg.header)
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=39,
+                data=velocities[0:4],
+                header=msg.header,
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="digit",
+                command_id=39,
+                data=velocities[4:6],
+                header=msg.header,
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="digit",
+                command_id=26,
+                data=[velocities[6]],
+                header=msg.header,
+            )
+        )
 
         # TODO: use msg.duration
 
@@ -203,12 +229,12 @@ class ArmNode(Node):
 
         # Send Axis 0-3
         self.anchor_tovic_pub_.publish(
-            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3], header=header)
+            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:4], header=header)
         )
         # Send Wrist yaw and roll
         # TODO: Verify embedded
         self.anchor_tovic_pub_.publish(
-            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:5], header=header)
+            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:6], header=header)
         )
         # Send End Effector Gripper
         # TODO: Verify m/s received correctly by embedded
