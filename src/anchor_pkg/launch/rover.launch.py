@@ -50,8 +50,15 @@ def launch_setup(context, *args, **kwargs):
                 output="both",
                 parameters=[
                     {"launch_mode": mode},
-                    {"use_ros2_control": LaunchConfiguration("use_ros2_control", default=False)},
-                    {"is_testbed", LaunchConfiguration("is_testbed", default=False)},
+                    {
+                        "use_ros2_control": LaunchConfiguration(
+                            "use_ros2_control", default=False
+                        )
+                    },
+                    {
+                        "rover_platform",
+                        LaunchConfiguration("rover_platform", default="auto"),
+                    },
                 ],
                 on_exit=Shutdown(),
             )
@@ -153,9 +160,10 @@ def generate_launch_description():
     )
 
     testbed_arg = DeclareLaunchArgument(
-        "is_testbed",
-        default_value="false",
-        description="Whether using Testbed (true) or Clucky (false)",
+        "rover_platform",
+        default_value="auto",
+        description="Choose the rover platform (either clucky or testbed). If left on auto, will defer to ROVER_PLATFORM environment variable.",
+        choices=["clucky", "testbed", "auto"],
     )
 
     rsp = IncludeLaunchDescription(

@@ -1,8 +1,10 @@
 import sys
 import signal
+from typing import Literal, cast
 from scipy.spatial.transform import Rotation
 from math import copysign, pi
 from warnings import deprecated
+from os import getenv
 
 import rclpy
 from rclpy.node import Node
@@ -54,6 +56,7 @@ class CoreNode(Node):
         56: 4,  # really 3, but viccan
         58: 4,  # ditto
     }
+    rover_platform: Literal["core", "testbed"]
 
     def __init__(self):
         super().__init__("core_node")
@@ -68,17 +71,26 @@ class CoreNode(Node):
             self.get_parameter("use_ros2_control").get_parameter_value().bool_value
         )
 
-        self.declare_parameter("is_testbed", False)
-        self.is_testbed = (
-            self.get_parameter("is_testbed").get_parameter_value().bool_value
+        self.declare_parameter("rover_platform", "auto")
+        rover_platform = (
+            self.get_parameter("rover_platform").get_parameter_value().string_value
         )
+        if rover_platform == "auto":
+            self.get_logger().info(
+                "rover_platform parameter is unset, falling back to environment variable"
+            )
+            rover_platform = getenv("ROVER_PLATFORM", "auto")
+        if rover_platform not in ("core", "testbed"):  # make sure we have a valid value
+            raise ValueError("rover platform must be either 'core' or 'testbed'.")
+        else:
+            self.rover_platform = cast(Literal["core", "testbed"], rover_platform)
 
-        if self.is_testbed:
+        if self.rover_platform == "testbed":
             global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
             self.wheelbase = TESTBED_WHEELBASE
             self.wheel_radius = TESTBED_WHEEL_RADIUS
             self.gear_ratio = TESTBED_GEAR_RATIO
-        else:
+        else:  # default in case of unset or invalid environment variable
             global CORE_WHEELBASE, CORE_WHEEL_RADIUS, CORE_GEAR_RATIO
             self.wheelbase = CORE_WHEELBASE
             self.wheel_radius = CORE_WHEEL_RADIUS
@@ -242,7 +254,7 @@ class CoreNode(Node):
         #  includes velocities for the commanded joints (ros__parameters.joints).
         # So, this will be much more hacky and less adaptable than I would like it to be.
         if (
-            len(msg.name) != (4 if self.is_testbed else 5)
+            len(msg.name) != (4 if self.rover_platform == "testbed" else 5)
             or len(msg.velocity) != 4
             or len(msg.position) != 0
         ):
@@ -523,7 +535,7 @@ class CoreNode(Node):
                     motor.velocity = velocity
 
                 # make the fucking shit work
-                if not self.is_testbed:
+                if self.rover_platform == "clucky":
                     joint_state_msg.name.append("left_suspension_joint")
                     joint_state_msg.position.append(0.0)
                     joint_state_msg.velocity.append(0.0)
