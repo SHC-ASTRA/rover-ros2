@@ -217,6 +217,7 @@ class CANConnector(Connector):
 
         # filter to busses whose channel matches the can_override
         if can_override:
+            self.logger.info(f"overrode can interface with {can_override}")
             avail = list(
                 filter(
                     lambda b: b.get("channel") == can_override,

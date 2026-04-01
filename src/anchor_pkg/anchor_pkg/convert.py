@@ -16,7 +16,7 @@ def string_to_viccan(
     parts: list[str] = msg.strip().split(",")
 
     # don't need an extra check because len of .split output is always >= 1
-    if parts[0] != "can_relay_fromvic":
+    if not parts[0].startswith("can_relay_"):
         logger.debug(f"got non-CAN data from {mcu_name}: {msg}")
         return None
     elif len(parts) < 3:
@@ -59,4 +59,4 @@ def viccan_to_string(viccan: VicCAN) -> str:
     """Converts a ROS2 VicCAN message to the serial string VicCAN format."""
     # go from [ w, x, y, z ] -> ",w,x,y,z" & round to 7 digits max
     data = "".join([f",{round(val,7)}" for val in viccan.data])
-    return f"can_relay_tovic,{viccan.mcu_name}{data}\n"
+    return f"can_relay_tovic,{viccan.mcu_name},{viccan.command_id}{data}\n"

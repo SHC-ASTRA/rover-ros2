@@ -1,9 +1,9 @@
+from warnings import deprecated
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
-import signal
 import atexit
 
 from .connector import (
@@ -14,7 +14,7 @@ from .connector import (
     NoValidDeviceException,
     NoWorkingDeviceException,
 )
-from .convert import string_to_viccan, viccan_to_string
+from .convert import string_to_viccan
 import threading
 
 from astra_msgs.msg import VicCAN
@@ -163,6 +163,12 @@ class Anchor(Node):
             self.write_connector,
             20,
         )
+        self.tovic_sub_legacy_ = self.create_subscription(
+            String,
+            "/anchor/relay",
+            self.write_connector_legacy,
+            20,
+        )
         self.mock_mcu_sub_ = self.create_subscription(
             String,
             "/anchor/from_vic/mock_mcu",
@@ -195,7 +201,21 @@ class Anchor(Node):
     def write_connector(self, msg: VicCAN):
         """Write to the connector and send a copy to /anchor/to_vic/debug"""
         self.connector.write(msg)
-        self.tovic_debug_pub_.publish(viccan_to_string(msg))
+        self.tovic_debug_pub_.publish(msg)
+
+    @deprecated("Use /anchor/to_vic/relay instead of /anchor/relay")
+    def write_connector_legacy(self, msg: String):
+        """Write to the connector by first attempting to convert String to VicCAN"""
+        # please do not reference this code. ~riley
+        for cmd in msg.data.split("\n"):
+            viccan = string_to_viccan(
+                cmd,
+                "anchor",
+                self.get_logger(),
+                self.get_clock().now().to_msg(),
+            )
+            if viccan:
+                self.write_connector(viccan)
 
     def relay_fromvic(self, msg: VicCAN):
         """Relay a message from the MCU to the appropriate VicCAN topic"""

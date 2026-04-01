@@ -33,7 +33,7 @@ def generate_launch_description():
     ld.add_action(
         DeclareLaunchArgument(
             "can_override",
-            default_value="auto",
+            default_value="",
             description="CAN network override parameter for anchor node (default: '')",
         )
     )
