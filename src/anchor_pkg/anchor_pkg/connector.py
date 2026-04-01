@@ -21,6 +21,16 @@ KNOWN_USBS = [
 ]
 BAUD_RATE = 115200
 
+MCU_IDS = [
+            "broadcast",
+            "core",
+            "arm",
+            "digit",
+            "faerie",
+            "citadel",
+            "libs",
+        ]
+
 
 class NoValidDeviceException(Exception):
     pass
@@ -269,17 +279,9 @@ class CANConnector(Connector):
         data_type_key = (arbitration_id >> 6) & 0b11
         command = arbitration_id & 0x3F
 
-        key_to_mcu: dict[int, str] = {
-            1: "broadcast",
-            2: "core",
-            3: "arm",
-            4: "digit",
-            5: "faerie",
-            6: "citadel",
-        }
-
-        mcu_name = key_to_mcu.get(mcu_key)
-        if mcu_name is None:
+        try:
+            mcu_name = MCU_IDS[mcu_key]
+        except IndexError:
             self.logger.warn(
                 f"received CAN frame with unknown MCU key {mcu_key}; id=0x{arbitration_id:X}"
             )
@@ -296,7 +298,7 @@ class CANConnector(Connector):
                         f"received double payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
                     return (None, None)
-                (value,) = struct.unpack("<d", data_bytes[:8])
+                (value,) = struct.unpack(">d", data_bytes[:8])
                 data = [float(value)]
             elif data_type_key == 1:
                 if len(data_bytes) < 8:
@@ -304,7 +306,7 @@ class CANConnector(Connector):
                         f"received float32x2 payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
                     return (None, None)
-                v1, v2 = struct.unpack("<ff", data_bytes[:8])
+                v1, v2 = struct.unpack(">ff", data_bytes[:8])
                 data = [float(v1), float(v2)]
             elif data_type_key == 2:
                 if len(data_bytes) < 8:
@@ -312,7 +314,7 @@ class CANConnector(Connector):
                         f"received int16x4 payload with insufficient length {len(data_bytes)}; dropping frame"
                     )
                     return (None, None)
-                i1, i2, i3, i4 = struct.unpack("<hhhh", data_bytes[:8])
+                i1, i2, i3, i4 = struct.unpack(">hhhh", data_bytes[:8])
                 data = [float(i1), float(i2), float(i3), float(i4)]
             else:
                 self.logger.warn(
@@ -344,92 +346,53 @@ class CANConnector(Connector):
         if not self.can_bus:
             raise DeviceClosedException("CAN bus not initialized")
 
-        # Build 11-bit arbitration ID according to the VicCAN scheme:
+        # build 11-bit arbitration ID according to VicCAN spec:
         # bits 10..8: targeted MCU key
         # bits 7..6:  data type key
         # bits 5..0:  command
 
-        # Map MCU name to 3-bit key.
-        mcu_name = (msg.mcu_name or "").lower()
-        mcu_key_map: dict[str, int] = {
-            "broadcast": 1,
-            "core": 2,
-            "arm": 3,
-            "digit": 4,
-            "faerie": 5,
-            "citadel": 6,
-        }
-
-        if mcu_name not in mcu_key_map:
+        # map MCU name to 3-bit key.
+        try:
+            mcu_id = MCU_IDS.index((msg.mcu_name or "").lower())
+        except ValueError:
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
             )
             return
 
-        mcu_key = mcu_key_map[mcu_name] & 0b111
-
-        # Infer data type key from payload length according to the table:
+        # determine data type from length:
         # 0: double x1, 1: float32 x2, 2: int16 x4, 3: empty
-        data_len = len(msg.data)
-        if data_len == 0:
-            data_type_key = 3
-        elif data_len == 1:
-            data_type_key = 0
-        elif data_len == 2:
-            data_type_key = 1
-        elif data_len == 4:
-            data_type_key = 2
-        else:
-            # Fallback: treat any other non-zero length as float32 x2
-            self.logger.warn(
-                f"unexpected VicCAN data length {data_len}; encoding as float32 x2 (key=1) and truncating/padding as needed"
-            )
-            data_type_key = 1
-
-        # Command is limited to 6 bits.
-        command = int(msg.command_id)
-        if command < 0:
-            self.logger.error(f"invalid negative command_id for CAN frame: {command}")
-            return
-        if command > 0x3F:
-            self.logger.warn(
-                f"command_id 0x{command:X} exceeds 6-bit range; truncating to lower 6 bits"
-            )
-            command &= 0x3F
-
-        arbitration_id = (
-            ((mcu_key & 0b111) << 8) | ((data_type_key & 0b11) << 6) | (command & 0x3F)
-        )
-
-        # Map VicCAN.data (floats) to up to 8 CAN data bytes.
-        raw_bytes: list[int] = []
-        for value in msg.data:
-            try:
-                b = int(round(value))
-            except (TypeError, ValueError):
+        match data_len := len(msg.data):
+            case 0:
+                data_type = 3
+                data = bytes()
+            case 1:
+                data_type = 0
+                data = struct.pack(">d", *msg.data)
+            case 2:
+                data_type = 1
+                data = struct.pack(">ff", *msg.data)
+            case 4:
+                data_type = 2
+                data = struct.pack(">hhhh", *[ int(x) for x in msg.data])
+            case _:
                 self.logger.error(
-                    f"non-numeric VicCAN data value: {value}; dropping message"
+                    f"unexpected VicCAN data length: {data_len}; dropping message"
                 )
                 return
 
-            if b < 0 or b > 255:
-                self.logger.warn(
-                    f"VicCAN data value {value} out of byte range; clamping into [0, 255]"
-                )
-                b = max(0, min(255, b))
-
-            raw_bytes.append(b)
-
-        if len(raw_bytes) > 8:
-            self.logger.warn(
-                f"VicCAN data too long for single CAN frame ({len(raw_bytes)} > 8); truncating"
+        # command is limited to 6 bits.
+        command = int(msg.command_id)
+        if command < 0 or command > 0x3F:
+            self.logger.error(
+                f"invalid command_id for CAN frame: {command}; dropping message"
             )
-            raw_bytes = raw_bytes[:8]
+            return
 
         try:
             can_message = can.Message(
-                arbitration_id=arbitration_id,
-                data=raw_bytes,
+                arbitration_id=(mcu_id << 8) | (data_type << 6) | command,
+                data=data,
                 is_extended_id=False,
             )
         except Exception as e:
