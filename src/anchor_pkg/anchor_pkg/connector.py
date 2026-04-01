@@ -22,14 +22,14 @@ KNOWN_USBS = [
 BAUD_RATE = 115200
 
 MCU_IDS = [
-            "broadcast",
-            "core",
-            "arm",
-            "digit",
-            "faerie",
-            "citadel",
-            "libs",
-        ]
+    "broadcast",
+    "core",
+    "arm",
+    "digit",
+    "faerie",
+    "citadel",
+    "libs",
+]
 
 
 class NoValidDeviceException(Exception):
@@ -374,7 +374,7 @@ class CANConnector(Connector):
                 data = struct.pack(">ff", *msg.data)
             case 4:
                 data_type = 2
-                data = struct.pack(">hhhh", *[ int(x) for x in msg.data])
+                data = struct.pack(">hhhh", *[int(x) for x in msg.data])
             case _:
                 self.logger.error(
                     f"unexpected VicCAN data length: {data_len}; dropping message"
