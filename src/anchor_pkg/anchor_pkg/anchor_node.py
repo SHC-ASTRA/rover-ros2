@@ -42,6 +42,9 @@ class Anchor(Node):
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
     * /anchor/to_vic/relay_string
         - Send raw strings to connectors. Does not work for connectors that require conversion (like CANConnector)
+    * /anchor/relay
+        - Legacy method for talking to connectors. Takes String as input, but does not send the raw strings to connectors.
+          Instead, it converts them to VicCAN messages first.
     """
 
     connector: Connector
@@ -203,7 +206,7 @@ class Anchor(Node):
         self.connector.write(msg)
         self.tovic_debug_pub_.publish(msg)
 
-    @deprecated("Use /anchor/to_vic/relay instead of /anchor/relay")
+    @deprecated("Use /anchor/to_vic/relay or /anchor/to_vic/relay_string instead of /anchor/relay")
     def write_connector_legacy(self, msg: String):
         """Write to the connector by first attempting to convert String to VicCAN"""
         # please do not reference this code. ~riley
