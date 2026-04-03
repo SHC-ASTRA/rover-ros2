@@ -74,6 +74,19 @@ You can see all data sent to it in a string format with this command:
 $ ros2 topic echo /anchor/to_vic/debug
 ```
 
+To send data to it, use the normal topic:
+
+```bash
+$ ros2 topic pub /anchor/to_vic/relay astra_msgs/msg/VicCAN '{mcu_name: "core", command_id: 50, data: [0.0, 2.0, 0.0, 1.0]}'
+
+```
+
+To emulate receiving data from a microcontroller, publish to the dedicated topic:
+
+```bash
+$ ros2 topic pub /anchor/from_vic/mock_mcu std_msgs/msg/String '{data: "can_relay_fromvic,arm,55,0.0,450.0,900.0,0.0"}'
+```
+
 ### Testing Serial
 
 You can fake the presence of a Serial device (i.e., MCU) by using the following command:
