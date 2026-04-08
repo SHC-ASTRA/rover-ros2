@@ -257,7 +257,7 @@ class CANConnector(Connector):
             )
 
         if self.can_channel and self.can_channel.startswith("v"):
-            self.logger.warn("likely using virtual CAN interface")
+            self.logger.warn("CAN interface is likely virtual")
 
     def read(self) -> tuple[VicCAN | None, str | None]:
         if not self.can_bus:
