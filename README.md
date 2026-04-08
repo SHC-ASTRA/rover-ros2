@@ -84,7 +84,7 @@ $ ros2 topic pub /anchor/to_vic/relay astra_msgs/msg/VicCAN '{mcu_name: "core", 
 To emulate receiving data from a microcontroller, publish to the dedicated topic:
 
 ```bash
-$ ros2 topic pub /anchor/from_vic/mock_mcu std_msgs/msg/String '{data: "can_relay_fromvic,arm,55,0.0,450.0,900.0,0.0"}'
+$ ros2 topic pub /anchor/from_vic/mock_mcu astra_msgs/msg/VicCAN '{mcu_name: "arm", command_id: 55, data: [0.0, 450.0, 900.0, 0.0]}'
 ```
 
 ### Testing Serial

@@ -37,7 +37,7 @@ class Anchor(Node):
 
     Subscribers:
     * /anchor/from_vic/mock_mcu
-        - For testing without an actual MCU, publish strings here as if they came from an MCU
+        - For testing without an actual MCU, publish ViCAN messages here as if they came from an MCU
     * /anchor/to_vic/relay
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
     * /anchor/to_vic/relay_string
@@ -229,16 +229,9 @@ class Anchor(Node):
         elif msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
 
-    def on_mock_fromvic(self, msg: String):
+    def on_mock_fromvic(self, msg: VicCAN):
         """Relay a message as if it came from the MCU"""
-        viccan = string_to_viccan(
-            msg.data,
-            "mock",
-            self.get_logger(),
-            self.get_clock().now().to_msg(),
-        )
-        if viccan:
-            self.relay_fromvic(viccan)
+        self.relay_fromvic(msg)
 
 
 def main(args=None):
