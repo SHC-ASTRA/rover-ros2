@@ -58,7 +58,8 @@ def string_to_viccan(
 def viccan_to_string(viccan: VicCAN) -> str:
     """Converts a ROS2 VicCAN message to the serial string VicCAN format."""
     # make sure we accept 3 digits and treat it as 4
-    if len(viccan.data) == 3: viccan.data.append("0")
+    if len(viccan.data) == 3:
+        viccan.data.append("0")
     # go from [ w, x, y, z ] -> ",w,x,y,z" & round to 7 digits max
     data = "".join([f",{round(val,7)}" for val in viccan.data])
     return f"can_relay_tovic,{viccan.mcu_name},{viccan.command_id}{data}\n"

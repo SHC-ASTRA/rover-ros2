@@ -175,7 +175,7 @@ class Anchor(Node):
         self.mock_mcu_sub_ = self.create_subscription(
             String,
             "/anchor/from_vic/mock_mcu",
-            self.on_mock_fromvic,
+            self.relay_fromvic,
             20,
         )
         self.tovic_string_sub_ = self.create_subscription(
@@ -206,7 +206,9 @@ class Anchor(Node):
         self.connector.write(msg)
         self.tovic_debug_pub_.publish(msg)
 
-    @deprecated("Use /anchor/to_vic/relay or /anchor/to_vic/relay_string instead of /anchor/relay")
+    @deprecated(
+        "Use /anchor/to_vic/relay or /anchor/to_vic/relay_string instead of /anchor/relay"
+    )
     def write_connector_legacy(self, msg: String):
         """Write to the connector by first attempting to convert String to VicCAN"""
         # please do not reference this code. ~riley
@@ -228,10 +230,6 @@ class Anchor(Node):
             self.fromvic_arm_pub_.publish(msg)
         elif msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
-
-    def on_mock_fromvic(self, msg: VicCAN):
-        """Relay a message as if it came from the MCU"""
-        self.relay_fromvic(msg)
 
 
 def main(args=None):

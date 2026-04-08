@@ -372,7 +372,7 @@ class CANConnector(Connector):
             case 2:
                 data_type = 1
                 data = struct.pack(">ff", *msg.data)
-            case 3 | 4: # 3 gets padded and is treated as 4
+            case 3 | 4:  # 3 gets padded and is treated as 4
                 data_type = 2
                 # pad till we have 4 otherwise struct.pack will freak out
                 msg.data = (msg.data + [0])[:4]
