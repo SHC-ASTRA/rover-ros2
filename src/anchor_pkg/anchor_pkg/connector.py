@@ -376,7 +376,6 @@ class CANConnector(Connector):
                 data_type = 2
                 if data_len == 3:
                     msg.data.append(0)
-                msg.data = msg.data[:4]
                 data = struct.pack(">hhhh", *[int(x) for x in msg.data])
             case _:
                 self.logger.error(
