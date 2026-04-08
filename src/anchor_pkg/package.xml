@@ -2,15 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>anchor_pkg</name>
-  <version>1.0.0</version>
+  <version>0.0.0</version>
   <description>ASTRA VicCAN driver package, using python-can and pyserial.</description>
-  <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
+  <maintainer email="rjm0037@uah.edu">Riley</maintainer>
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
 
   <exec_depend>common_interfaces</exec_depend>
   <exec_depend>python3-serial</exec_depend>
+  <exec_depend>python3-can</exec_depend>
 
   <exec_depend>core_pkg</exec_depend>
   <exec_depend>arm_pkg</exec_depend>
