@@ -68,20 +68,20 @@ Anchor provides a mock connector meant for testing and scripting purposes. You c
 $ ros2 launch anchor_pkg rover.launch.py connector:="mock"
 ```
 
-You can see all data sent to it in a string format with this command:
+To see all data that would be sent over the CAN network (and thus to the microcontrollers), use this command:
 
 ```bash
 $ ros2 topic echo /anchor/to_vic/debug
 ```
 
-To send data to it, use the normal topic:
+To send data to the mock connector (as if you were a ROS2 node), use the normal relay topic:
 
 ```bash
 $ ros2 topic pub /anchor/to_vic/relay astra_msgs/msg/VicCAN '{mcu_name: "core", command_id: 50, data: [0.0, 2.0, 0.0, 1.0]}'
 
 ```
 
-To emulate receiving data from a microcontroller, publish to the dedicated topic:
+To send data to the mock connector (as if you were a microcontroller), publish to the dedicated topic:
 
 ```bash
 $ ros2 topic pub /anchor/from_vic/mock_mcu astra_msgs/msg/VicCAN '{mcu_name: "arm", command_id: 55, data: [0.0, 450.0, 900.0, 0.0]}'
