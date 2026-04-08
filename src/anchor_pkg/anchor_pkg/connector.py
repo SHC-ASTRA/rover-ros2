@@ -375,7 +375,8 @@ class CANConnector(Connector):
             case 3 | 4:  # 3 gets padded and is treated as 4
                 data_type = 2
                 # pad till we have 4 otherwise struct.pack will freak out
-                msg.data = (msg.data + [0])[:4]
+                msg.data.append(0)
+                msg.data = msg.data[:4]
                 data = struct.pack(">hhhh", *[int(x) for x in msg.data])
             case _:
                 self.logger.error(
