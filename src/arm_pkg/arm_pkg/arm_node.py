@@ -78,9 +78,7 @@ class ArmNode(Node):
             self.anchor_sub = self.create_subscription(
                 String, "/anchor/arm/feedback", self.anchor_feedback, 10
             )
-            self.anchor_pub = self.create_publisher(
-                String, "/anchor/to_vic/relay_string", 10
-            )
+            self.anchor_pub = self.create_publisher(String, "/anchor/relay", 10)
 
             # Create publishers
             self.socket_pub = self.create_publisher(
