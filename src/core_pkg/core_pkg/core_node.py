@@ -56,7 +56,7 @@ class CoreNode(Node):
         56: 4,  # really 3, but viccan
         58: 4,  # ditto
     }
-    rover_platform: Literal["core", "testbed"]
+    rover_platform: Literal["clucky", "testbed"]
 
     def __init__(self):
         super().__init__("core_node")
@@ -79,11 +79,11 @@ class CoreNode(Node):
             self.get_logger().info(
                 "rover_platform parameter is unset, falling back to environment variable"
             )
-            rover_platform = getenv("ROVER_PLATFORM", "auto")
-        if rover_platform not in ("core", "testbed"):  # make sure we have a valid value
-            raise ValueError("rover platform must be either 'core' or 'testbed'.")
+            rover_platform = getenv("ROVER_PLATFORM", "clucky")
+        if rover_platform not in ("clucky", "testbed"):  # make sure we have a valid value
+            raise ValueError("rover platform must be either 'clucky' or 'testbed'.")
         else:
-            self.rover_platform = cast(Literal["core", "testbed"], rover_platform)
+            self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
 
         if self.rover_platform == "testbed":
             global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
