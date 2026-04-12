@@ -34,7 +34,7 @@ class Anchor(Node):
 
     Subscribers:
     * /anchor/from_vic/mock_mcu
-        - For testing without an actual MCU, publish ViCAN messages here as if they came from an MCU
+        - For testing without an actual MCU, publish VicCAN messages here as if they came from an MCU
     * /anchor/to_vic/relay
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
     * /anchor/to_vic/relay_string
