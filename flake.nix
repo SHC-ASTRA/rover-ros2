@@ -31,6 +31,8 @@
           name = "ASTRA Anchor";
           packages = with pkgs; [
             colcon
+            socat
+            can-utils
             (python313.withPackages (
               p: with p; [
                 pyserial
