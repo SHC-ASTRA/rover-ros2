@@ -2,7 +2,7 @@
   description = "Development environment for ASTRA Anchor";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
 
     treefmt-nix = {
@@ -98,7 +98,8 @@
     );
 
   nixConfig = {
-    extra-substituters = [ "https://ros.cachix.org" ];
-    extra-trusted-public-keys = [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" ];
+    # Cache to pull ros packages from
+    extra-substituters = [ "https://ros.cachix.org" "https://attic.iid.ciirc.cvut.cz/ros" ];
+    extra-trusted-public-keys = [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" "ros:JR95vUYsShSqfA1VTYoFt1Nz6uXasm5QrcOsGry9f6Q=" ];
   };
 }
