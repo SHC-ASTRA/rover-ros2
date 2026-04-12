@@ -79,8 +79,9 @@ class CoreNode(Node):
             self.get_logger().info(
                 "rover_platform parameter is unset, falling back to environment variable"
             )
-            rover_platform = getenv("ROVER_PLATFORM", "clucky")
-        if rover_platform not in ("clucky", "testbed"):  # make sure we have a valid value
+            rover_platform = getenv("ROVER_PLATFORM", "clucky").lower()
+        # Verify rover_platform value is valid
+        if rover_platform not in ("clucky", "testbed"):
             raise ValueError("rover platform must be either 'clucky' or 'testbed'.")
         else:
             self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
@@ -180,7 +181,17 @@ class CoreNode(Node):
         )
 
         ###################################################
+        # Timers
+
+        if self.use_ros2_control:
+            self.vel_cmd_timer_ = self.create_timer(0.1, self.vel_cmd_timer_callback)
+
+        ###################################################
         # Saved state
+
+        # Controls
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = JointState()
 
         # Main Core feedback
         self.feedback_new_state = NewCoreFeedback()
@@ -273,16 +284,31 @@ class CoreNode(Node):
             )
             return
 
-        (bl_vel, br_vel, fl_vel, fr_vel) = msg.velocity
+        # A 10 Hz timer callback actually sends these commands to Core for rate limiting
+        # These come from ros2_control at 50 Hz
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = msg
 
+    def vel_cmd_timer_callback(self):
+        # Safety timeout for diff_drive_controller commands via topic_based_ros2_control.
+        # It is safe to send stop command here because if self.use_ros2_control,
+        # then this is the only callback that is controlling Core's motors.
+        if self.get_clock().now() - self._last_joint_command_time > Duration(
+            nanoseconds=int(1e8)  # 100ms
+        ):
+            self.send_viccan(20, [0.0, 0.0, 0.0, 0.0])
+            return
+
+        # This order is verified by the subscription callback
+        (bl_vel, br_vel, fl_vel, fr_vel) = self._last_joint_command_msg.velocity
+
+        # Convert wheel rad/s to motor RPM
         bl_rpm = radps_to_rpm(bl_vel) * self.gear_ratio
         br_rpm = radps_to_rpm(br_vel) * self.gear_ratio
         fl_rpm = radps_to_rpm(fl_vel) * self.gear_ratio
         fr_rpm = radps_to_rpm(fr_vel) * self.gear_ratio
 
-        self.send_viccan(
-            20, [fl_rpm, bl_rpm, fr_rpm, br_rpm]
-        )  # order expected by embedded
+        self.send_viccan(20, [fl_rpm, bl_rpm, fr_rpm, br_rpm])  # REV Velocity
 
     def twist_man_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
