@@ -1,10 +1,8 @@
 from warnings import deprecated
 import rclpy
 from rclpy.node import Node
-from rclpy.executors import ExternalShutdownException
+from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-
-import atexit
 
 from .connector import (
     Connector,
@@ -185,11 +183,13 @@ class Anchor(Node):
             20,
         )
 
-        # Close devices on exit
-        atexit.register(self.cleanup)
+        # poll at 100Hz for incoming data
+        self.read_timer_ = self.create_timer(0.01, self.read_connector)
 
-    def cleanup(self):
+    def destroy_node(self):
+        self.get_logger().info("closing connector")
         self.connector.cleanup()
+        super().destroy_node()
 
     def read_connector(self):
         """Check the connector for new data from the MCU, and publish string to appropriate topics"""
@@ -233,18 +233,19 @@ class Anchor(Node):
 
 
 def main(args=None):
+    rclpy.init(args=args)
+    anchor_node = Anchor()
+    executor = SingleThreadedExecutor()
+    executor.add_node(anchor_node)
+
     try:
-        rclpy.init(args=args)
-        anchor_node = Anchor()
-
-        thread = threading.Thread(target=rclpy.spin, args=(anchor_node,), daemon=True)
-        thread.start()
-
-        rate = anchor_node.create_rate(100)  # 100 Hz -- arbitrary rate
-        while rclpy.ok():
-            anchor_node.read_connector()  # Check the connector for updates
-            rate.sleep()
+        executor.spin()
     except (KeyboardInterrupt, ExternalShutdownException):
-        print("Caught shutdown signal, shutting down...")
+        pass
     finally:
+        # don't accept any more jobs
+        executor.shutdown()
+        # make the node quit processing things
+        anchor_node.destroy_node()
+        # shut down everything else
         rclpy.try_shutdown()
