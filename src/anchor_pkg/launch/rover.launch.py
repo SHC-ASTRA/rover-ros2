@@ -58,10 +58,10 @@ def generate_launch_description():
 
     ld.add_action(
         DeclareLaunchArgument(
-            "rover_platform",
-            default_value="auto",
-            description="Choose the rover platform (either clucky or testbed). If left on auto, will defer to ROVER_PLATFORM environment variable.",
-            choices=["clucky", "testbed", "auto"],
+            "rover_platform_override",
+            default_value="",
+            description="Override the rover platform (either clucky or testbed). If unset, hostname is used; defaults to clucky without hostname.",
+            choices=["clucky", "testbed", ""],
         )
     )
 
@@ -120,8 +120,8 @@ def generate_launch_description():
                     )
                 },
                 {
-                    "rover_platform": LaunchConfiguration(
-                        "rover_platform", default="auto"
+                    "rover_platform_override": LaunchConfiguration(
+                        "rover_platform_override", default="auto"
                     )
                 },
             ],

@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation
 from math import copysign, pi
 from warnings import deprecated
 from os import getenv
+from socket import gethostname
 
 import rclpy
 from rclpy.node import Node
@@ -71,20 +72,28 @@ class CoreNode(Node):
             self.get_parameter("use_ros2_control").get_parameter_value().bool_value
         )
 
-        self.declare_parameter("rover_platform", "auto")
+        self.declare_parameter("rover_platform_override", "")
         rover_platform = (
-            self.get_parameter("rover_platform").get_parameter_value().string_value
+            self.get_parameter("rover_platform_override")
+            .get_parameter_value()
+            .string_value
         )
-        if rover_platform == "auto":
-            self.get_logger().info(
-                "rover_platform parameter is unset, falling back to environment variable"
+        # Verify rover_platform_override value is valid
+        if rover_platform not in ("clucky", "testbed", ""):
+            # Keeping this here, because I want a value error only if the user manually
+            # overrides using a bad value. If we can't determine it automatically
+            # from hostname, then default to clucky.
+            self.get_logger().fatal(
+                "Invalid rover_platform_override parameter value. If set, must be 'clucky' or 'testbed'."
             )
-            rover_platform = getenv("ROVER_PLATFORM", "clucky").lower()
-        # Verify rover_platform value is valid
+        # Attempt to determine platform from hostname, default to clucky on failure
+        rover_platform = rover_platform or gethostname().lower()
         if rover_platform not in ("clucky", "testbed"):
-            raise ValueError("rover platform must be either 'clucky' or 'testbed'.")
-        else:
-            self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
+            self.get_logger().info(
+                "rover_platform defaulting to clucky, not overridden and could not determine from hostname."
+            )
+            rover_platform = "clucky"
+        self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
 
         if self.rover_platform == "testbed":
             global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
