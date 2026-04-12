@@ -12,8 +12,7 @@ from .connector import (
     NoValidDeviceException,
     NoWorkingDeviceException,
 )
-from .convert import string_to_viccan
-import threading
+from .convert import string_to_viccan, viccan_to_string
 
 from astra_msgs.msg import VicCAN
 from std_msgs.msg import String
@@ -152,7 +151,7 @@ class Anchor(Node):
         )
         # Debug publisher
         self.tovic_debug_pub_ = self.create_publisher(
-            VicCAN,
+            String,
             "/anchor/to_vic/debug",
             20,
         )
@@ -171,7 +170,7 @@ class Anchor(Node):
             20,
         )
         self.mock_mcu_sub_ = self.create_subscription(
-            String,
+            VicCAN,
             "/anchor/from_vic/mock_mcu",
             self.relay_fromvic,
             20,
@@ -179,7 +178,7 @@ class Anchor(Node):
         self.tovic_string_sub_ = self.create_subscription(
             String,
             "/anchor/to_vic/relay_string",
-            self.connector.write_raw,
+            self.write_connector_raw,
             20,
         )
 
@@ -204,6 +203,11 @@ class Anchor(Node):
     def write_connector(self, msg: VicCAN):
         """Write to the connector and send a copy to /anchor/to_vic/debug"""
         self.connector.write(msg)
+        self.tovic_debug_pub_.publish(String(data=viccan_to_string(msg)))
+
+    def write_connector_raw(self, msg: String):
+        """Write raw string to the connector and send a copy to /anchor/to_vic/debug"""
+        self.connector.write_raw(msg)
         self.tovic_debug_pub_.publish(msg)
 
     @deprecated(

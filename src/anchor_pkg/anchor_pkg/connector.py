@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from astra_msgs.msg import VicCAN
+from std_msgs.msg import String
 from rclpy.clock import Clock
 from rclpy.impl.rcutils_logger import RcutilsLogger
 from .convert import string_to_viccan as _string_to_viccan, viccan_to_string
@@ -77,7 +78,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def write_raw(self, msg: str):
+    def write_raw(self, msg: String):
         pass
 
     def cleanup(self):
@@ -199,10 +200,10 @@ class SerialConnector(Connector):
             return (None, None)  # pretty much no other error matters
 
     def write(self, msg: VicCAN):
-        self.write_raw(viccan_to_string(msg))
+        self.write_raw(String(data=viccan_to_string(msg)))
 
-    def write_raw(self, msg: str):
-        self.serial_interface.write(bytes(msg, "utf8"))
+    def write_raw(self, msg: String):
+        self.serial_interface.write(bytes(msg.data, "utf8"))
 
     def cleanup(self):
         self.logger.info(f"closing serial port if open {self.port}")
@@ -411,8 +412,10 @@ class CANConnector(Connector):
             self.logger.error(f"CAN error while sending: {e}")
             raise DeviceClosedException("CAN bus closed unexpectedly")
 
-    def write_raw(self, msg: str):
-        self.logger.warn(f"write_raw is not supported for CANConnector. msg: {msg}")
+    def write_raw(self, msg: String):
+        self.logger.warn(
+            f"write_raw is not supported for CANConnector. msg: {msg.data}"
+        )
 
     def cleanup(self):
         try:
@@ -434,5 +437,5 @@ class MockConnector(Connector):
     def write(self, msg: VicCAN):
         pass
 
-    def write_raw(self, msg: str):
+    def write_raw(self, msg: String):
         pass
