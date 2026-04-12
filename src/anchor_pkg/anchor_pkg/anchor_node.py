@@ -230,9 +230,9 @@ class Anchor(Node):
         """Relay a message from the MCU to the appropriate VicCAN topic"""
         if msg.mcu_name == "core":
             self.fromvic_core_pub_.publish(msg)
-        elif msg.mcu_name == "arm" or msg.mcu_name == "digit":
+        if msg.mcu_name == "arm" or msg.mcu_name == "digit":
             self.fromvic_arm_pub_.publish(msg)
-        elif msg.mcu_name == "citadel" or msg.mcu_name == "digit":
+        if msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
 
 
