@@ -366,10 +366,14 @@ class Headless(Node):
             )  # Exponent for finer control (curve)
 
             # This kinda looks dumb being seperate from the following block, but this
-            # maintains the separation between modifying the control message and sending it
+            # maintains the separation between modifying the control message and sending it.
             if self.use_cmd_vel:
-                twist.linear.x *= 1.5
-                twist.angular.z *= 0.5
+                # These scaling factors convert raw stick inputs to absolute m/s and rad/s
+                # values that DiffDriveController will convert to motor RPM, rather than
+                # the plain Twist, which just sends the stick values as duty cycle and
+                # sends that scaled to the motors.
+                twist.linear.x *= 1.0
+                twist.angular.z *= 1.5
 
             # Publish
             if self.use_cmd_vel:
