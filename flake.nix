@@ -5,7 +5,7 @@
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs";
     astra-msgs.url =
-      "github:SHC-ASTRA/astra_msgs/acabfd117d9711afc420612375b4e02f4ce4982d";
+      "github:SHC-ASTRA/astra_msgs/703b7b9943a62b0b7b74bdceec4b2826180e2e7a";
   };
 
   outputs =
