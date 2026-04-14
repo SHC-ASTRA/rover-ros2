@@ -3,7 +3,7 @@
 repo_root="$(git rev-parse --show-toplevel)"
 
 if [[ -z $repo_root ]]; then
-  echo "script must be run from within the rover-ros2 repo" >&2
+  echo "script must be run from within a git repo" >&2
   exit 1
 fi
 
