@@ -123,7 +123,7 @@ class SerialConnector(Connector):
         self.mcu_name = mcu_name
 
         # if we fail at this point, it should crash because we've already tested the port
-        self.serial_interface = serial.Serial(self.port, BAUD_RATE, timeout=1)
+        self.serial_interface = serial.Serial(self.port, BAUD_RATE, timeout=0)
 
     def _find_ports(self) -> list[str]:
         """
