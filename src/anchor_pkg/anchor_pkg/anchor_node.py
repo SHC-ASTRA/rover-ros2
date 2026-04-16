@@ -255,6 +255,12 @@ class Anchor(Node):
             version_msg.build_time = Time(
                 sec=int(time.mktime(self.ASTRA_EPOCH) + msg.data[0])
             )
+            # is_main and is_dirty is in msg.data[1]
+            # Out of 1 byte, it looks like [lib_isdirty][lib_ismain][proj_isdirty][proj_ismain]
+            version_msg.astra_lib_is_dirty = bool(int(msg.data[1]) >> 3 & 0x1)
+            version_msg.astra_lib_is_main = bool(int(msg.data[1]) >> 2 & 0x1)
+            version_msg.project_is_dirty = bool(int(msg.data[1]) >> 1 & 0x1)
+            version_msg.project_is_main = bool(int(msg.data[1]) & 0x1)
             self.mcu_version_pub_.publish(version_msg)
 
 
