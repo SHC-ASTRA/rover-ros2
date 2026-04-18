@@ -248,8 +248,8 @@ class Anchor(Node):
             self.mcu_versions[msg.mcu_name] = McuVersion(mcu_name=msg.mcu_name)
 
         if msg.command_id == 46:  # commit hashes
-            self.mcu_versions[msg.mcu_name].project_commit_hash = int(msg.data[0])
-            self.mcu_versions[msg.mcu_name].astra_lib_commit_hash = int(msg.data[1])
+            self.mcu_versions[msg.mcu_name].project_commit_fragment = msg.data[0]
+            self.mcu_versions[msg.mcu_name].astra_lib_commit_fragment = msg.data[1]
         elif msg.command_id == 47:  # build timestamp and version numbers
             version_msg = self.mcu_versions[msg.mcu_name]
             version_msg.build_time = Time(
