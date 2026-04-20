@@ -22,6 +22,11 @@ from builtin_interfaces.msg import Time
 from std_msgs.msg import String
 from astra_msgs.msg import VicCAN, McuVersion
 
+# TODO: move these to unilib
+EPOCH_YEAR = 2022
+CMD_VERSION_COMMIT = 7
+CMD_VERSION_BUILD = 8
+
 
 class Anchor(Node):
     """
@@ -49,7 +54,7 @@ class Anchor(Node):
           Instead, it converts them to VicCAN messages first.
     """
 
-    ASTRA_EPOCH = time.struct_time((2022, 1, 1, 0, 0, 0, 0, 0, 0))  # January 1, 2022
+    ASTRA_EPOCH = time.struct_time((EPOCH_YEAR, 1, 1, 0, 0, 0, 0, 0, 0))
 
     connector: Connector
 
@@ -244,13 +249,16 @@ class Anchor(Node):
             self.fromvic_bio_pub_.publish(msg)
 
         # MCU Versioning information
-        if msg.command_id in (46, 47) and msg.mcu_name not in self.mcu_versions:
+        if (
+            msg.command_id in (CMD_VERSION_COMMIT, CMD_VERSION_BUILD)
+            and msg.mcu_name not in self.mcu_versions
+        ):
             self.mcu_versions[msg.mcu_name] = McuVersion(mcu_name=msg.mcu_name)
 
-        if msg.command_id == 46:  # commit hashes
+        if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
             self.mcu_versions[msg.mcu_name].project_commit_fragment = msg.data[0]
             self.mcu_versions[msg.mcu_name].astra_lib_commit_fragment = msg.data[1]
-        elif msg.command_id == 47:  # build timestamp and version numbers
+        elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
             version_msg = self.mcu_versions[msg.mcu_name]
             version_msg.build_time = Time(
                 sec=int(time.mktime(self.ASTRA_EPOCH) + msg.data[0])
