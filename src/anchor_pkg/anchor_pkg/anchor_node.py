@@ -182,8 +182,8 @@ class Anchor(Node):
             20,
         )
 
-        # poll at 100Hz for incoming data
-        self.read_timer_ = self.create_timer(0.01, self.read_connector)
+        # poll at 50Hz for incoming data
+        self.read_timer_ = self.create_timer(0.02, self.read_connector)
 
     def destroy_node(self):
         self.get_logger().info("closing connector")
