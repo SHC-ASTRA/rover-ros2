@@ -133,7 +133,7 @@ class Headless(Node):
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", True)
+        self.declare_parameter("use_old_topics", False)
         self.use_old_topics = (
             self.get_parameter("use_old_topics").get_parameter_value().bool_value
         )
