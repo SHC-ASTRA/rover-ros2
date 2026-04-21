@@ -1,6 +1,7 @@
 import sys
 import signal
 from typing import Literal, cast
+from enum import IntEnum
 from scipy.spatial.transform import Rotation
 from math import copysign, pi
 from warnings import deprecated
@@ -28,6 +29,13 @@ CORE_GEAR_RATIO = 100.0  # Clucky: 100:1
 TESTBED_WHEELBASE = 0.368  # meters
 TESTBED_WHEEL_RADIUS = 0.108  # meters
 TESTBED_GEAR_RATIO = 64  # Testbed: 64:1
+
+# REV motor IDs for each wheel
+class MotorId(IntEnum):
+    FL = 2
+    FR = 1
+    BL = 4
+    BR = 3
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -204,10 +212,10 @@ class CoreNode(Node):
 
         # Main Core feedback
         self.feedback_new_state = NewCoreFeedback()
-        self.feedback_new_state.fl_motor.id = 1
-        self.feedback_new_state.bl_motor.id = 2
-        self.feedback_new_state.fr_motor.id = 3
-        self.feedback_new_state.br_motor.id = 4
+        self.feedback_new_state.fl_motor.id = MotorId.FL
+        self.feedback_new_state.bl_motor.id = MotorId.BL
+        self.feedback_new_state.fr_motor.id = MotorId.FR
+        self.feedback_new_state.br_motor.id = MotorId.BR
 
         # IMU
         self.imu_state = Imu()
@@ -496,17 +504,17 @@ class CoreNode(Node):
                 current = float(msg.data[3]) / 10.0
                 motor: RevMotorState | None = None
                 match motorId:
-                    case 1:
+                    case MotorId.FL:
                         motor = self.feedback_new_state.fl_motor
-                    case 2:
+                    case MotorId.BL:
                         motor = self.feedback_new_state.bl_motor
-                    case 3:
+                    case MotorId.FR:
                         motor = self.feedback_new_state.fr_motor
-                    case 4:
+                    case MotorId.BR:
                         motor = self.feedback_new_state.br_motor
                     case _:
                         self.get_logger().warning(
-                            f"Ignoring REV motor feedback 53 with invalid motorId {motorId}"
+                            f"Ignoring REV motor feedback {msg.command_id} with invalid motorId {motorId}"
                         )
                         return
 
@@ -547,21 +555,21 @@ class CoreNode(Node):
                 motor: RevMotorState | None = None
 
                 match motorId:
-                    case 1:
+                    case MotorId.FL:
                         motor = self.feedback_new_state.fl_motor
                         joint_state_msg.name = ["fl_wheel_joint"]
-                    case 2:
+                    case MotorId.BL:
                         motor = self.feedback_new_state.bl_motor
                         joint_state_msg.name = ["bl_wheel_joint"]
-                    case 3:
+                    case MotorId.FR:
                         motor = self.feedback_new_state.fr_motor
                         joint_state_msg.name = ["fr_wheel_joint"]
-                    case 4:
+                    case MotorId.BR:
                         motor = self.feedback_new_state.br_motor
                         joint_state_msg.name = ["br_wheel_joint"]
                     case _:
                         self.get_logger().warning(
-                            f"Ignoring REV motor feedback 58 with invalid motorId {motorId}"
+                            f"Ignoring REV motor feedback {msg.command_id} with invalid motorId {motorId}"
                         )
                         return
 
