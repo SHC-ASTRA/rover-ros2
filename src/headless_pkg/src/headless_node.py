@@ -163,8 +163,10 @@ class Headless(Node):
             self.get_logger().info("Using cmd_vel for core control")
             global CORE_MODE
             CORE_MODE = "twist"
-        else:
+        elif self.use_old_topics:
             self.get_logger().info("Using astra_msgs/CoreControl for core control")
+        else:
+            self.get_logger().info("Using geometry_msgs/Twist for core control")
 
         if self.use_arm_ik and self.use_old_topics:
             self.get_logger().fatal("Old topics do not support arm IK control.")
