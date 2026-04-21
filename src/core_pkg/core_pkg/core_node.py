@@ -331,9 +331,6 @@ class CoreNode(Node):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
         angular = msg.angular.z  # [-1 1] for left/right from right stick x
 
-        if linear < 0:  # reverse turning direction when going backwards (WIP)
-            angular *= -1
-
         if abs(linear) > 1 or abs(angular) > 1:
             # if speed is greater than 1, then there is a problem
             # make it look like a problem and don't just run away lmao
