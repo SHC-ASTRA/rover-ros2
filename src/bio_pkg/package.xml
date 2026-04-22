@@ -2,14 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>bio_pkg</name>
-  <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
+  <version>1.0.0</version>
+  <description>Biosensor package to handle command interpretation and embedded interfacing.</description>
+  <maintainer email="ds0196@uah.edu">David Sharpe</maintainer>
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
-  <depend>common_interfaces</depend>
-  <depend>astra_msgs</depend>
+
+  <exec_depend>common_interfaces</exec_depend>
+
+  <exec_depend>astra_msgs</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

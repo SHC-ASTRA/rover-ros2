@@ -14,11 +14,9 @@ setup(
     zip_safe=True,
     maintainer="David Sharpe",
     maintainer_email="ds0196@uah.edu",
-    description="Headless rover control package to handle command interpretation and embedded interfacing.",
-    license="All Rights Reserved",
+    description="Provides headless rover control, similar to Basestation.",
+    license="AGPL-3.0-only",
     entry_points={
-        "console_scripts": [
-            "headless_full = src.headless_node:main",
-        ],
+        "console_scripts": ["headless_full = src.headless_node:main"],
     },
 )
