@@ -5,6 +5,16 @@
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
 
+    astra-msgs = {
+      url = "github:SHC-ASTRA/astra_msgs?ref=a310e967fedf9a2b7eb340839b3edf8a52ba32f8";
+      inputs.nix-ros-overlay.follows = "nix-ros-overlay";
+    };
+
+    astra-descriptions = {
+      url = "github:SHC-ASTRA/astra_descriptions?ref=e9dd878727d9cf0f93dafabc4ecaae352b2d1f81";
+      inputs.nix-ros-overlay.follows = "nix-ros-overlay";
+    };
+
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -25,6 +35,9 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+
+        astra-msgs-pkgs = inputs.astra-msgs.packages.${system};
+        astra-descriptions-pkgs = inputs.astra-descriptions.packages.${system};
       in
       {
         devShells.default = pkgs.mkShell {
@@ -47,6 +60,12 @@
               with rosPackages.humble;
               buildEnv {
                 paths = [
+                  # Custom ROS2 packages
+                  astra-msgs-pkgs.astra-msgs
+                  astra-descriptions-pkgs.arm-description
+                  astra-descriptions-pkgs.arm-moveit-config
+                  astra-descriptions-pkgs.core-description
+
                   ros-core
                   ros2cli
                   ros2run

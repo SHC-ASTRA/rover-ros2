@@ -1,5 +1,57 @@
 {
   "nodes": {
+    "astra-descriptions": {
+      "inputs": {
+        "nix-ros-overlay": [
+          "nix-ros-overlay"
+        ],
+        "nixpkgs": [
+          "astra-descriptions",
+          "nix-ros-overlay",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1775631196,
+        "narHash": "sha256-ZISy1/HCrl6CfQ4ctX8rvgut7sePDvFCmh2BVWvcFm8=",
+        "owner": "SHC-ASTRA",
+        "repo": "astra_descriptions",
+        "rev": "e9dd878727d9cf0f93dafabc4ecaae352b2d1f81",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SHC-ASTRA",
+        "ref": "e9dd878727d9cf0f93dafabc4ecaae352b2d1f81",
+        "repo": "astra_descriptions",
+        "type": "github"
+      }
+    },
+    "astra-msgs": {
+      "inputs": {
+        "nix-ros-overlay": [
+          "nix-ros-overlay"
+        ],
+        "nixpkgs": [
+          "astra-msgs",
+          "nix-ros-overlay",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1776839584,
+        "narHash": "sha256-s3gSIDuxqfNRezJH5ahgmPhtciOi4seRm0M3iXaf3+s=",
+        "owner": "SHC-ASTRA",
+        "repo": "astra_msgs",
+        "rev": "a310e967fedf9a2b7eb340839b3edf8a52ba32f8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SHC-ASTRA",
+        "ref": "a310e967fedf9a2b7eb340839b3edf8a52ba32f8",
+        "repo": "astra_msgs",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -56,6 +108,8 @@
     },
     "root": {
       "inputs": {
+        "astra-descriptions": "astra-descriptions",
+        "astra-msgs": "astra-msgs",
         "nix-ros-overlay": "nix-ros-overlay",
         "nixpkgs": [
           "nix-ros-overlay",
