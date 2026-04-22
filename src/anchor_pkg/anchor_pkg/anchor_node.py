@@ -1,5 +1,6 @@
 from warnings import deprecated
 import time
+import struct
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
@@ -260,8 +261,12 @@ class Anchor(Node):
             self.mcu_versions[msg.mcu_name] = McuVersion(mcu_name=msg.mcu_name)
 
         if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
-            self.mcu_versions[msg.mcu_name].project_commit_fragment = msg.data[0]
-            self.mcu_versions[msg.mcu_name].astra_lib_commit_fragment = msg.data[1]
+            self.mcu_versions[msg.mcu_name].project_commit_fragment = hex(
+                int.from_bytes(struct.pack("<hh", int(msg.data[0]), int(msg.data[1])))
+            )[2:]
+            self.mcu_versions[msg.mcu_name].astra_lib_commit_fragment = hex(
+                int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
+            )[2:]
         elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
             version_msg = self.mcu_versions[msg.mcu_name]
             version_msg.build_time = Time(
