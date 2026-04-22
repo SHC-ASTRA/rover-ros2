@@ -1,4 +1,6 @@
 from warnings import deprecated
+import time
+import struct
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
@@ -14,8 +16,14 @@ from .connector import (
 )
 from .convert import string_to_viccan, viccan_to_string
 
-from astra_msgs.msg import VicCAN
+from builtin_interfaces.msg import Time
 from std_msgs.msg import String
+from astra_msgs.msg import VicCAN, McuVersion
+
+# TODO: move these to unilib
+EPOCH_YEAR = 2022
+CMD_VERSION_COMMIT = 7
+CMD_VERSION_BUILD = 8
 
 
 class Anchor(Node):
@@ -43,6 +51,8 @@ class Anchor(Node):
         - Legacy method for talking to connectors. Takes String as input, but does not send the raw strings to connectors.
           Instead, it converts them to VicCAN messages first.
     """
+
+    ASTRA_EPOCH = time.struct_time((EPOCH_YEAR, 1, 1, 0, 0, 0, 0, 0, 0))
 
     connector: Connector
 
@@ -155,6 +165,12 @@ class Anchor(Node):
             "/anchor/to_vic/debug",
             20,
         )
+        # MCU Version publisher
+        self.mcu_version_pub_ = self.create_publisher(
+            McuVersion,
+            "/anchor/from_vic/mcu_version",
+            20,
+        )
 
         # Subscribers
         self.tovic_sub_ = self.create_subscription(
@@ -181,6 +197,8 @@ class Anchor(Node):
             self.write_connector_raw,
             20,
         )
+
+        self.mcu_versions: dict[str, McuVersion] = {}
 
         # poll at 50Hz for incoming data
         self.read_timer_ = self.create_timer(0.02, self.read_connector)
@@ -234,6 +252,39 @@ class Anchor(Node):
             self.fromvic_arm_pub_.publish(msg)
         if msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
+
+        # MCU Versioning information
+        if (
+            msg.command_id in (CMD_VERSION_COMMIT, CMD_VERSION_BUILD)
+            and msg.mcu_name not in self.mcu_versions
+        ):
+            self.mcu_versions[msg.mcu_name] = McuVersion(mcu_name=msg.mcu_name)
+
+        if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
+            version_msg = self.mcu_versions[msg.mcu_name]
+            version_msg.project_commit_fragment = hex(
+                int.from_bytes(struct.pack("<hh", int(msg.data[0]), int(msg.data[1])))
+            )[2:]
+            version_msg.astra_lib_commit_fragment = hex(
+                int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
+            )[2:]
+        elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
+            version_msg = self.mcu_versions[msg.mcu_name]
+            version_msg.build_time = Time(
+                sec=int(time.mktime(self.ASTRA_EPOCH) + msg.data[0])
+            )
+            # is_main and is_dirty is in msg.data[1]
+            # Out of 1 byte, it looks like [lib_isdirty][lib_ismain][proj_isdirty][proj_ismain]
+            version_msg.astra_lib_is_dirty = bool(int(msg.data[1]) >> 3 & 0x1)
+            version_msg.astra_lib_is_main = bool(int(msg.data[1]) >> 2 & 0x1)
+            version_msg.project_is_dirty = bool(int(msg.data[1]) >> 1 & 0x1)
+            version_msg.project_is_main = bool(int(msg.data[1]) & 0x1)
+            # Only publish data if also already have commit hashes
+            if (
+                version_msg.project_commit_fragment
+                and version_msg.astra_lib_commit_fragment
+            ):
+                self.mcu_version_pub_.publish(version_msg)
 
 
 def main(args=None):
