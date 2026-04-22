@@ -1,10 +1,8 @@
 from warnings import deprecated
 import rclpy
 from rclpy.node import Node
-from rclpy.executors import ExternalShutdownException
+from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-
-import atexit
 
 from .connector import (
     Connector,
@@ -14,8 +12,7 @@ from .connector import (
     NoValidDeviceException,
     NoWorkingDeviceException,
 )
-from .convert import string_to_viccan
-import threading
+from .convert import string_to_viccan, viccan_to_string
 
 from astra_msgs.msg import VicCAN
 from std_msgs.msg import String
@@ -37,7 +34,7 @@ class Anchor(Node):
 
     Subscribers:
     * /anchor/from_vic/mock_mcu
-        - For testing without an actual MCU, publish ViCAN messages here as if they came from an MCU
+        - For testing without an actual MCU, publish VicCAN messages here as if they came from an MCU
     * /anchor/to_vic/relay
         - Core, Arm, and Bio publish VicCAN messages to this topic to send to the MCU
     * /anchor/to_vic/relay_string
@@ -154,7 +151,7 @@ class Anchor(Node):
         )
         # Debug publisher
         self.tovic_debug_pub_ = self.create_publisher(
-            VicCAN,
+            String,
             "/anchor/to_vic/debug",
             20,
         )
@@ -173,7 +170,7 @@ class Anchor(Node):
             20,
         )
         self.mock_mcu_sub_ = self.create_subscription(
-            String,
+            VicCAN,
             "/anchor/from_vic/mock_mcu",
             self.relay_fromvic,
             20,
@@ -181,15 +178,17 @@ class Anchor(Node):
         self.tovic_string_sub_ = self.create_subscription(
             String,
             "/anchor/to_vic/relay_string",
-            self.connector.write_raw,
+            self.write_connector_raw,
             20,
         )
 
-        # Close devices on exit
-        atexit.register(self.cleanup)
+        # poll at 50Hz for incoming data
+        self.read_timer_ = self.create_timer(0.02, self.read_connector)
 
-    def cleanup(self):
+    def destroy_node(self):
+        self.get_logger().info("closing connector")
         self.connector.cleanup()
+        super().destroy_node()
 
     def read_connector(self):
         """Check the connector for new data from the MCU, and publish string to appropriate topics"""
@@ -204,6 +203,11 @@ class Anchor(Node):
     def write_connector(self, msg: VicCAN):
         """Write to the connector and send a copy to /anchor/to_vic/debug"""
         self.connector.write(msg)
+        self.tovic_debug_pub_.publish(String(data=viccan_to_string(msg)))
+
+    def write_connector_raw(self, msg: String):
+        """Write raw string to the connector and send a copy to /anchor/to_vic/debug"""
+        self.connector.write_raw(msg)
         self.tovic_debug_pub_.publish(msg)
 
     @deprecated(
@@ -226,25 +230,26 @@ class Anchor(Node):
         """Relay a message from the MCU to the appropriate VicCAN topic"""
         if msg.mcu_name == "core":
             self.fromvic_core_pub_.publish(msg)
-        elif msg.mcu_name == "arm" or msg.mcu_name == "digit":
+        if msg.mcu_name == "arm" or msg.mcu_name == "digit":
             self.fromvic_arm_pub_.publish(msg)
-        elif msg.mcu_name == "citadel" or msg.mcu_name == "digit":
+        if msg.mcu_name == "citadel" or msg.mcu_name == "digit":
             self.fromvic_bio_pub_.publish(msg)
 
 
 def main(args=None):
+    rclpy.init(args=args)
+    anchor_node = Anchor()
+    executor = SingleThreadedExecutor()
+    executor.add_node(anchor_node)
+
     try:
-        rclpy.init(args=args)
-        anchor_node = Anchor()
-
-        thread = threading.Thread(target=rclpy.spin, args=(anchor_node,), daemon=True)
-        thread.start()
-
-        rate = anchor_node.create_rate(100)  # 100 Hz -- arbitrary rate
-        while rclpy.ok():
-            anchor_node.read_connector()  # Check the connector for updates
-            rate.sleep()
+        executor.spin()
     except (KeyboardInterrupt, ExternalShutdownException):
-        print("Caught shutdown signal, shutting down...")
+        pass
     finally:
+        # don't accept any more jobs
+        executor.shutdown()
+        # make the node quit processing things
+        anchor_node.destroy_node()
+        # shut down everything else
         rclpy.try_shutdown()
