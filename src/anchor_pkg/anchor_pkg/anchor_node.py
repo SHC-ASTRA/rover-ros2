@@ -261,10 +261,11 @@ class Anchor(Node):
             self.mcu_versions[msg.mcu_name] = McuVersion(mcu_name=msg.mcu_name)
 
         if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
-            self.mcu_versions[msg.mcu_name].project_commit_fragment = hex(
+            version_msg = self.mcu_versions[msg.mcu_name]
+            version_msg.project_commit_fragment = hex(
                 int.from_bytes(struct.pack("<hh", int(msg.data[0]), int(msg.data[1])))
             )[2:]
-            self.mcu_versions[msg.mcu_name].astra_lib_commit_fragment = hex(
+            version_msg.astra_lib_commit_fragment = hex(
                 int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
             )[2:]
         elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
@@ -278,7 +279,12 @@ class Anchor(Node):
             version_msg.astra_lib_is_main = bool(int(msg.data[1]) >> 2 & 0x1)
             version_msg.project_is_dirty = bool(int(msg.data[1]) >> 1 & 0x1)
             version_msg.project_is_main = bool(int(msg.data[1]) & 0x1)
-            self.mcu_version_pub_.publish(version_msg)
+            # Only publish data if also already have commit hashes
+            if (
+                version_msg.project_commit_fragment
+                and version_msg.astra_lib_commit_fragment
+            ):
+                self.mcu_version_pub_.publish(version_msg)
 
 
 def main(args=None):
