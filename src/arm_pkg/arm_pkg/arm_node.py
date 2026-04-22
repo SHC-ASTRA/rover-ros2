@@ -1,5 +1,4 @@
 import sys
-import threading
 import signal
 import math
 from warnings import deprecated
@@ -13,7 +12,7 @@ from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
 from control_msgs.msg import JointJog
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual  # TODO: Old topics
-from astra_msgs.msg import ArmFeedback, VicCAN, RevMotorState
+from astra_msgs.msg import ArmFeedback, ArmCtrlState, VicCAN, RevMotorState
 
 control_qos = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
@@ -25,8 +24,6 @@ control_qos = qos.QoSProfile(
     # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
     # liveliness_lease_duration=Duration(seconds=5),
 )
-
-thread = None
 
 
 class ArmNode(Node):
@@ -115,10 +112,10 @@ class ArmNode(Node):
 
         # Control
 
-        # Manual: /arm/manual/joint_jog is published by Basestation or Headless
+        # Manual: /arm/control/joint_jog is published by Basestation or Headless
         self.man_jointjog_sub_ = self.create_subscription(
             JointJog,
-            "/arm/manual/joint_jog",
+            "/arm/control/joint_jog",
             self.jointjog_callback,
             qos_profile=control_qos,
         )
@@ -127,6 +124,13 @@ class ArmNode(Node):
             JointState,
             "/joint_commands",
             self.joint_command_callback,
+            qos_profile=control_qos,
+        )
+        # State: /arm/control/state is published by Basestation or Headless
+        self.man_state_sub_ = self.create_subscription(
+            ArmCtrlState,
+            "/arm/control/state",
+            self.man_state_callback,
             qos_profile=control_qos,
         )
 
@@ -148,9 +152,14 @@ class ArmNode(Node):
 
         # Combined Socket and Digit feedback
         self.arm_feedback_new = ArmFeedback()
+        self.arm_feedback_new.axis0_motor.id = 1
+        self.arm_feedback_new.axis1_motor.id = 2
+        self.arm_feedback_new.axis2_motor.id = 3
+        self.arm_feedback_new.axis3_motor.id = 4
 
         # IK Arm pose
         self.saved_joint_state = JointState()
+        self.saved_joint_state.header.frame_id = "base_link"
         self.saved_joint_state.name = self.all_joint_names
         # ... initialize with zeros
         self.saved_joint_state.position = [0.0] * len(self.saved_joint_state.name)
@@ -173,9 +182,53 @@ class ArmNode(Node):
         # Deadzone
         velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
 
-        self.send_velocities(velocities, msg.header)
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=39,
+                data=velocities[0:4],
+                header=msg.header,
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="digit",
+                command_id=39,
+                data=velocities[4:6],
+                header=msg.header,
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="digit",
+                command_id=26,
+                data=[velocities[6]],
+                header=msg.header,
+            )
+        )
 
         # TODO: use msg.duration
+
+    def man_state_callback(self, msg: ArmCtrlState):
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=18,
+                data=[1.0 if msg.brake_mode else 0.0],
+                header=Header(stamp=self.get_clock().now().to_msg()),
+            )
+        )
+
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="arm",
+                command_id=34,
+                data=[1.0 if msg.laser else 0.0],
+                header=Header(stamp=self.get_clock().now().to_msg()),
+            )
+        )
 
     def joint_command_callback(self, msg: JointState):
         if len(msg.position) < 7 and len(msg.velocity) < 7:
@@ -202,12 +255,12 @@ class ArmNode(Node):
 
         # Send Axis 0-3
         self.anchor_tovic_pub_.publish(
-            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:3], header=header)
+            VicCAN(mcu_name="arm", command_id=43, data=velocities[0:4], header=header)
         )
         # Send Wrist yaw and roll
         # TODO: Verify embedded
         self.anchor_tovic_pub_.publish(
-            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:5], header=header)
+            VicCAN(mcu_name="digit", command_id=43, data=velocities[4:6], header=header)
         )
         # Send End Effector Gripper
         # TODO: Verify m/s received correctly by embedded
@@ -289,6 +342,8 @@ class ArmNode(Node):
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
                 )
                 return
+
+        self.arm_feedback_new.header.stamp = msg.header.stamp
 
         match msg.command_id:
             case 53:  # REV SPARK MAX feedback
@@ -376,11 +431,14 @@ class ArmNode(Node):
                 )
                 return
 
+        self.arm_feedback_new.header.stamp = msg.header.stamp
+
         match msg.command_id:
             case 54:  # Board voltages
                 self.arm_feedback_new.digit_voltage.vbatt = float(msg.data[0]) / 100.0
                 self.arm_feedback_new.digit_voltage.v12 = float(msg.data[1]) / 100.0
                 self.arm_feedback_new.digit_voltage.v5 = float(msg.data[2]) / 100.0
+                self.arm_feedback_new.digit_voltage.header.stamp = msg.header.stamp
             case 55:  # Arm joint positions
                 self.saved_joint_state.position[4] = math.radians(
                     msg.data[0]

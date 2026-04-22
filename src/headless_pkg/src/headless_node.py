@@ -18,7 +18,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Twist, TwistStamped
 from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
-from astra_msgs.msg import CoreCtrlState
+from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
 import warnings
 
@@ -133,9 +133,14 @@ class Headless(Node):
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", True)
+        self.declare_parameter("use_old_topics", False)
         self.use_old_topics = (
             self.get_parameter("use_old_topics").get_parameter_value().bool_value
+        )
+
+        self.declare_parameter("use_cmd_vel", False)
+        self.use_cmd_vel = (
+            self.get_parameter("use_cmd_vel").get_parameter_value().bool_value
         )
 
         self.declare_parameter("use_bio", False)
@@ -145,7 +150,6 @@ class Headless(Node):
         self.use_arm_ik = (
             self.get_parameter("use_arm_ik").get_parameter_value().bool_value
         )
-
         # NOTE: only applicable if use_old_topics == True
         self.declare_parameter("use_new_arm_manual_scheme", True)
         self.use_new_arm_manual_scheme = (
@@ -155,6 +159,15 @@ class Headless(Node):
         )
 
         # Check parameter validity
+        if self.use_cmd_vel:
+            self.get_logger().info("Using cmd_vel for core control")
+            global CORE_MODE
+            CORE_MODE = "twist"
+        elif self.use_old_topics:
+            self.get_logger().info("Using astra_msgs/CoreControl for core control")
+        else:
+            self.get_logger().info("Using geometry_msgs/Twist for core control")
+
         if self.use_arm_ik and self.use_old_topics:
             self.get_logger().fatal("Old topics do not support arm IK control.")
             sys.exit(1)
@@ -166,6 +179,8 @@ class Headless(Node):
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
+        self.arm_brake_mode = False
+        self.arm_laser = False
 
         ##################################################
         # Old Topics
@@ -184,12 +199,18 @@ class Headless(Node):
             self.core_twist_pub_ = self.create_publisher(
                 Twist, "/core/twist", qos_profile=control_qos
             )
+            self.core_cmd_vel_pub_ = self.create_publisher(
+                TwistStamped, "/diff_controller/cmd_vel", qos_profile=control_qos
+            )
             self.core_state_pub_ = self.create_publisher(
                 CoreCtrlState, "/core/control/state", qos_profile=control_qos
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/manual_new", qos_profile=control_qos
+                JointJog, "/arm/control/joint_jog", qos_profile=control_qos
+            )
+            self.arm_state_pub_ = self.create_publisher(
+                ArmCtrlState, "/arm/control/state", qos_profile=control_qos
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
@@ -231,13 +252,19 @@ class Headless(Node):
         # Rumble when node is ready (returns False if rumble not supported)
         self.gamepad.rumble(0.7, 0.8, 150)
 
+        # Added so you can tell when it starts running after changing the constant logging to debug from info
+        self.get_logger().info("Defaulting to Core mode. Ready.")
+
     def stop_all(self):
         if self.use_old_topics:
             self.core_publisher.publish(CORE_STOP_MSG)
             self.arm_publisher.publish(ARM_STOP_MSG)
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
-            self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
+            if self.use_cmd_vel:
+                self.core_cmd_vel_pub_.publish(self.core_cmd_vel_stop_msg())
+            else:
+                self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
@@ -332,18 +359,32 @@ class Headless(Node):
             self.core_publisher.publish(input)
 
         else:  # New topics
-            input = Twist()
+            twist = Twist()
 
             # Forward/back and Turn
-            input.linear.x = -1.0 * left_stick_y
-            input.angular.z = -1.0 * copysign(
+            twist.linear.x = -1.0 * left_stick_y
+            twist.angular.z = -1.0 * copysign(
                 right_stick_x**2, right_stick_x
             )  # Exponent for finer control (curve)
 
+            # This kinda looks dumb being seperate from the following block, but this
+            # maintains the separation between modifying the control message and sending it.
+            if self.use_cmd_vel:
+                # These scaling factors convert raw stick inputs to absolute m/s and rad/s
+                # values that DiffDriveController will convert to motor RPM, rather than
+                # the plain Twist, which just sends the stick values as duty cycle and
+                # sends that scaled to the motors.
+                twist.linear.x *= 1.0
+                twist.angular.z *= 1.5
+
             # Publish
-            self.core_twist_pub_.publish(input)
-            self.get_logger().info(
-                f"[Core Ctrl] Linear: {round(input.linear.x, 2)}, Angular: {round(input.angular.z, 2)}"
+            if self.use_cmd_vel:
+                header = Header(stamp=self.get_clock().now().to_msg())
+                self.core_cmd_vel_pub_.publish(TwistStamped(header=header, twist=twist))
+            else:
+                self.core_twist_pub_.publish(twist)
+            self.get_logger().debug(
+                f"[Core Ctrl] Linear: {round(twist.linear.x, 2)}, Angular: {round(twist.angular.z, 2)}"
             )
 
             # Brake mode
@@ -552,12 +593,25 @@ class Headless(Node):
             )
 
             # A: brake
-            # TODO: Brake mode
+            new_brake_mode = button_a
 
-            # Y: linear actuator
-            # TODO: linear actuator
+            # X: laser
+            new_laser = button_x
 
             self.arm_manual_pub_.publish(arm_input)
+
+            # Only publish state if needed
+            if new_brake_mode != self.arm_brake_mode or new_laser != self.arm_laser:
+                self.arm_brake_mode = new_brake_mode
+                self.arm_laser = new_laser
+                state_msg = ArmCtrlState()
+                state_msg.brake_mode = bool(self.arm_brake_mode)
+                state_msg.laser = bool(self.arm_laser)
+
+                self.arm_state_pub_.publish(state_msg)
+                self.get_logger().info(
+                    f"[Arm State] Brake: {self.arm_brake_mode}, Laser: {self.arm_laser}"
+                )
 
         # IK (ONLY NEW)
         # =============
@@ -642,6 +696,11 @@ class Headless(Node):
 
         else:
             pass  # TODO: implement new bio control topics
+
+    def core_cmd_vel_stop_msg(self):
+        return TwistStamped(
+            header=Header(frame_id="base_link", stamp=self.get_clock().now().to_msg())
+        )
 
     def arm_manual_stop_msg(self):
         return JointJog(
