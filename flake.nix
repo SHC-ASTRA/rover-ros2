@@ -109,6 +109,10 @@
             # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
+
+            # Enable ros2 command autocomplete
+            eval "$(register-python-argcomplete ros2)"
+            eval "$(register-python-argcomplete colcon)"
           '';
         };
 
