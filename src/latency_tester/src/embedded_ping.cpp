@@ -26,7 +26,7 @@ class LatencyTester : public rclcpp::Node
 {
 public:
     LatencyTester()
-    : Node("latency_tester"), count_(0), target_mcu_("core")
+    : Node("latency_tester"), count_(0)
     {
         publisher_ = this->create_publisher<std_msgs::msg::String>("/anchor/relay", 10);
         timer_ = this->create_wall_timer(
@@ -35,6 +35,8 @@ public:
             "/anchor/debug",
             10,
             std::bind(&LatencyTester::response_callback, this, std::placeholders::_1));
+
+        target_mcu_ = this->declare_parameter<std::string>("target_mcu", "core");
     }
 
 private:

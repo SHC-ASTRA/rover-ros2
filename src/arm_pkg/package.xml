@@ -3,14 +3,15 @@
 <package format="3">
   <name>arm_pkg</name>
   <version>1.0.0</version>
-  <description>Core arm package which handles ROS2 commnuication.</description>
-  <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
+  <description>Relays topics related to Arm between VicCAN (through Anchor) and basestation.</description>
+  <maintainer email="ds0196@uah.edu">David Sharpe</maintainer>
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
-  <depend>common_interfaces</depend>
-  <depend>python3-numpy</depend>
-  <depend>astra_msgs</depend>
+
+  <exec_depend>common_interfaces</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>astra_msgs</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

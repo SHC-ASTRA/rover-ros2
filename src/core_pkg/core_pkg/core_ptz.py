@@ -262,7 +262,7 @@ class PtzNode(Node):
             f"[{self.get_clock().now().nanoseconds / 1e9:.2f}] PTZ Node: {message_text}"
         )
         self.debug_pub.publish(msg)
-        self.get_logger().info(message_text)
+        self.get_logger().debug(message_text)
 
     def run_async_func(self, coro):
         """Run an async function in the event loop."""

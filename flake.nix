@@ -2,14 +2,22 @@
   description = "Development environment for ASTRA Anchor";
 
   inputs = {
-    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/develop";
-    nixpkgs.follows = "nix-ros-overlay/nixpkgs";
-    astra-msgs.url =
-      "github:SHC-ASTRA/astra_msgs/703b7b9943a62b0b7b74bdceec4b2826180e2e7a";
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
+    nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
+
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { self, nix-ros-overlay, nixpkgs, astra-msgs }:
+    {
+      self,
+      nix-ros-overlay,
+      nixpkgs,
+      ...
+    }@inputs:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -17,31 +25,29 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
-
-        astra_msgs_pkgs = astra-msgs.packages.${system};
-        rosDistro = "humble";
       in
       {
         devShells.default = pkgs.mkShell {
           name = "ASTRA Anchor";
-
           packages = with pkgs; [
             colcon
-            astra_msgs_pkgs.astra-msgs
-
-            (pkgs.rosPackages.${rosDistro}.python3.withPackages (p: with p; [
-              pyserial
-              pygame
-              scipy
-              crccheck
-              black
-            ]))
-
-            (with rosPackages.${rosDistro};
+            socat
+            can-utils
+            (python313.withPackages (
+              p: with p; [
+                pyserial
+                python-can
+                pygame
+                scipy
+                crccheck
+                black
+              ]
+            ))
+            (
+              with rosPackages.humble;
               buildEnv {
                 paths = [
                   ros-core
-                  rqt-graph
                   ros2cli
                   ros2run
                   ros2bag
@@ -77,24 +83,29 @@
                   ros2-controllers
                   chomp-motion-planner
                 ];
-              })
+              }
+            )
           ];
-
-          env = {
-            ASTRAMSGS = "${astra-msgs.outPath}";
-          };
-
           shellHook = ''
+            # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
           '';
         };
+
+        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
       }
     );
 
   nixConfig = {
-    extra-substituters = [ "https://ros.cachix.org" ];
-    extra-trusted-public-keys =
-      [ "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo=" ];
+    # Cache to pull ros packages from
+    extra-substituters = [
+      "https://ros.cachix.org"
+      "https://attic.iid.ciirc.cvut.cz/ros"
+    ];
+    extra-trusted-public-keys = [
+      "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo="
+      "ros:JR95vUYsShSqfA1VTYoFt1Nz6uXasm5QrcOsGry9f6Q="
+    ];
   };
 }

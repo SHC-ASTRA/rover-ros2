@@ -16,6 +16,9 @@ You will use these packages to launch all rover-side ROS2 nodes.
   - [Connecting the GuliKit Controller](#connecting-the-gulikit-controller)
 - [Common Problems/Toubleshooting](#common-problemstroubleshooting)
 - [Packages](#packages)
+- [Graphs](#graphs)
+  - [Full System](#full-system)
+  - [Individual Nodes](#individual-nodes)
 - [Maintainers](#maintainers)
 
 ## Software Prerequisites
@@ -57,6 +60,33 @@ $ ros2 launch anchor_pkg rover.launch.py  # Must be run on a computer connected 
 $ ros2 run headless_pkg headless_full  # Optionally run in a separate shell on the same or different computer.
 ```
 
+### Using the Mock Connector
+
+Anchor provides a mock connector meant for testing and scripting purposes. You can select the mock connector by running anchor with this command:
+
+```bash
+$ ros2 launch anchor_pkg rover.launch.py connector:="mock"
+```
+
+To see all data that would be sent over the CAN network (and thus to the microcontrollers), use this command:
+
+```bash
+$ ros2 topic echo /anchor/to_vic/debug
+```
+
+To send data to the mock connector (as if you were a ROS2 node), use the normal relay topic:
+
+```bash
+$ ros2 topic pub /anchor/to_vic/relay astra_msgs/msg/VicCAN '{mcu_name: "core", command_id: 50, data: [0.0, 2.0, 0.0, 1.0]}'
+
+```
+
+To send data to the mock connector (as if you were a microcontroller), publish to the dedicated topic:
+
+```bash
+$ ros2 topic pub /anchor/from_vic/mock_mcu astra_msgs/msg/VicCAN '{mcu_name: "arm", command_id: 55, data: [0.0, 450.0, 900.0, 0.0]}'
+```
+
 ### Testing Serial
 
 You can fake the presence of a Serial device (i.e., MCU) by using the following command:
@@ -65,10 +95,31 @@ You can fake the presence of a Serial device (i.e., MCU) by using the following 
 $ socat -dd -v pty,rawer,crnl,link=/tmp/ttyACM9 pty,rawer,crnl,link=/tmp/ttyOUT
 ```
 
-When you go to run anchor, use the `PORT_OVERRIDE` environment variable to point it to the fake serial port, like so:
+When you go to run anchor, use the `serial_override` ROS2 parameter to point it to the fake serial port, like so:
 
 ```bash
-$ PORT_OVERRIDE=/tmp/ttyACM9 ros2 launch anchor_pkg rover.launch.py
+$ ros2 launch anchor_pkg rover.launch.py connector:=serial serial_override:=/tmp/ttyACM9
+```
+
+### Testing CAN
+
+You can create a virtual CAN network by using the following commands to create and then enable it:
+
+```bash
+sudo ip link add dev vcan0 type vcan
+sudo ip link set vcan0 up
+```
+
+When you go to run anchor, use the `can_override` ROS2 parameter to point it to the virtual CAN network, like so:
+
+```bash
+$ ros2 launch anchor_pkg rover.launch.py connector:=can can_override:=vcan0
+```
+
+Once you're done, you should delete the virtual network so that anchor doesn't get confused if you plug in a real CAN adapter:
+
+```bash
+$ sudo ip link delete vcan0
 ```
 
 ### Connecting the GuliKit Controller
@@ -139,6 +190,40 @@ A: To find a microcontroller to talk to, Anchor sends a ping to every Serial por
 - [latency\_tester](./src/latency_tester) - A temporary node to test comms latency over ROS2, Serial, and CAN.
 - [ros2\_interfaces\_pkg](./src/ros2_interfaces_pkg) - Contains custom message types for communication between basestation and the rover over ROS2. (being renamed to `astra_msgs`).
 - [servo\_arm\_twist\_pkg](./src/servo_arm_twist_pkg) - A temporary node to translate controller state from `ros2_joy` to `Twist` messages to control the Arm via IK.
+
+## Graphs
+
+### Full System
+
+> **Anchor stand-alone** (`ros2 launch anchor_pkg rover.launch.py`)
+>
+> ![rqt_graph of Anchor by itself, ran with command: ros2 launch anchor_pkg rover.launch.py](./docs-resources/graph-anchor-standalone.png)
+
+> **Anchor with [basestation-classic](https://github.com/SHC-ASTRA/basestation-classic)**
+>
+> ![rqt_graph of Anchor ran with the same command as above, talking to basestation-classic](./docs-resources/graph-anchor-w-basestation-classic.png)
+
+> **Anchor with Headless** (`ros2 run headless_pkg headless_full`)
+>
+> ![rqt_graph of Anchor ran with Headless](./docs-resources/graph-anchor-w-headless.png)
+
+### Individual Nodes
+
+> **Anchor** (`ros2 run anchor_pkg anchor`)
+>
+> ![rqt_graph of Anchor node running by itself](./docs-resources/graph-anchor-anchor-standalone.png)
+
+> **Core** (`ros2 run core_pkg core --ros-args -p launch_mode:=anchor`)
+>
+> ![rqt_graph of Core node running by itself](./docs-resources/graph-anchor-core-standalone.png)
+
+> **Arm** (`ros2 run arm_pkg arm --ros-args -p launch_mode:=anchor`)
+>
+> ![rqt_graph of Arm node running by itself](./docs-resources/graph-anchor-arm-standalone.png)
+
+> **Bio** (`ros2 run bio_pkg bio --ros-args -p launch_mode:=anchor`)
+>
+> ![rqt_graph of Bio node running by itself](./docs-resources/graph-anchor-bio-standalone.png)
 
 ## Maintainers
 

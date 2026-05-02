@@ -1,136 +1,174 @@
-#!/usr/bin/env python3
-
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction, Shutdown
-from launch.substitutions import (
-    LaunchConfiguration,
-    ThisLaunchFileDir,
-    PathJoinSubstitution,
-)
+from launch.actions import DeclareLaunchArgument, Shutdown, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
-
-
-# Prevent making __pycache__ directories
-from sys import dont_write_bytecode
-
-dont_write_bytecode = True
-
-
-def launch_setup(context, *args, **kwargs):
-    # Retrieve the resolved value of the launch argument 'mode'
-    mode = LaunchConfiguration("mode").perform(context)
-    nodes = []
-
-    if mode == "anchor":
-        # Launch every node and pass "anchor" as the parameter
-
-        nodes.append(
-            Node(
-                package="arm_pkg",
-                executable="arm",  # change as needed
-                name="arm",
-                output="both",
-                parameters=[{"launch_mode": mode}],
-                on_exit=Shutdown(),
-            )
-        )
-        nodes.append(
-            Node(
-                package="core_pkg",
-                executable="core",  # change as needed
-                name="core",
-                output="both",
-                parameters=[{"launch_mode": mode}],
-                on_exit=Shutdown(),
-            )
-        )
-        nodes.append(
-            Node(
-                package="core_pkg",
-                executable="ptz",  # change as needed
-                name="ptz",
-                output="both",
-                # Currently don't shutdown all nodes if the PTZ node fails, as it is not critical
-                # on_exit=Shutdown()  # Uncomment if you want to shutdown on PTZ failure
-            )
-        )
-        nodes.append(
-            Node(
-                package="bio_pkg",
-                executable="bio",  # change as needed
-                name="bio",
-                output="both",
-                parameters=[{"launch_mode": mode}],
-                on_exit=Shutdown(),
-            )
-        )
-        nodes.append(
-            Node(
-                package="anchor_pkg",
-                executable="anchor",  # change as needed
-                name="anchor",
-                output="both",
-                parameters=[{"launch_mode": mode}],
-                on_exit=Shutdown(),
-            )
-        )
-    elif mode in ["arm", "core", "bio", "ptz"]:
-        # Only launch the node corresponding to the provided mode.
-        if mode == "arm":
-            nodes.append(
-                Node(
-                    package="arm_pkg",
-                    executable="arm",
-                    name="arm",
-                    output="both",
-                    parameters=[{"launch_mode": mode}],
-                    on_exit=Shutdown(),
-                )
-            )
-        elif mode == "core":
-            nodes.append(
-                Node(
-                    package="core_pkg",
-                    executable="core",
-                    name="core",
-                    output="both",
-                    parameters=[{"launch_mode": mode}],
-                    on_exit=Shutdown(),
-                )
-            )
-        elif mode == "bio":
-            nodes.append(
-                Node(
-                    package="bio_pkg",
-                    executable="bio",
-                    name="bio",
-                    output="both",
-                    parameters=[{"launch_mode": mode}],
-                    on_exit=Shutdown(),
-                )
-            )
-        elif mode == "ptz":
-            nodes.append(
-                Node(
-                    package="core_pkg",
-                    executable="ptz",
-                    name="ptz",
-                    output="both",
-                    on_exit=Shutdown(),  # on fail, shutdown if this was the only node to be launched
-                )
-            )
-    else:
-        # If an invalid mode is provided, print an error.
-        print("Invalid mode provided. Choose one of: arm, core, bio, anchor, ptz.")
-
-    return nodes
+from launch_ros.substitutions import FindPackageShare
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def generate_launch_description():
-    declare_arg = DeclareLaunchArgument(
-        "mode",
-        default_value="anchor",
-        description="Launch mode: arm, core, bio, anchor, or ptz",
+    connector = LaunchConfiguration("connector")
+    serial_override = LaunchConfiguration("serial_override")
+    can_override = LaunchConfiguration("can_override")
+    use_ptz = LaunchConfiguration("use_ptz")
+
+    ld = LaunchDescription()
+
+    # arguments
+    ld.add_action(
+        DeclareLaunchArgument(
+            "connector",
+            default_value="auto",
+            description="Connector parameter for anchor node (default: 'auto')",
+        )
     )
 
-    return LaunchDescription([declare_arg, OpaqueFunction(function=launch_setup)])
+    ld.add_action(
+        DeclareLaunchArgument(
+            "serial_override",
+            default_value="",
+            description="Serial port override parameter for anchor node (default: '')",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "can_override",
+            default_value="",
+            description="CAN network override parameter for anchor node (default: '')",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "use_ptz",
+            default_value="true",  # must be string for launch system
+            description="Whether to launch PTZ node (default: true)",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "use_ros2_control",
+            default_value="false",
+            description="Whether to use DiffDriveController for driving instead of direct Twist",
+        )
+    )
+
+    ld.add_action(
+        DeclareLaunchArgument(
+            "rover_platform_override",
+            default_value="",
+            description="Override the rover platform (either clucky or testbed). If unset, hostname is used; defaults to clucky without hostname.",
+            choices=["clucky", "testbed", ""],
+        )
+    )
+
+    # nodes
+    ld.add_action(
+        Node(
+            package="anchor_pkg",
+            executable="anchor",
+            name="anchor",
+            output="both",
+            parameters=[
+                {
+                    "launch_mode": "anchor",
+                    "connector": connector,
+                    "serial_override": serial_override,
+                    "can_override": can_override,
+                }
+            ],
+            on_exit=Shutdown(),
+        )
+    )
+
+    ld.add_action(
+        Node(
+            package="arm_pkg",
+            executable="arm",
+            name="arm",
+            output="both",
+            parameters=[{"launch_mode": "anchor"}],
+            on_exit=Shutdown(),
+        )
+    )
+
+    ld.add_action(
+        Node(
+            package="bio_pkg",
+            executable="bio",
+            name="bio",
+            output="both",
+            parameters=[{"launch_mode": "anchor"}],
+            on_exit=Shutdown(),
+        )
+    )
+
+    ld.add_action(
+        Node(
+            package="core_pkg",
+            executable="core",
+            name="core",
+            output="both",
+            parameters=[
+                {"launch_mode": "anchor"},
+                {
+                    "use_ros2_control": LaunchConfiguration(
+                        "use_ros2_control", default=False
+                    )
+                },
+                {
+                    "rover_platform_override": LaunchConfiguration(
+                        "rover_platform_override", default="auto"
+                    )
+                },
+            ],
+            on_exit=Shutdown(),
+        )
+    )
+
+    ld.add_action(
+        Node(
+            package="core_pkg",
+            executable="ptz",
+            name="ptz",
+            output="both",
+            condition=IfCondition(use_ptz),
+        )
+    )
+
+    ld.add_action(
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution(
+                    [
+                        FindPackageShare("core_description"),
+                        "launch",
+                        "robot_state_publisher.launch.py",
+                    ]
+                )
+            ),
+            condition=IfCondition(LaunchConfiguration("use_ros2_control")),
+            launch_arguments={("hardware_mode", "physical")},
+        )
+    )
+
+    ld.add_action(
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution(
+                    [
+                        FindPackageShare("core_description"),
+                        "launch",
+                        "spawn_controllers.launch.py",
+                    ]
+                )
+            ),
+            condition=IfCondition(LaunchConfiguration("use_ros2_control")),
+            launch_arguments={("hardware_mode", "physical")},
+        )
+    )
+
+    return ld

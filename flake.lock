@@ -1,50 +1,8 @@
 {
   "nodes": {
-    "astra-msgs": {
-      "inputs": {
-        "nix-ros-overlay": "nix-ros-overlay",
-        "nixpkgs": [
-          "astra-msgs",
-          "nix-ros-overlay",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1773903134,
-        "narHash": "sha256-TTLnv3uoBdEjWvM9PRNp+FVesqJ8LVIUUtPLR6hvUeI=",
-        "owner": "SHC-ASTRA",
-        "repo": "astra_msgs",
-        "rev": "703b7b9943a62b0b7b74bdceec4b2826180e2e7a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "SHC-ASTRA",
-        "repo": "astra_msgs",
-        "rev": "703b7b9943a62b0b7b74bdceec4b2826180e2e7a",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "flake-utils_2": {
-      "inputs": {
-        "systems": "systems_2"
       },
       "locked": {
         "lastModified": 1731533236,
@@ -66,36 +24,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1770622967,
-        "narHash": "sha256-1LYjTugPSCa/5NkP6/dcZLH5TQYj3R8mAZ/9dgd7jDM=",
+        "lastModified": 1775216071,
+        "narHash": "sha256-PrPW70Fh1uLx3JxNV/NLeXjUhgfrZmi7ac8LJOlS0q4=",
         "owner": "lopsided98",
         "repo": "nix-ros-overlay",
-        "rev": "d1b9f17eba909116356436d46b5192d299c6b49a",
+        "rev": "197a2b55c4ed24f8b885a5b20b65f426fb6d57ca",
         "type": "github"
       },
       "original": {
         "owner": "lopsided98",
-        "ref": "develop",
-        "repo": "nix-ros-overlay",
-        "type": "github"
-      }
-    },
-    "nix-ros-overlay_2": {
-      "inputs": {
-        "flake-utils": "flake-utils_2",
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1771404745,
-        "narHash": "sha256-UVP3TsQJ4PezyQG3B1SsgsTxz32XBVzplJ/cgq7v/uk=",
-        "owner": "lopsided98",
-        "repo": "nix-ros-overlay",
-        "rev": "7cdf7b44ff186869baedbb3b82e5b409bb3e8dd9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "lopsided98",
-        "ref": "develop",
+        "ref": "master",
         "repo": "nix-ros-overlay",
         "type": "github"
       }
@@ -116,30 +54,14 @@
         "type": "github"
       }
     },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1759381078,
-        "narHash": "sha256-gTrEEp5gEspIcCOx9PD8kMaF1iEmfBcTbO0Jag2QhQs=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "7df7ff7d8e00218376575f0acdcc5d66741351ee",
-        "type": "github"
-      },
-      "original": {
-        "owner": "lopsided98",
-        "ref": "nix-ros",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
-        "astra-msgs": "astra-msgs",
-        "nix-ros-overlay": "nix-ros-overlay_2",
+        "nix-ros-overlay": "nix-ros-overlay",
         "nixpkgs": [
           "nix-ros-overlay",
           "nixpkgs"
-        ]
+        ],
+        "treefmt-nix": "treefmt-nix"
       }
     },
     "systems": {
@@ -157,18 +79,23 @@
         "type": "github"
       }
     },
-    "systems_2": {
+    "treefmt-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "lastModified": 1773297127,
+        "narHash": "sha256-6E/yhXP7Oy/NbXtf1ktzmU8SdVqJQ09HC/48ebEGBpk=",
+        "owner": "numtide",
+        "repo": "treefmt-nix",
+        "rev": "71b125cd05fbfd78cab3e070b73544abe24c5016",
         "type": "github"
       },
       "original": {
-        "owner": "nix-systems",
-        "repo": "default",
+        "owner": "numtide",
+        "repo": "treefmt-nix",
         "type": "github"
       }
     }

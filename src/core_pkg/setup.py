@@ -4,7 +4,7 @@ package_name = "core_pkg"
 
 setup(
     name=package_name,
-    version="0.0.0",
+    version="1.0.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -12,14 +12,13 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="tristan",
-    maintainer_email="tristanmcginnis26@gmail.com",
-    description="Core rover control package to handle command interpretation and embedded interfacing.",
-    license="All Rights Reserved",
+    maintainer="David Sharpe",
+    maintainer_email="ds0196@uah.edu",
+    description="Relays topics related to Core between VicCAN (through Anchor) and basestation.",
+    license="AGPL-3.0-only",
     entry_points={
         "console_scripts": [
             "core = core_pkg.core_node:main",
-            "headless = core_pkg.core_headless:main",
             "ptz = core_pkg.core_ptz:main",
         ],
     },

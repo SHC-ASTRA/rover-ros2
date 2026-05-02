@@ -3,15 +3,17 @@
 <package format="3">
   <name>core_pkg</name>
   <version>1.0.0</version>
-  <description>Core rover control package to handle command interpretation and embedded interfacing.</description>
-  <maintainer email="tristanmcginnis26@gmail.com">tristan</maintainer>
+  <description>Relays topics related to Core between VicCAN (through Anchor) and basestation.</description>
+  <maintainer email="ds0196@uah.edu">David Sharpe</maintainer>
   <license>AGPL-3.0-only</license>
 
   <depend>rclpy</depend>
-  <depend>common_interfaces</depend>
-  <depend>python3-scipy</depend>
-  <depend>python-crccheck-pip</depend>
-  <depend>astra_msgs</depend>
+
+  <exec_depend>common_interfaces</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>python-crccheck-pip</exec_depend>
+
+  <exec_depend>astra_msgs</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
