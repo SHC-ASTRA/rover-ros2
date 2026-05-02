@@ -197,33 +197,33 @@ A: To find a microcontroller to talk to, Anchor sends a ping to every Serial por
 
 > **Anchor stand-alone** (`ros2 launch anchor_pkg rover.launch.py`)
 >
-> ![rqt_graph of Anchor by itself, ran with command: ros2 launch anchor_pkg rover.launch.py](./docs-resources/graph-anchor-standalone.png)
+> ![rqt_graph of Anchor by itself, ran with command: ros2 launch anchor_pkg rover.launch.py](./docs/graph-anchor-standalone.png)
 
 > **Anchor with [basestation-classic](https://github.com/SHC-ASTRA/basestation-classic)**
 >
-> ![rqt_graph of Anchor ran with the same command as above, talking to basestation-classic](./docs-resources/graph-anchor-w-basestation-classic.png)
+> ![rqt_graph of Anchor ran with the same command as above, talking to basestation-classic](./docs/graph-anchor-w-basestation-classic.png)
 
 > **Anchor with Headless** (`ros2 run headless_pkg headless_full`)
 >
-> ![rqt_graph of Anchor ran with Headless](./docs-resources/graph-anchor-w-headless.png)
+> ![rqt_graph of Anchor ran with Headless](./docs/graph-anchor-w-headless.png)
 
 ### Individual Nodes
 
 > **Anchor** (`ros2 run anchor_pkg anchor`)
 >
-> ![rqt_graph of Anchor node running by itself](./docs-resources/graph-anchor-anchor-standalone.png)
+> ![rqt_graph of Anchor node running by itself](./docs/graph-anchor-anchor-standalone.png)
 
 > **Core** (`ros2 run core_pkg core --ros-args -p launch_mode:=anchor`)
 >
-> ![rqt_graph of Core node running by itself](./docs-resources/graph-anchor-core-standalone.png)
+> ![rqt_graph of Core node running by itself](./docs/graph-anchor-core-standalone.png)
 
 > **Arm** (`ros2 run arm_pkg arm --ros-args -p launch_mode:=anchor`)
 >
-> ![rqt_graph of Arm node running by itself](./docs-resources/graph-anchor-arm-standalone.png)
+> ![rqt_graph of Arm node running by itself](./docs/graph-anchor-arm-standalone.png)
 
 > **Bio** (`ros2 run bio_pkg bio --ros-args -p launch_mode:=anchor`)
 >
-> ![rqt_graph of Bio node running by itself](./docs-resources/graph-anchor-bio-standalone.png)
+> ![rqt_graph of Bio node running by itself](./docs/graph-anchor-bio-standalone.png)
 
 ## Maintainers
 
