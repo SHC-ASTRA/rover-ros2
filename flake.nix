@@ -17,9 +17,11 @@
 
     unilib = {
       url = "github:SHC-ASTRA/unilib";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.flake-utils.follows = "nix-ros-overlay/flake-utils";
-      inputs.treefmt.follows = "treefmt";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "nix-ros-overlay/flake-utils";
+        treefmt.follows = "treefmt";
+      };
     };
 
     treefmt = {
