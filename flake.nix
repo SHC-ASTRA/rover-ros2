@@ -15,7 +15,14 @@
       inputs.nix-ros-overlay.follows = "nix-ros-overlay";
     };
 
-    treefmt-nix = {
+    unilib = {
+      url = "github:SHC-ASTRA/unilib";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "nix-ros-overlay/flake-utils";
+      inputs.treefmt.follows = "treefmt";
+    };
+
+    treefmt = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -38,6 +45,8 @@
 
         astra-msgs-pkgs = inputs.astra-msgs.packages.${system};
         astra-descriptions-pkgs = inputs.astra-descriptions.packages.${system};
+
+        unilib = inputs.unilib.packages.${system}.unilib;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -54,6 +63,7 @@
                 scipy
                 crccheck
                 black
+                unilib
               ]
             ))
             (
@@ -116,7 +126,7 @@
           '';
         };
 
-        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
+        formatter = (inputs.treefmt.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
       }
     );
 
