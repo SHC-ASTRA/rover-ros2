@@ -5,7 +5,26 @@
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs"; # IMPORTANT!!!
 
-    treefmt-nix = {
+    astra-msgs = {
+      url = "github:SHC-ASTRA/astra_msgs?ref=a310e967fedf9a2b7eb340839b3edf8a52ba32f8";
+      inputs.nix-ros-overlay.follows = "nix-ros-overlay";
+    };
+
+    astra-descriptions = {
+      url = "github:SHC-ASTRA/astra_descriptions?ref=e9dd878727d9cf0f93dafabc4ecaae352b2d1f81";
+      inputs.nix-ros-overlay.follows = "nix-ros-overlay";
+    };
+
+    unilib = {
+      url = "github:SHC-ASTRA/unilib";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        flake-utils.follows = "nix-ros-overlay/flake-utils";
+        treefmt.follows = "treefmt";
+      };
+    };
+
+    treefmt = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -25,6 +44,11 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+
+        astra-msgs-pkgs = inputs.astra-msgs.packages.${system};
+        astra-descriptions-pkgs = inputs.astra-descriptions.packages.${system};
+
+        unilib = inputs.unilib.packages.${system}.unilib;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -41,12 +65,19 @@
                 scipy
                 crccheck
                 black
+                unilib
               ]
             ))
             (
               with rosPackages.humble;
               buildEnv {
                 paths = [
+                  # Custom ROS2 packages
+                  astra-msgs-pkgs.astra-msgs
+                  astra-descriptions-pkgs.arm-description
+                  astra-descriptions-pkgs.arm-moveit-config
+                  astra-descriptions-pkgs.core-description
+
                   ros-core
                   ros2cli
                   ros2run
@@ -90,10 +121,14 @@
             # Display stuff
             export DISPLAY=''${DISPLAY:-:0}
             export QT_X11_NO_MITSHM=1
+
+            # Enable ros2 command autocomplete
+            eval "$(register-python-argcomplete ros2)"
+            eval "$(register-python-argcomplete colcon)"
           '';
         };
 
-        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
+        formatter = (inputs.treefmt.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
       }
     );
 
