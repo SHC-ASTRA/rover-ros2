@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from time import monotonic
 from typing import TYPE_CHECKING
-from astra_msgs.msg import VicCAN
-from std_msgs.msg import String
+
+from std_msgs.msg import String, Header
 from rclpy.clock import Clock
 from rclpy.impl.rcutils_logger import RcutilsLogger
+from astra_msgs.msg import VicCAN
 from .convert import string_to_viccan as _string_to_viccan, viccan_to_string
 
 # CAN
@@ -27,15 +28,15 @@ BAUD_RATE = 115200
 
 SERIAL_READ_TIMEOUT = 0.5  # seconds
 
-MCU_IDS = [
-    "broadcast",
-    "core",
-    "arm",
-    "digit",
-    "faerie",
-    "citadel",
-    "libs",
-]
+MCU_IDS = {
+    1: "broadcast",
+    2: "core",
+    3: "arm",
+    4: "digit",
+    5: "faerie",
+    6: "citadel",
+    7: "libs",
+}
 
 
 class NoValidDeviceException(Exception):
@@ -393,6 +394,10 @@ class CANConnector(Connector):
             return (None, None)
 
         viccan = VicCAN(
+            header=Header(
+                stamp=self.clock.now().to_msg(),
+                frame_id="from_vic",
+            ),
             mcu_name=mcu_name,
             command_id=int(command),
             data=data,
@@ -420,7 +425,8 @@ class CANConnector(Connector):
 
         # map MCU name to 3-bit key.
         try:
-            mcu_id = MCU_IDS.index((msg.mcu_name or "").lower())
+            # convert string MCU name to MCU ID
+            mcu_id = next(key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower())
         except ValueError:
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
