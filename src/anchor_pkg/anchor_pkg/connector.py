@@ -426,7 +426,9 @@ class CANConnector(Connector):
         # map MCU name to 3-bit key.
         try:
             # convert string MCU name to MCU ID
-            mcu_id = next(key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower())
+            mcu_id = next(
+                key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower()
+            )
         except ValueError:
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
