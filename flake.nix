@@ -25,6 +25,7 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+        treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -93,7 +94,8 @@
           '';
         };
 
-        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
+        checks.formatting = treefmtEval.config.build.check self;
+        formatter = treefmtEval.config.build.wrapper;
       }
     );
 
