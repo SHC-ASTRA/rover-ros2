@@ -80,12 +80,19 @@ class Headless(Node):
         ##################################################
         # Preamble
 
-        # Wait for anchor to start
-        pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
-        while len(pub_info) == 0:
-            self.get_logger().info("Waiting for anchor to start...")
-            time.sleep(1.0)
+        self.declare_parameter("require_anchor", True)
+        self.require_anchor = (
+            self.get_parameter("require_anchor").get_parameter_value().bool_value
+        )
+
+        # Wait for anchor to start -- mainly to delay the controller buzz until the
+        # rover is actually ready to drive
+        if self.require_anchor:
             pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
+            while len(pub_info) == 0:
+                self.get_logger().info("Waiting for anchor to start...")
+                time.sleep(1.0)
+                pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
 
         # Wait for a gamepad to be connected
         print("Waiting for gamepad connection...")
