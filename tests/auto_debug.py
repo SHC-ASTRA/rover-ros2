@@ -16,6 +16,7 @@ class Tester():
         user = os.getlogin()
         host = socket.gethostname()
 
+        # Force to be bool
         self.isRover = True if os.getenv("ISROVER_OVERRIDE") else False
     
         if user == "astra" and (host == "clucky" or host == "testbed"):
@@ -45,6 +46,7 @@ class Tester():
         else:
             print("Connected to rover.")
 
+    def run_checks(self):
         # TEST: Is Anchor service running
         if self.run_on_rover(["systemctl", "--user", "--quiet", "is-active", "anchor.service"])[0].returncode != 0:
             print("WARN: Anchor service is not running. Continuing anyways...")
@@ -81,7 +83,7 @@ class Tester():
             error_result("Not getting any feedback from the rover. Try `can_relay_mode,on`.")
 
         # END
-        print("All checks passed.")
+        print("All checks passed. This does not guarantee that you will not run into any problems.")
 
 
     def run_on_rover(self, command: List[str], timeout=60):
@@ -108,7 +110,8 @@ def error_result(msg, result=1):
 
 
 def main():
-    Tester()
+    tester = Tester()
+    tester.run_checks()
 
 
 if __name__ == "__main__":
