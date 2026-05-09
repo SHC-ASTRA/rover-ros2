@@ -5,7 +5,7 @@ import time
 
 import rclpy
 from astra_msgs.action import BioVacuum
-from astra_msgs.msg import BoardVoltage, NewBioFeedback, CitadelControl, FaerieControl, VicCAN
+from astra_msgs.msg import NewBioFeedback, CitadelControl, FaerieControl, VicCAN
 from astra_msgs.srv import BioTestTube, FireLibs
 from rclpy.action import ActionServer
 from rclpy.node import Node
@@ -117,23 +117,17 @@ class SerialRelay(Node):
     def publish_bio_feedback(self):
         self.bio_feedback_pub.publish(self.bio_feedback)
 
-    def anchor_feedback(self, msg: String):
-        output = msg.data
-        parts = str(output.strip()).split(",")
-        self.get_logger().info(f"[Bio Anchor] {msg.data}")
-        # no data planned to be received from citadel, not sure about lance
-
     def citadel_callback(self, msg: CitadelControl):
-        distributor_arr = msg.distributor_id
+        distributor_arr = list(msg.distributor_id)
         # Distributor Control
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="citadel",
             command_id=40,
             data=[
-                clamp_short(distributor_arr[0]),
-                clamp_short(distributor_arr[1]),
-                clamp_short(distributor_arr[2]),
+                float(clamp_short(distributor_arr[0])),
+                float(clamp_short(distributor_arr[1])),
+                float(clamp_short(distributor_arr[2])),
                 0,
             ],
         )
