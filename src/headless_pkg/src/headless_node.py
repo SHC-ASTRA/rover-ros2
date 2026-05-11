@@ -14,7 +14,7 @@ import grp
 from math import copysign
 
 from std_srvs.srv import Trigger
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Float64MultiArray
 from geometry_msgs.msg import Twist, TwistStamped
 from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
@@ -40,6 +40,7 @@ CORE_STOP_MSG = CoreControl()  # All zeros by default
 CORE_STOP_TWIST_MSG = Twist()  # "
 ARM_STOP_MSG = ArmManual()  # "
 BIO_STOP_MSG = BioControl()  # "
+GRIPPER_STOP_MSG = Float64MultiArray(data=[0.0])  # "
 
 
 control_qos = qos.QoSProfile(
@@ -197,7 +198,11 @@ class Headless(Node):
         self.core_brake_mode = False
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
         self.arm_brake_mode = False
-        self.arm_laser = False
+        self.servo_control_mode = "ik"
+
+        # Moveit Servo does not accept gripper commands, and will complain about it
+        if self.use_arm_ik:
+            self.all_joint_names.remove("ef_gripper_left_joint")
 
         ##################################################
         # Old Topics
@@ -235,6 +240,10 @@ class Headless(Node):
             )
             self.arm_ik_jointjog_publisher = self.create_publisher(
                 JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
+            )
+
+            self.gripper_velocity_pub_ = self.create_publisher(
+                Float64MultiArray, "/hand_controller/commands", qos_profile=control_qos
             )
 
             # TODO: add new bio topics
@@ -286,6 +295,7 @@ class Headless(Node):
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
                 self.arm_manual_pub_.publish(self.arm_manual_stop_msg())
+            self.gripper_velocity_pub_.publish(GRIPPER_STOP_MSG)
             # TODO: add bio here after implementing new topics
 
     def send_controls(self):
@@ -446,6 +456,21 @@ class Headless(Node):
         right_bumper = self.gamepad.get_button(5)
         dpad_input = self.gamepad.get_hat(0)
 
+        # "IK" control mode (Servo) supports both IK and FK
+        if self.use_arm_ik:
+            new_servo_mode = self.servo_control_mode
+
+            if button_b:
+                new_servo_mode = "manual"
+            elif button_x:
+                new_servo_mode = "ik"
+
+            if new_servo_mode != self.servo_control_mode:
+                self.stop_all()
+                self.gamepad.rumble(0.6, 0.7, 75)
+                self.servo_control_mode = new_servo_mode
+                self.get_logger().info(f"Switched to {self.servo_control_mode} control mode")
+
         # OLD MANUAL
         # ==========
 
@@ -552,7 +577,7 @@ class Headless(Node):
         # NEW MANUAL
         # ==========
 
-        elif not self.use_arm_ik and not self.use_old_topics:
+        elif (not self.use_arm_ik or self.servo_control_mode == "manual") and not self.use_old_topics:
             arm_input = JointJog()
             arm_input.header.frame_id = "base_link"
             arm_input.header.stamp = self.get_clock().now().to_msg()
@@ -565,8 +590,8 @@ class Headless(Node):
             # Triggers: EF grippers
             # Bumpers: EF roll
             # A: brake
-            # B: linear actuator in
-            # X: _
+            # B: IK mode
+            # X: manual mode
             # Y: linear actuator out
 
             # Right stick: EF yaw and axis 3
@@ -591,18 +616,9 @@ class Headless(Node):
             )
 
             # Triggers: EF Grippers
-            if left_trigger > 0 and right_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = 0.0
-            elif left_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = -1.0
-            elif right_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = 1.0
+            gripper_speed = 0.0
+            if left_trigger > 0 or right_trigger > 0:
+                gripper_speed = right_trigger - left_trigger
 
             # Bumpers: EF roll
             arm_input.velocities[self.all_joint_names.index("wrist_roll_joint")] = (
@@ -612,22 +628,24 @@ class Headless(Node):
             # A: brake
             new_brake_mode = button_a
 
-            # X: laser
-            new_laser = button_x
-
-            self.arm_manual_pub_.publish(arm_input)
+            if not self.use_arm_ik:
+                arm_input.velocities[
+                    arm_input.joint_names.index("ef_gripper_left_joint")
+                ] = gripper_speed
+                self.arm_manual_pub_.publish(arm_input)
+            else:
+                self.gripper_velocity_pub_.publish(Float64MultiArray(data=[gripper_speed]))
+                self.arm_ik_jointjog_publisher.publish(arm_input)
 
             # Only publish state if needed
-            if new_brake_mode != self.arm_brake_mode or new_laser != self.arm_laser:
+            if new_brake_mode != self.arm_brake_mode:
                 self.arm_brake_mode = new_brake_mode
-                self.arm_laser = new_laser
                 state_msg = ArmCtrlState()
                 state_msg.brake_mode = bool(self.arm_brake_mode)
-                state_msg.laser = bool(self.arm_laser)
 
                 self.arm_state_pub_.publish(state_msg)
                 self.get_logger().info(
-                    f"[Arm State] Brake: {self.arm_brake_mode}, Laser: {self.arm_laser}"
+                    f"[Arm State] Brake: {self.arm_brake_mode}"
                 )
 
         # IK (ONLY NEW)
@@ -637,9 +655,6 @@ class Headless(Node):
             arm_twist = TwistStamped()
             arm_twist.header.frame_id = "base_link"
             arm_twist.header.stamp = self.get_clock().now().to_msg()
-            arm_jointjog = JointJog()
-            arm_jointjog.header.frame_id = "base_link"
-            arm_jointjog.header.stamp = self.get_clock().now().to_msg()
 
             # Right stick: linear y and linear x
             # Left stick: angular z and linear z
@@ -649,7 +664,7 @@ class Headless(Node):
             # A: brake
             # B: IK mode
             # X: manual mode
-            # Y: linear actuator
+            # Y: linear actuator out
 
             # Right stick: linear y and linear x
             arm_twist.twist.linear.y = float(right_stick_x)
@@ -666,9 +681,9 @@ class Headless(Node):
             )
 
             # Triggers: EF Grippers
+            gripper_speed = 0.0
             if left_trigger > 0 or right_trigger > 0:
-                arm_jointjog.joint_names.append("ef_gripper_left_joint")  # type: ignore
-                arm_jointjog.velocities.append(float(right_trigger - left_trigger))
+                gripper_speed = right_trigger - left_trigger
 
             # Bumpers: angular x
             if left_bumper > 0 and right_bumper > 0:
@@ -679,7 +694,7 @@ class Headless(Node):
                 arm_twist.twist.angular.x = float(-1)
 
             self.arm_ik_twist_publisher.publish(arm_twist)
-            # self.arm_ik_jointjog_publisher.publish(arm_jointjog)  # TODO: Figure this shit out
+            self.gripper_velocity_pub_.publish(Float64MultiArray(data=[gripper_speed]))
 
     def send_bio(self):
         # Collect controller state
