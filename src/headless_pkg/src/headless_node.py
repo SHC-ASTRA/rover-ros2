@@ -667,17 +667,17 @@ class Headless(Node):
             # Y: linear actuator out
 
             # Right stick: linear y and linear x
-            arm_twist.twist.linear.y = float(right_stick_x)
-            arm_twist.twist.linear.x = float(right_stick_y)
+            arm_twist.twist.linear.y = float(-1 * left_stick_x)
+            arm_twist.twist.linear.x = float(-1 * left_stick_y)
 
             # Left stick: angular z and linear z
-            arm_twist.twist.angular.z = float(-1 * left_stick_x)
-            arm_twist.twist.linear.z = float(-1 * left_stick_y)
+            arm_twist.twist.angular.z = float(-1 * right_stick_x)
+            arm_twist.twist.linear.z = float(-1 * right_stick_y)
             # D-pad: angular y and _
             arm_twist.twist.angular.y = (
                 float(0)
                 if dpad_input[0] == 0
-                else float(-1 * copysign(0.75, dpad_input[0]))
+                else float(copysign(0.75, dpad_input[0]))
             )
 
             # Triggers: EF Grippers
