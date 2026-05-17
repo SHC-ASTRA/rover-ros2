@@ -313,11 +313,17 @@ class CANConnector(Connector):
         self.can_channel = str(bus.get("channel"))
         self.logger.info(f"found CAN interface '{self.can_channel}'")
 
+        # According to the docs, a filter matches when `<received_can_id> & can_mask == can_id & can_mask`.
+        # This will therefore match all CAN frames, as long as they have an 11-bit ID.
+        # (keep VicCAN, ignore REV CAN)
+        can_filters = [{"can_id": 0, "can_mask": 0, "extended": False}]
+
         try:
             self.can_bus = can.Bus(
                 interface="socketcan",
                 channel=self.can_channel,
                 bitrate=1_000_000,
+                can_filters=can_filters,
             )
         except can.CanError as e:
             raise NoWorkingDeviceException(
