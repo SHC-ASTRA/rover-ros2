@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from time import monotonic
 from typing import TYPE_CHECKING
-from astra_msgs.msg import VicCAN
-from std_msgs.msg import String
+
+from std_msgs.msg import String, Header
 from rclpy.clock import Clock
 from rclpy.impl.rcutils_logger import RcutilsLogger
+from astra_msgs.msg import VicCAN
 from .convert import string_to_viccan as _string_to_viccan, viccan_to_string
 
 # CAN
@@ -27,15 +28,15 @@ BAUD_RATE = 115200
 
 SERIAL_READ_TIMEOUT = 0.5  # seconds
 
-MCU_IDS = [
-    "broadcast",
-    "core",
-    "arm",
-    "digit",
-    "faerie",
-    "citadel",
-    "libs",
-]
+MCU_IDS = {
+    1: "broadcast",
+    2: "core",
+    3: "arm",
+    4: "digit",
+    5: "faerie",
+    6: "citadel",
+    7: "libs",
+}
 
 
 class NoValidDeviceException(Exception):
@@ -312,11 +313,17 @@ class CANConnector(Connector):
         self.can_channel = str(bus.get("channel"))
         self.logger.info(f"found CAN interface '{self.can_channel}'")
 
+        # According to the docs, a filter matches when `<received_can_id> & can_mask == can_id & can_mask`.
+        # This will therefore match all CAN frames, as long as they have an 11-bit ID.
+        # (keep VicCAN, ignore REV CAN)
+        can_filters = [{"can_id": 0, "can_mask": 0, "extended": False}]
+
         try:
             self.can_bus = can.Bus(
                 interface="socketcan",
                 channel=self.can_channel,
                 bitrate=1_000_000,
+                can_filters=can_filters,
             )
         except can.CanError as e:
             raise NoWorkingDeviceException(
@@ -348,7 +355,7 @@ class CANConnector(Connector):
 
         try:
             mcu_name = MCU_IDS[mcu_key]
-        except IndexError:
+        except KeyError:
             self.logger.warn(
                 f"received CAN frame with unknown MCU key {mcu_key}; id=0x{arbitration_id:X}"
             )
@@ -393,6 +400,10 @@ class CANConnector(Connector):
             return (None, None)
 
         viccan = VicCAN(
+            header=Header(
+                stamp=self.clock.now().to_msg(),
+                frame_id="from_vic",
+            ),
             mcu_name=mcu_name,
             command_id=int(command),
             data=data,
@@ -420,7 +431,10 @@ class CANConnector(Connector):
 
         # map MCU name to 3-bit key.
         try:
-            mcu_id = MCU_IDS.index((msg.mcu_name or "").lower())
+            # convert string MCU name to MCU ID
+            mcu_id = next(
+                key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower()
+            )
         except ValueError:
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
