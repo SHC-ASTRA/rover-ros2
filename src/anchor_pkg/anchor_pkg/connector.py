@@ -33,7 +33,7 @@ MCU_IDS = {
     2: "core",
     3: "arm",
     4: "digit",
-    5: "faerie",
+    5: "lance",
     6: "citadel",
     7: "libs",
 }

@@ -184,7 +184,7 @@ A: To find a microcontroller to talk to, Anchor sends a ping to every Serial por
 - [anchor\_pkg](./src/anchor_pkg) - Handles Serial communication between the various other packages here and the microcontroller.
 - [arm\_pkg](./src/arm_pkg) - Relays controls and sensor data for the arm (socket and digit) between anchor and basestation/headless.
 - [astra\_descriptions](./src/astra_descriptions) - Submodule with URDF-related packages.
-- [bio\_pkg](./src/bio_pkg) - Like arm_pkg, but for CITADEL and FAERIE
+- [bio\_pkg](./src/bio_pkg) - Like arm_pkg, but for CITADEL and LANCE
 - [core\_pkg](./src/core_pkg) - Like arm_pkg, but for Core
 - [headless\_pkg](./src/headless_pkg) - Simple, non-graphical controller node to work in place of basestation when controlling the rover by itself. This is autostarted with anchor to allow for setup-less control of the rover.
 - [latency\_tester](./src/latency_tester) - A temporary node to test comms latency over ROS2, Serial, and CAN.
