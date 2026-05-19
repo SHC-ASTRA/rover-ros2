@@ -144,25 +144,9 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution(
                     [
-                        FindPackageShare("core_description"),
+                        FindPackageShare("rover_description"),
                         "launch",
-                        "robot_state_publisher.launch.py",
-                    ]
-                )
-            ),
-            condition=IfCondition(LaunchConfiguration("use_ros2_control")),
-            launch_arguments={("hardware_mode", "physical")},
-        )
-    )
-
-    ld.add_action(
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                PathJoinSubstitution(
-                    [
-                        FindPackageShare("core_description"),
-                        "launch",
-                        "spawn_controllers.launch.py",
+                        "physical.launch.py",
                     ]
                 )
             ),
