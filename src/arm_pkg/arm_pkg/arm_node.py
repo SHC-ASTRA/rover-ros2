@@ -7,6 +7,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
+from rclpy.duration import Duration
 
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
@@ -70,6 +71,11 @@ class ArmNode(Node):
             self.get_parameter("use_old_topics").get_parameter_value().bool_value
         )
 
+        self.declare_parameter("use_ros2_control", False)
+        self.use_ros2_control = (
+            self.get_parameter("use_ros2_control").get_parameter_value().bool_value
+        )
+
         ##################################################
         # Old topics
 
@@ -112,20 +118,22 @@ class ArmNode(Node):
 
         # Control
 
-        # Manual: /arm/control/joint_jog is published by Basestation or Headless
-        self.man_jointjog_sub_ = self.create_subscription(
-            JointJog,
-            "/arm/control/manual_joint_jog",
-            self.jointjog_callback,
-            qos_profile=control_qos,
-        )
-        # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
-        self.joint_command_sub_ = self.create_subscription(
-            JointState,
-            "/arm/joint_commands",
-            self.joint_command_callback,
-            qos_profile=control_qos,
-        )
+        if not self.use_ros2_control:
+            # Manual: /arm/control/joint_jog is published by Basestation or Headless
+            self.man_jointjog_sub_ = self.create_subscription(
+                JointJog,
+                "/arm/control/manual_joint_jog",
+                self.jointjog_callback,
+                qos_profile=control_qos,
+            )
+        else:
+            # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
+            self.joint_command_sub_ = self.create_subscription(
+                JointState,
+                "/arm/joint_commands",
+                self.joint_command_callback,
+                qos_profile=control_qos,
+            )
         # State: /arm/control/state is published by Basestation or Headless
         self.man_state_sub_ = self.create_subscription(
             ArmCtrlState,
@@ -146,6 +154,12 @@ class ArmNode(Node):
         self.joint_state_pub_ = self.create_publisher(
             JointState, "/joint_states", qos_profile=qos.qos_profile_sensor_data
         )
+
+        ###################################################
+        # Timers
+
+        if self.use_ros2_control:
+            self.vel_cmd_timer_ = self.create_timer(0.1, self.vel_cmd_timer_callback)
 
         ###################################################
         # Saved state
@@ -234,6 +248,23 @@ class ArmNode(Node):
         if len(msg.position) < 7 and len(msg.velocity) < 7:
             self.get_logger().debug("Ignoring malformed /joint_command message.")
             return  # command needs either position or velocity for all 7 joints
+
+        # A 10 Hz timer callback actually sends these commands to Arm for rate limiting
+        # These come from ros2_control at 50 Hz
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = msg
+
+    def vel_cmd_timer_callback(self):
+        # Safety timeout for Moveit Servo commands via topic_based_ros2_control.
+        # It is safe to send stop command here because if self.use_ros2_control,
+        # then this is the only callback that is controlling Arm's motors.
+        if self.get_clock().now() - self._last_joint_command_time > Duration(
+            nanoseconds=int(1e8)  # 100ms
+        ):
+            self.send_velocities([0.0] * 7, self._last_joint_command_msg.header)
+            return
+
+        msg = self._last_joint_command_msg
 
         # Grab velocities from message
         velocities = [
