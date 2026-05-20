@@ -2,8 +2,9 @@ import sys
 import signal
 from typing import Literal, cast
 from enum import IntEnum
+from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
-from math import copysign, pi
+from math import copysign, pi, nan
 from warnings import deprecated
 from os import getenv
 from socket import gethostname
@@ -14,8 +15,9 @@ from rclpy.executors import ExternalShutdownException
 from rclpy import qos
 from rclpy.duration import Duration
 
+from rclpy.time import Time as rclpyTime
 from std_msgs.msg import String, Header
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState, BatteryState
 from geometry_msgs.msg import TwistStamped, Twist
 from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
@@ -156,9 +158,11 @@ class CoreNode(Node):
             )
         else:
             # manual twist -- [-1, 1] rather than real units
-            # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
-                Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
+                Twist,
+                "/core/control/twist_duty_cycle",
+                self.twist_man_callback,
+                qos_profile=control_qos,
             )
             # manual flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
@@ -172,10 +176,9 @@ class CoreNode(Node):
         # Feedback
 
         # Consolidated and organized main core feedback
-        # TODO: change topic to something like '/core/feedback/main'
         self.feedback_new_pub_ = self.create_publisher(
             NewCoreFeedback,
-            "/core/feedback_new",
+            "/core/feedback/main",
             qos_profile=qos.qos_profile_sensor_data,
         )
 
@@ -186,12 +189,12 @@ class CoreNode(Node):
 
         # IMU (embedded BNO-055)
         self.imu_pub_ = self.create_publisher(
-            Imu, "/core/imu", qos_profile=qos.qos_profile_sensor_data
+            Imu, "/core/feedback/imu/data", qos_profile=qos.qos_profile_sensor_data
         )
 
         # GPS (embedded u-blox M9N)
         self.gps_pub_ = self.create_publisher(
-            NavSatFix, "/gps/fix", qos_profile=qos.qos_profile_sensor_data
+            NavSatFix, "/core/feedback/gps/fix", qos_profile=qos.qos_profile_sensor_data
         )
 
         # Barometer (embedded BMP-388)
@@ -199,11 +202,20 @@ class CoreNode(Node):
             Barometer, "/core/feedback/baro", qos_profile=qos.qos_profile_sensor_data
         )
 
+        # Battery
+        self.batt_pub_ = self.create_publisher(
+            BatteryState,
+            "/core/feedback/battery",
+            qos_profile=qos.qos_profile_sensor_data,
+        )
+
         ###################################################
         # Timers
 
         if self.use_ros2_control:
             self.vel_cmd_timer_ = self.create_timer(0.1, self.vel_cmd_timer_callback)
+
+        self.batt_timer_ = self.create_timer(1.0, self.batt_timer_callback)
 
         ###################################################
         # Saved state
@@ -233,6 +245,27 @@ class CoreNode(Node):
         # Barometer
         self.baro_state = Barometer()
         self.baro_state.header.frame_id = "core_bmp388"
+
+        # Battery
+        self.battery_state = BatteryState(
+            header=Header(
+                frame_id="core_battery", stamp=self.get_clock().now().to_msg()
+            ),
+            voltage=0.0,
+            temperature=nan,
+            current=nan,
+            charge=nan,
+            capacity=nan,
+            design_capacity=nan,
+            percentage=0.0,
+            power_supply_status=BatteryState.POWER_SUPPLY_STATUS_DISCHARGING,
+            power_supply_health=BatteryState.POWER_SUPPLY_HEALTH_UNKNOWN,
+            power_supply_technology=BatteryState.POWER_SUPPLY_TECHNOLOGY_LIPO,
+            cell_voltage=[nan] * 4,
+            cell_temperature=[nan] * 4,
+            location="chassis",
+            serial_number="idk",
+        )
 
     @deprecated("Uses an old message type. Will be removed at some point.")
     def scale_duty(self, value: float, max_speed: float):
@@ -587,6 +620,31 @@ class CoreNode(Node):
             case _:
                 return
 
+    def batt_timer_callback(self):
+        # Don't use information older than 1 second
+        if self.get_clock().now() - rclpyTime.from_msg(
+            self.feedback_new_state.header.stamp
+        ) > Duration(nanoseconds=int(1e9)):
+            return
+
+        # pcb_voltage = self.feedback_new_state.board_voltage.vbatt
+
+        esc_voltages = [
+            getattr(self.feedback_new_state, f"{pos}_motor").voltage
+            for pos in ("fr", "fl", "bl", "br")
+        ]
+        esc_voltages = [voltage for voltage in esc_voltages if voltage != 0]
+        avg_esc_voltage = sum(esc_voltages) / len(esc_voltages) if esc_voltages else 0
+
+        if avg_esc_voltage == 0:
+            return
+
+        # For now, just use the average ESC voltage
+        self.battery_state.header.stamp = self.get_clock().now().to_msg()
+        self.battery_state.voltage = avg_esc_voltage
+        self.battery_state.percentage = voltage_to_percentage(avg_esc_voltage, 4)
+        self.batt_pub_.publish(self.battery_state)
+
     @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):
         # self.get_logger().info(f"[Core] {self.core_feedback}")
@@ -597,6 +655,17 @@ def map_range(
     value: float, in_min: float, in_max: float, out_min: float, out_max: float
 ):
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+
+def voltage_to_percentage(voltage: float, cells: int):
+    min_v = 3.3 * cells
+    max_v = 4.2 * cells
+    if voltage < min_v:
+        return 0.0
+    elif voltage > max_v:
+        return 1.0
+
+    return float(interp1d([min_v, max_v], [0.0, 1.0])(voltage))
 
 
 def radps_to_rpm(radps: float):
