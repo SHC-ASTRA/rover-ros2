@@ -253,7 +253,7 @@ class Headless(Node):
             )
 
             self.gripper_velocity_pub_ = self.create_publisher(
-                Float64MultiArray, "/hand_controller/commands", qos_profile=control_qos
+                Float64MultiArray, "/arm/control/ik_gripper", qos_profile=control_qos
             )
 
             setup_bio(self)

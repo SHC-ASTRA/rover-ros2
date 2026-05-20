@@ -121,7 +121,7 @@ class ArmNode(Node):
             self.jointjog_callback,
             qos_profile=control_qos,
         )
-        # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
+        # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
         self.joint_command_sub_ = self.create_subscription(
             JointState,
             "/arm/joint_commands",
