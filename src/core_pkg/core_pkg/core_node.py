@@ -158,7 +158,6 @@ class CoreNode(Node):
             )
         else:
             # manual twist -- [-1, 1] rather than real units
-            # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
                 Twist,
                 "/core/control/cmd_vel",
