@@ -115,14 +115,14 @@ class ArmNode(Node):
         # Manual: /arm/control/joint_jog is published by Basestation or Headless
         self.man_jointjog_sub_ = self.create_subscription(
             JointJog,
-            "/arm/control/joint_jog",
+            "/arm/control/manual_joint_jog",
             self.jointjog_callback,
             qos_profile=control_qos,
         )
-        # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
+        # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
         self.joint_command_sub_ = self.create_subscription(
             JointState,
-            "/joint_commands",
+            "/arm/joint_commands",
             self.joint_command_callback,
             qos_profile=control_qos,
         )
@@ -139,7 +139,7 @@ class ArmNode(Node):
         # Combined Socket and Digit feedback
         self.arm_feedback_pub_ = self.create_publisher(
             ArmFeedback,
-            "/arm/feedback",
+            "/arm/feedback/main",
             qos_profile=qos.qos_profile_sensor_data,
         )
         # IK arm pose: /joint_states is published from here to topic_based_control
