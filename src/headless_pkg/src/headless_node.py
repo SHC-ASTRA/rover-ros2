@@ -219,10 +219,10 @@ class Headless(Node):
 
         if not self.use_old_topics:
             self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/twist", qos_profile=control_qos
+                Twist, "/core/control/twist_duty_cycle", qos_profile=control_qos
             )
             self.core_cmd_vel_pub_ = self.create_publisher(
-                TwistStamped, "/diff_controller/cmd_vel", qos_profile=control_qos
+                TwistStamped, "/core/control/cmd_vel", qos_profile=control_qos
             )
             self.core_state_pub_ = self.create_publisher(
                 CoreCtrlState, "/core/control/state", qos_profile=control_qos

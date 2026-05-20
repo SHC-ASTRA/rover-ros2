@@ -158,9 +158,11 @@ class CoreNode(Node):
             )
         else:
             # manual twist -- [-1, 1] rather than real units
-            # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
-                Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
+                Twist,
+                "/core/control/twist_duty_cycle",
+                self.twist_man_callback,
+                qos_profile=control_qos,
             )
             # manual flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
@@ -174,10 +176,9 @@ class CoreNode(Node):
         # Feedback
 
         # Consolidated and organized main core feedback
-        # TODO: change topic to something like '/core/feedback/main'
         self.feedback_new_pub_ = self.create_publisher(
             NewCoreFeedback,
-            "/core/feedback_new",
+            "/core/feedback/main",
             qos_profile=qos.qos_profile_sensor_data,
         )
 
@@ -188,12 +189,12 @@ class CoreNode(Node):
 
         # IMU (embedded BNO-055)
         self.imu_pub_ = self.create_publisher(
-            Imu, "/core/imu", qos_profile=qos.qos_profile_sensor_data
+            Imu, "/core/feedback/imu/data", qos_profile=qos.qos_profile_sensor_data
         )
 
         # GPS (embedded u-blox M9N)
         self.gps_pub_ = self.create_publisher(
-            NavSatFix, "/gps/fix", qos_profile=qos.qos_profile_sensor_data
+            NavSatFix, "/core/feedback/gps/fix", qos_profile=qos.qos_profile_sensor_data
         )
 
         # Barometer (embedded BMP-388)
