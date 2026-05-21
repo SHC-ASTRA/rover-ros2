@@ -360,7 +360,7 @@ class CANConnector(Connector):
         try:
             mcu_name = MCU_IDS[mcu_key]
         except KeyError:
-            self.logger.warn(
+            self.logger.debug(
                 f"received CAN frame with unknown MCU key {mcu_key}; id=0x{arbitration_id:X}"
             )
             return (None, None)
