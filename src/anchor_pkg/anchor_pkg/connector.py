@@ -346,10 +346,6 @@ class CANConnector(Connector):
         if message is None:
             return (None, None)
 
-        # Ignore REVCAN messages
-        if message.is_extended_id:
-            return (None, None)
-
         arbitration_id = message.arbitration_id & 0x7FF
         data_bytes = bytes(message.data)
 
