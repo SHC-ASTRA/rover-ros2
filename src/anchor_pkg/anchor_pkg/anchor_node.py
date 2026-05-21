@@ -250,7 +250,7 @@ class Anchor(Node):
             self.fromvic_core_pub_.publish(msg)
         if msg.mcu_name == "arm" or msg.mcu_name == "digit":
             self.fromvic_arm_pub_.publish(msg)
-        if msg.mcu_name == "citadel" or msg.mcu_name == "digit":
+        if msg.mcu_name == "citadel" or msg.mcu_name == "lance":
             self.fromvic_bio_pub_.publish(msg)
 
         # MCU Versioning information
