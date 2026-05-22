@@ -9,6 +9,13 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    unilib = {
+      url = "github:SHC-ASTRA/unilib";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "nix-ros-overlay/flake-utils";
+      inputs.treefmt.follows = "treefmt-nix";
+    };
   };
 
   outputs =
@@ -16,6 +23,7 @@
       self,
       nix-ros-overlay,
       nixpkgs,
+      unilib,
       ...
     }@inputs:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
@@ -42,6 +50,7 @@
                 scipy
                 crccheck
                 black
+                unilib.packages.${system}.unilib
               ]
             ))
             (

@@ -61,7 +61,8 @@
           "nix-ros-overlay",
           "nixpkgs"
         ],
-        "treefmt-nix": "treefmt-nix"
+        "treefmt-nix": "treefmt-nix",
+        "unilib": "unilib"
       }
     },
     "systems": {
@@ -96,6 +97,33 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "unilib": {
+      "inputs": {
+        "flake-utils": [
+          "nix-ros-overlay",
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "treefmt": [
+          "treefmt-nix"
+        ]
+      },
+      "locked": {
+        "lastModified": 1779158712,
+        "narHash": "sha256-n/k4glaaKUt1jr6hW7p8SLlqSYMGUdouIXH4UnstZ0I=",
+        "owner": "SHC-ASTRA",
+        "repo": "unilib",
+        "rev": "10d4c06590d844d93b9e1c089e564da12cf260f3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SHC-ASTRA",
+        "repo": "unilib",
         "type": "github"
       }
     }
