@@ -114,10 +114,20 @@ class Headless(Node):
                 self.get_logger().error(e)
                 id += 1
                 continue
-            print(f"Gamepad Found: {self.gamepad.get_name()}")
+            print(f"Gamepad found: {self.gamepad.get_name()}")
 
-            if self.gamepad.get_numhats() == 0 or self.gamepad.get_numaxes() < 5:
+            if (
+                self.gamepad.get_numhats() == 0
+                or self.gamepad.get_numaxes() < 5
+                or self.gamepad.get_numbuttons() < 5
+            ):
                 self.get_logger().error("Controller not correctly initialized.")
+                if self.gamepad.get_numhats() == 0:
+                    self.get_logger().warning("Reason: No D-pad available.")
+                if self.gamepad.get_numaxes() < 5:
+                    self.get_logger().warning("Reason: Not enough axes available.")
+                if self.gamepad.get_numbuttons() < 5:
+                    self.get_logger().warning("Reason: Not enough buttons available.")
                 if not is_user_in_group("input"):
                     self.get_logger().warning(
                         "If using NixOS, you may need to add yourself to the 'input' group."
