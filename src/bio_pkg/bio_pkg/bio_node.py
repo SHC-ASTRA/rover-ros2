@@ -5,7 +5,7 @@ import time
 
 import rclpy
 from astra_msgs.action import BioVacuum
-from astra_msgs.msg import NewBioFeedback, CitadelControl, FaerieControl, VicCAN
+from astra_msgs.msg import NewBioFeedback, CitadelControl, LanceControl, VicCAN
 from astra_msgs.srv import BioTestTube, FireLibs
 from rclpy.action import ActionServer
 from rclpy.node import Node
@@ -41,10 +41,10 @@ class SerialRelay(Node):
             10,
         )
 
-        self.faerie_sub = self.create_subscription(
-            FaerieControl,
-            "/bio/faerie/control",
-            self.faerie_callback,
+        self.lance_sub = self.create_subscription(
+            LanceControl,
+            "/bio/lance/control",
+            self.lance_callback,
             10,
         )
 
@@ -141,13 +141,13 @@ class SerialRelay(Node):
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
 
-    def faerie_callback(self, msg: FaerieControl):
-        # Move Faerie
+    def lance_callback(self, msg: LanceControl):
+        # Move Lance
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="digit",
             command_id=42,
-            data=[float(msg.move_faerie)],
+            data=[float(msg.move_lance)],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
         # Drill Speed

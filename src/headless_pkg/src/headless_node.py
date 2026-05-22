@@ -686,7 +686,7 @@ class Headless(Node):
                 drill_arm=int(round(right_stick_y) * -100),
             )
 
-            # Drill motor (FAERIE)
+            # Drill motor (LANCE)
             if left_trigger > 0 or right_trigger > 0:
                 bio_input.drill = int(
                     30 * (right_trigger - left_trigger)
