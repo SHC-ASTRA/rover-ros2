@@ -124,21 +124,26 @@ class SerialRelay(Node):
 
     def lance_callback(self, msg: LanceControl):
         # Move Lance (CMD_LANCE_LINEAR_AC: 2f32 linac_id, duty)
-        vic_cmd = VicCAN(
+        self.anchor_tovic_pub_.publish(VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="lance",
             command_id=CanCmdId.CMD_LANCE_LINEAR_AC.value,
-            data=[1.0, float(msg.move_lance)],
-        )
-        self.anchor_tovic_pub_.publish(vic_cmd)
+            data=[1.0, float(msg.drill_arm_ctrl)],
+        ))
         # Drill Speed (CMD_REV_SET_DUTY: 1f64 duty -1.0..1.0)
-        vic_cmd = VicCAN(
+        self.anchor_tovic_pub_.publish(VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="lance",
             command_id=CanCmdId.CMD_REV_SET_DUTY.value,
             data=[float(msg.drill_speed)],
-        )
-        self.anchor_tovic_pub_.publish(vic_cmd)
+        ))
+        # Move Vacuum Arm
+        self.anchor_tovic_pub_.publish(VicCAN(
+            header=Header(stamp=self.get_clock().now().to_msg()),
+            mcu_name="lance",
+            command_id=CanCmdId.CMD_LANCE_LINEAR_AC.value,
+            data=[2.0, float(msg.vacuum_arm_ctrl)],
+        ))
 
     def test_tube_callback(self, request, response):
         # Open Test Tube
