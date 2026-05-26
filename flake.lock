@@ -114,16 +114,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1779158712,
-        "narHash": "sha256-n/k4glaaKUt1jr6hW7p8SLlqSYMGUdouIXH4UnstZ0I=",
+        "lastModified": 1779828667,
+        "narHash": "sha256-7znNMaUHOkVL5ofCAE/SdFFAaX5cFUlZlgNwiOeCmN4=",
         "owner": "SHC-ASTRA",
         "repo": "unilib",
-        "rev": "10d4c06590d844d93b9e1c089e564da12cf260f3",
+        "rev": "1c4834be48c4d650fe43e88255c59fc087eaaac1",
         "type": "github"
       },
       "original": {
         "owner": "SHC-ASTRA",
         "repo": "unilib",
+        "rev": "1c4834be48c4d650fe43e88255c59fc087eaaac1",
         "type": "github"
       }
     }

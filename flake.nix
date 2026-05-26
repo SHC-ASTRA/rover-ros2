@@ -11,7 +11,7 @@
     };
 
     unilib = {
-      url = "github:SHC-ASTRA/unilib";
+      url = "github:SHC-ASTRA/unilib/1c4834be48c4d650fe43e88255c59fc087eaaac1";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "nix-ros-overlay/flake-utils";
       inputs.treefmt.follows = "treefmt-nix";

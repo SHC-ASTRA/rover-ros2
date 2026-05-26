@@ -112,28 +112,15 @@ class SerialRelay(Node):
         self.bio_feedback_pub.publish(self.bio_feedback)
 
     def citadel_callback(self, msg: CitadelControl):
-        distributor_arr = list(msg.distributor_id)
         # Distributor Control
-        vic_cmd = VicCAN(
-            header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="citadel",
-            command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
-            data=[
-                float(clamp_short(distributor_arr[0])),
-                float(clamp_short(distributor_arr[1])),
-                float(clamp_short(distributor_arr[2])),
-                0,
-            ],
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                header=Header(stamp=self.get_clock().now().to_msg()),
+                mcu_name="citadel",
+                command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
+                data=list(map(float, msg.distributors_ctrl)),
+            )
         )
-        self.anchor_tovic_pub_.publish(vic_cmd)
-        # Move Scythe (CMD_LANCE_LINEAR_AC: 2f32 linac_id, duty)
-        vic_cmd = VicCAN(
-            header=Header(stamp=self.get_clock().now().to_msg()),
-            mcu_name="lance",
-            command_id=CanCmdId.CMD_LANCE_LINEAR_AC.value,
-            data=[2.0, float(msg.move_scythe)],
-        )
-        self.anchor_tovic_pub_.publish(vic_cmd)
 
     def lance_callback(self, msg: LanceControl):
         # Move Lance (CMD_LANCE_LINEAR_AC: 2f32 linac_id, duty)
@@ -160,8 +147,8 @@ class SerialRelay(Node):
             mcu_name="citadel",
             command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
             data=[
-                float(int(request.tube_id)),
-                float(request.milliliters),
+                float(request.tube_id),
+                float(int(request.extended)),  # msg has bool
             ],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
@@ -180,8 +167,12 @@ class SerialRelay(Node):
             VicCAN(
                 header=Header(stamp=self.get_clock().now().to_msg()),
                 mcu_name="citadel",
-                command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
-                data=[float(valve_id)],
+                command_id=CanCmdId.CMD_CITADEL_VALVES.value,
+                data=[
+                    1.0 if valve_id == 0 else 0.0,
+                    1.0 if valve_id == 1 else 0.0,
+                    1.0 if valve_id == 2 else 0.0,
+                ],
             )
         )
 
@@ -225,8 +216,8 @@ class SerialRelay(Node):
             VicCAN(
                 header=Header(stamp=self.get_clock().now().to_msg()),
                 mcu_name="citadel",
-                command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
-                data=[-1.0],
+                command_id=CanCmdId.CMD_CITADEL_VALVES.value,
+                data=[0.0] * 3,
             )
         )
 
