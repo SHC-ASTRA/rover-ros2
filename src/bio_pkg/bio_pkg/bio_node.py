@@ -150,7 +150,7 @@ class SerialRelay(Node):
         vic_cmd = VicCAN(
             header=Header(stamp=self.get_clock().now().to_msg()),
             mcu_name="citadel",
-            command_id=CanCmdId.CMD_CITADEL_FAN_CTRL.value,
+            command_id=CanCmdId.CMD_CITADEL_VALVES.value,
             data=[
                 float(request.tube_id),
                 float(int(request.extended)),  # msg has bool
