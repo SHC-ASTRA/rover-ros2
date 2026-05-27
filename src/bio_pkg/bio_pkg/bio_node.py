@@ -37,21 +37,21 @@ class SerialRelay(Node):
         # Messages
         self.citadel_sub = self.create_subscription(
             CitadelControl,
-            "/bio/citadel/control",
+            "/bio/control/citadel",
             self.citadel_callback,
             10,
         )
 
         self.lance_sub = self.create_subscription(
             LanceControl,
-            "/bio/lance/control",
+            "/bio/control/lance",
             self.lance_callback,
             10,
         )
 
         # Services
         self.test_tube_service = self.create_service(
-            BioTestTube, "/bio/test_tube", self.test_tube_callback
+            BioTestTube, "/bio/control/test_tube", self.test_tube_callback
         )
         self.libs_service = self.create_service(
             FireLibs, "bio/libs/fire", self.libs_fire_callback
@@ -59,7 +59,7 @@ class SerialRelay(Node):
 
         # Actions
         self._action_server = ActionServer(
-            self, BioVacuum, "/bio/vacuum", self.execute_vacuum
+            self, BioVacuum, "/bio/control/vacuum", self.execute_vacuum
         )
 
         # Feedback state
