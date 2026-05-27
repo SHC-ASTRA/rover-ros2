@@ -262,7 +262,7 @@ class Headless(Node):
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
             if self.use_cmd_vel:
-                self.core_cmd_vel_pub_.publish(self.core_cmd_vel_stop_msg())
+                self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
             else:
                 self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
