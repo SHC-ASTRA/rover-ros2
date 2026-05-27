@@ -197,27 +197,27 @@ class Headless(Node):
 
         if not self.use_old_topics:
             self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/twist", qos_profile=control_qos
+                Twist, "/core/control/man_twist", qos_profile=control_qos
             )
             self.core_cmd_vel_pub_ = self.create_publisher(
-                TwistStamped, "/diff_controller/cmd_vel", qos_profile=control_qos
+                Twist, "/core/control/cmd_vel", qos_profile=control_qos
             )
             self.core_state_pub_ = self.create_publisher(
                 CoreCtrlState, "/core/control/state", qos_profile=control_qos
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/control/joint_jog", qos_profile=control_qos
+                JointJog, "/arm/control/man_joint_jog", qos_profile=control_qos
             )
             self.arm_state_pub_ = self.create_publisher(
                 ArmCtrlState, "/arm/control/state", qos_profile=control_qos
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
-                TwistStamped, "/servo_node/delta_twist_cmds", qos_profile=control_qos
+                TwistStamped, "/arm/control/ik_twist", qos_profile=control_qos
             )
             self.arm_ik_jointjog_publisher = self.create_publisher(
-                JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
+                JointJog, "/arm/control/ik_joint_jog", qos_profile=control_qos
             )
 
             # TODO: add new bio topics
@@ -379,8 +379,7 @@ class Headless(Node):
 
             # Publish
             if self.use_cmd_vel:
-                header = Header(stamp=self.get_clock().now().to_msg())
-                self.core_cmd_vel_pub_.publish(TwistStamped(header=header, twist=twist))
+                self.core_cmd_vel_pub_.publish(twist)
             else:
                 self.core_twist_pub_.publish(twist)
             self.get_logger().debug(

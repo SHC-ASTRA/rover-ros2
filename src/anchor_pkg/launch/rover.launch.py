@@ -51,7 +51,7 @@ def generate_launch_description():
     ld.add_action(
         DeclareLaunchArgument(
             "use_ros2_control",
-            default_value="false",
+            default_value="true",
             description="Whether to use DiffDriveController for driving instead of direct Twist",
         )
     )
