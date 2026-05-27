@@ -153,7 +153,7 @@ class SerialRelay(Node):
             command_id=24,
             data=[
                 float(request.tube_id),
-                float(int(request.extended)),  # msg has bool
+                1.0 if request.extended else -1.0,  # msg has bool
             ],
         )
         self.anchor_tovic_pub_.publish(vic_cmd)
