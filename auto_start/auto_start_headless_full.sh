@@ -25,4 +25,4 @@ fi
 source $SCRIPT_DIR/../install/setup.bash
 
 # Launch the ROS 2 node
-ros2 run headless_pkg headless_full
+ros2 run headless_pkg headless_full --ros-args -p use_cmd_vel:=true
