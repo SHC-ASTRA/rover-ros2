@@ -2,6 +2,7 @@ from rclpy.node import Node
 from rclpy.publisher import Publisher
 from pygame.joystick import JoystickType
 from os import getenv
+from math import sqrt
 from unilib import CanCmdId
 
 # messages
@@ -43,18 +44,18 @@ def loop_bio(gamepad: JoystickType):
     left_stick_y = stick_deadzone(gamepad.get_axis(1))
     # right_stick_x = stick_deadzone(gamepad.get_axis(3))
     right_stick_y = stick_deadzone(gamepad.get_axis(4))
-    left_trigger = stick_deadzone(gamepad.get_axis(2))
-    right_trigger = stick_deadzone(gamepad.get_axis(5))
-    button_a = gamepad.get_button(0)
-    # button_b = gamepad.get_button(1)
+    left_trigger = max(0.0, gamepad.get_axis(2))
+    right_trigger = max(0.0, gamepad.get_axis(5))
+    # button_a = gamepad.get_button(0)
+    button_b = gamepad.get_button(1)
     button_x = gamepad.get_button(2)
     button_y = gamepad.get_button(3)
-    # left_bumper = gamepad.get_button(4)
+    left_bumper = gamepad.get_button(4)
     # right_bumper = gamepad.get_button(5)
     dpad_x, _ = gamepad.get_hat(0)
 
     # /bio/citadel/control (sike not actually it's all VicCAN)
-    target_id = 0 if button_y else 1 if button_x else 2 if button_a else -1
+    target_id = 0 if button_x else 1 if button_y else 2 if button_b else -1
     target_list = [float(x == target_id) for x in range(4)]
 
     # here is valve (only if no dpad)
@@ -62,7 +63,7 @@ def loop_bio(gamepad: JoystickType):
     # here is fan (only if no dpad and yes face button)
     citadel(
         CanCmdId.CMD_REV_SET_DUTY,
-        [right_trigger if dpad_x == 0 and target_id != -1 else 0.0],
+        [sqrt(right_trigger) * 100.0 if dpad_x == 0 and target_id != -1 else 0.0],
     )
     # distibutor (only if dpad left
     citadel(
@@ -73,7 +74,14 @@ def loop_bio(gamepad: JoystickType):
     for i in range(3):
         citadel(
             CanCmdId.CMD_LSS_TURNBY_DEG,
-            [float(i), float(i == target_id and dpad_x > 0)],
+            [
+                float(i),
+                (
+                    float(i == target_id and dpad_x > 0)
+                    if not (left_bumper and dpad_x > 0)
+                    else -1.0
+                ),
+            ],
         )
 
     # /bio/lance/control (sike again it's still VicCAN)
