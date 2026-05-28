@@ -160,7 +160,10 @@ class CoreNode(Node):
             # manual twist -- [-1, 1] rather than real units
             # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
-                Twist, "/core/control/man_twist", self.twist_man_callback, qos_profile=control_qos
+                Twist,
+                "/core/control/man_twist",
+                self.twist_man_callback,
+                qos_profile=control_qos,
             )
             # manual flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
