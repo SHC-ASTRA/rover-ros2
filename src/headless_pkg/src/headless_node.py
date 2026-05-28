@@ -20,6 +20,9 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
 from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
+# bio
+from .headless_bio import setup_bio, loop_bio, stop_bio
+
 import warnings
 
 # Literally headless
@@ -220,7 +223,7 @@ class Headless(Node):
                 JointJog, "/arm/control/ik_joint_jog", qos_profile=control_qos
             )
 
-            # TODO: add new bio topics
+            setup_bio(self)
 
         ##################################################
         # Timers
@@ -269,7 +272,8 @@ class Headless(Node):
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
                 self.arm_manual_pub_.publish(self.arm_manual_stop_msg())
-            # TODO: add bio here after implementing new topics
+            if self.use_bio:
+                stop_bio()
 
     def send_controls(self):
         """Read the gamepad state and publish control messages"""
@@ -694,7 +698,7 @@ class Headless(Node):
             self.bio_publisher.publish(bio_input)
 
         else:
-            pass  # TODO: implement new bio control topics
+            loop_bio(self.gamepad)
 
     def core_cmd_vel_stop_msg(self):
         return TwistStamped(
