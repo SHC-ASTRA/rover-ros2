@@ -25,4 +25,4 @@ fi
 source $SCRIPT_DIR/../install/setup.bash
 
 # Launch the ROS 2 node with the desired mode
-ros2 launch anchor_pkg rover.launch.py mode:=anchor use_ros2_control:=true connector:=serial
+ros2 launch anchor_pkg rover.launch.py mode:=anchor use_ros2_control:=false connector:=serial

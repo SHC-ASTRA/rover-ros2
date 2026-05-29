@@ -269,22 +269,25 @@ class Anchor(Node):
                 int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
             )[2:]
         elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
-            version_msg = self.mcu_versions[msg.mcu_name]
-            version_msg.build_time = Time(
-                sec=int(time.mktime(self.ASTRA_EPOCH) + msg.data[0])
-            )
-            # is_main and is_dirty is in msg.data[1]
-            # Out of 1 byte, it looks like [lib_isdirty][lib_ismain][proj_isdirty][proj_ismain]
-            version_msg.astra_lib_is_dirty = bool(int(msg.data[1]) >> 3 & 0x1)
-            version_msg.astra_lib_is_main = bool(int(msg.data[1]) >> 2 & 0x1)
-            version_msg.project_is_dirty = bool(int(msg.data[1]) >> 1 & 0x1)
-            version_msg.project_is_main = bool(int(msg.data[1]) & 0x1)
-            # Only publish data if also already have commit hashes
-            if (
-                version_msg.project_commit_fragment
-                and version_msg.astra_lib_commit_fragment
-            ):
-                self.mcu_version_pub_.publish(version_msg)
+            try:
+                version_msg = self.mcu_versions[msg.mcu_name]
+                version_msg.build_time = Time(
+                    sec=int(time.mktime(self.ASTRA_EPOCH) + msg.data[0])
+                )
+                # is_main and is_dirty is in msg.data[1]
+                # Out of 1 byte, it looks like [lib_isdirty][lib_ismain][proj_isdirty][proj_ismain]
+                version_msg.astra_lib_is_dirty = bool(int(msg.data[1]) >> 3 & 0x1)
+                version_msg.astra_lib_is_main = bool(int(msg.data[1]) >> 2 & 0x1)
+                version_msg.project_is_dirty = bool(int(msg.data[1]) >> 1 & 0x1)
+                version_msg.project_is_main = bool(int(msg.data[1]) & 0x1)
+                # Only publish data if also already have commit hashes
+                if (
+                    version_msg.project_commit_fragment
+                    and version_msg.astra_lib_commit_fragment
+                ):
+                    self.mcu_version_pub_.publish(version_msg)
+            except Exception as e:
+                self.get_logger().error(e)
 
 
 def main(args=None):
