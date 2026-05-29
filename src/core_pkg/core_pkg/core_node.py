@@ -556,8 +556,6 @@ class CoreNode(Node):
                     motor.voltage = voltage
                     motor.current = current
                     motor.header.stamp = msg.header.stamp
-
-                self.feedback_new_pub_.publish(self.feedback_new_state)
             # Board voltage
             case 54:  # Voltages batt, 12, 5, 3, all * 100
                 self.feedback_new_state.board_voltage.vbatt = float(msg.data[0]) / 100.0
@@ -620,6 +618,8 @@ class CoreNode(Node):
                 self.joint_state_pub_.publish(joint_state_msg)
             case _:
                 return
+            
+        self.feedback_new_pub_.publish(self.feedback_new_state)
 
     def batt_timer_callback(self):
         # Don't use information older than 1 second
