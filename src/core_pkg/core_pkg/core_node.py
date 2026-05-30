@@ -161,7 +161,7 @@ class CoreNode(Node):
             # TODO: change topic to '/core/control/twist'
             self.twist_man_sub_ = self.create_subscription(
                 Twist,
-                "/core/control/man_twist",
+                "/core/control/cmd_vel",
                 self.twist_man_callback,
                 qos_profile=control_qos,
             )
@@ -195,7 +195,7 @@ class CoreNode(Node):
 
         # GPS (embedded u-blox M9N)
         self.gps_pub_ = self.create_publisher(
-            NavSatFix, "/core/control/gps/fix", qos_profile=qos.qos_profile_sensor_data
+            NavSatFix, "/core/feedback/gps/fix", qos_profile=qos.qos_profile_sensor_data
         )
 
         # Barometer (embedded BMP-388)

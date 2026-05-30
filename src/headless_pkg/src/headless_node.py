@@ -199,12 +199,14 @@ class Headless(Node):
         # New Topics
 
         if not self.use_old_topics:
-            self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/control/man_twist", qos_profile=control_qos
-            )
-            self.core_cmd_vel_pub_ = self.create_publisher(
-                Twist, "/core/control/cmd_vel", qos_profile=control_qos
-            )
+            if self.use_cmd_vel:
+                self.core_cmd_vel_pub_ = self.create_publisher(
+                    Twist, "/core/control/cmd_vel", qos_profile=control_qos
+                )
+            else:
+                self.core_twist_pub_ = self.create_publisher(
+                    Twist, "/core/control/cmd_vel", qos_profile=control_qos
+                )
             self.core_state_pub_ = self.create_publisher(
                 CoreCtrlState, "/core/control/state", qos_profile=control_qos
             )
