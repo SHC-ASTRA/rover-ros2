@@ -39,6 +39,7 @@ class ArmNode(Node):
         "wrist_yaw_joint",
         "wrist_roll_joint",
         "ef_gripper_left_joint",
+        "linear_actuator_joint",
     ]
 
     # Used to verify the length of an incoming VicCAN feedback message
@@ -54,7 +55,8 @@ class ArmNode(Node):
     viccan_digit_msg_len_dict = {
         54: 4,
         55: 2,
-        59: 2,
+        58: 2,
+        59: 4,
     }
 
     def __init__(self):
@@ -180,8 +182,9 @@ class ArmNode(Node):
             for joint_name in self.all_joint_names
         ]
         # Deadzone
-        velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
+        velocities = [vel * 100.0 if abs(vel) > 0.05 else 0.0 for vel in velocities]
 
+        # Arm Axes
         self.anchor_tovic_pub_.publish(
             VicCAN(
                 mcu_name="arm",
@@ -191,6 +194,7 @@ class ArmNode(Node):
             )
         )
 
+        # Wrist yaw and roll
         self.anchor_tovic_pub_.publish(
             VicCAN(
                 mcu_name="digit",
@@ -200,11 +204,22 @@ class ArmNode(Node):
             )
         )
 
+        # End Effector Gripper
         self.anchor_tovic_pub_.publish(
             VicCAN(
                 mcu_name="digit",
                 command_id=26,
                 data=[velocities[6]],
+                header=msg.header,
+            )
+        )
+
+        # Linear Actuator
+        self.anchor_tovic_pub_.publish(
+            VicCAN(
+                mcu_name="digit",
+                command_id=34,
+                data=[velocities[7]],
                 header=msg.header,
             )
         )

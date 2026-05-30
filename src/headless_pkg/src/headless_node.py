@@ -18,7 +18,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Twist, TwistStamped
 from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
-from astra_msgs.msg import CoreCtrlState, ArmCtrlState
+from astra_msgs.msg import CoreCtrlState, ArmCtrlState, VicCAN
 
 # bio
 from .headless_bio import setup_bio, loop_bio, stop_bio
@@ -72,6 +72,7 @@ class Headless(Node):
         "wrist_yaw_joint",
         "wrist_roll_joint",
         "ef_gripper_left_joint",
+        "linear_actuator_joint",
     ]
 
     def __init__(self):
@@ -199,6 +200,10 @@ class Headless(Node):
         # New Topics
 
         if not self.use_old_topics:
+            self.anchor_tovic_pub_ = self.create_publisher(
+                VicCAN, "/anchor/to_vic/relay", 20
+            )
+
             if self.use_cmd_vel:
                 self.core_cmd_vel_pub_ = self.create_publisher(
                     Twist, "/core/control/cmd_vel", qos_profile=control_qos
@@ -421,10 +426,10 @@ class Headless(Node):
     def send_arm(self):
         # Collect controller state
         left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
+        left_stick_y = stick_deadzone(-self.gamepad.get_axis(1))
         left_trigger = stick_deadzone(self.gamepad.get_axis(2))
         right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
+        right_stick_y = stick_deadzone(-self.gamepad.get_axis(4))
         right_trigger = stick_deadzone(self.gamepad.get_axis(5))
         button_a = self.gamepad.get_button(0)
         button_b = self.gamepad.get_button(1)
@@ -478,11 +483,11 @@ class Headless(Node):
 
                     # Axis 2
                     if abs(left_stick_y) > 0.15:
-                        arm_input.axis2 = -1 * round(left_stick_y)
+                        arm_input.axis2 = round(left_stick_y)
 
                     # Axis 3
                     if abs(right_stick_y) > 0.15:
-                        arm_input.axis3 = -1 * round(right_stick_y)
+                        arm_input.axis3 = round(right_stick_y)
 
             # NEW ARM MANUAL CONTROL SCHEME
             if self.use_new_arm_manual_scheme:
@@ -498,11 +503,11 @@ class Headless(Node):
 
                 # Right stick: EF yaw and axis 3
                 arm_input.effector_yaw = stick_to_arm_direction(right_stick_x)
-                arm_input.axis3 = -1 * stick_to_arm_direction(right_stick_y)
+                arm_input.axis3 = stick_to_arm_direction(right_stick_y)
 
                 # Left stick: axis 1 and 2
                 arm_input.axis1 = stick_to_arm_direction(left_stick_x)
-                arm_input.axis2 = -1 * stick_to_arm_direction(left_stick_y)
+                arm_input.axis2 = stick_to_arm_direction(left_stick_y)
 
                 # D-pad: axis 0 and _
                 arm_input.axis0 = int(dpad_input[0])
@@ -553,24 +558,24 @@ class Headless(Node):
             # Triggers: EF grippers
             # Bumpers: EF roll
             # A: brake
-            # B: linear actuator in
-            # X: _
+            # B: lss reset
+            # X: laser
             # Y: linear actuator out
 
             # Right stick: EF yaw and axis 3
             arm_input.velocities[self.all_joint_names.index("wrist_yaw_joint")] = float(
-                stick_to_arm_direction(right_stick_x)
+                right_stick_x
             )
             arm_input.velocities[self.all_joint_names.index("axis_3_joint")] = float(
-                stick_to_arm_direction(right_stick_y)
+                right_stick_y
             )
 
             # Left stick: axis 1 and 2
             arm_input.velocities[self.all_joint_names.index("axis_1_joint")] = float(
-                stick_to_arm_direction(left_stick_x)
+                left_stick_x
             )
             arm_input.velocities[self.all_joint_names.index("axis_2_joint")] = float(
-                stick_to_arm_direction(left_stick_y)
+                left_stick_y
             )
 
             # D-pad: axis 0 and _
@@ -600,8 +605,23 @@ class Headless(Node):
             # A: brake
             new_brake_mode = button_a
 
+            # B: LSS reset
+            if button_b:
+                self.anchor_tovic_pub_.publish(
+                    VicCAN(
+                        mcu_name="digit",
+                        command_id=29,
+                        data=[],
+                    )
+                )
+
             # X: laser
             new_laser = button_x
+
+            # Y: linear actuator
+            arm_input.velocities[
+                self.all_joint_names.index("linear_actuator_joint")
+            ] = (button_y or -1.0)
 
             self.arm_manual_pub_.publish(arm_input)
 
@@ -641,11 +661,11 @@ class Headless(Node):
 
             # Right stick: linear y and linear x
             arm_twist.twist.linear.y = float(right_stick_x)
-            arm_twist.twist.linear.x = float(right_stick_y)
+            arm_twist.twist.linear.x = float(-1 * right_stick_y)
 
             # Left stick: angular z and linear z
             arm_twist.twist.angular.z = float(-1 * left_stick_x)
-            arm_twist.twist.linear.z = float(-1 * left_stick_y)
+            arm_twist.twist.linear.z = float(left_stick_y)
             # D-pad: angular y and _
             arm_twist.twist.angular.y = (
                 float(0)
