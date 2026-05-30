@@ -618,7 +618,7 @@ class CoreNode(Node):
                 self.joint_state_pub_.publish(joint_state_msg)
             case _:
                 return
-            
+
         self.feedback_new_pub_.publish(self.feedback_new_state)
 
     def batt_timer_callback(self):

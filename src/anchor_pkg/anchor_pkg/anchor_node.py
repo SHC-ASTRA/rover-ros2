@@ -182,7 +182,7 @@ class Anchor(Node):
         self.tovic_sub_legacy_ = self.create_subscription(
             String,
             "/anchor/relay",
-            self.write_connector_legacy,
+            self.write_connector_raw,
             20,
         )
         self.mock_mcu_sub_ = self.create_subscription(
