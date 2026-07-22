@@ -6,7 +6,6 @@ from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
 from math import copysign, pi, nan
 from warnings import deprecated
-from os import getenv
 from socket import gethostname
 
 import rclpy
@@ -18,10 +17,9 @@ from rclpy.duration import Duration
 from rclpy.time import Time as rclpyTime
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState, BatteryState
-from geometry_msgs.msg import TwistStamped, Twist
+from geometry_msgs.msg import Twist
 from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
-
 
 CORE_WHEELBASE = 0.836  # meters
 CORE_WHEEL_RADIUS = 0.171  # meters
@@ -74,7 +72,7 @@ class CoreNode(Node):
     def __init__(self):
         super().__init__("core_node")
 
-        self.get_logger().info(f"core launch_mode is: anchor")
+        self.get_logger().info("core launch_mode is: anchor")
 
         ##################################################
         # Parameters
@@ -322,7 +320,7 @@ class CoreNode(Node):
             or len(msg.position) != 0
         ):
             self.get_logger().warning(
-                f"Received joint control message with unexpected number of joints. Ignoring."
+                "Received joint control message with unexpected number of joints. Ignoring."
             )
             return
         if msg.name[-4:] != [  # type: ignore
@@ -332,7 +330,7 @@ class CoreNode(Node):
             "fr_wheel_joint",
         ]:
             self.get_logger().warning(
-                f"Received joint control message with unexpected name[]. Ignoring."
+                "Received joint control message with unexpected name[]. Ignoring."
             )
             return
 
@@ -345,14 +343,16 @@ class CoreNode(Node):
         # Safety timeout for diff_drive_controller commands via topic_based_ros2_control.
         # It is safe to send stop command here because if self.use_ros2_control,
         # then this is the only callback that is controlling Core's motors.
-        if self.get_clock().now() - self._last_joint_command_time > Duration(
-            nanoseconds=int(1e8)  # 100ms
+        if (
+            self.get_clock().now() - self._last_joint_command_time
+            > Duration(nanoseconds=int(1e8))  # 100ms
+            or len(self._last_joint_command_msg.velocity) != 4
         ):
             self.send_viccan(20, [0.0, 0.0, 0.0, 0.0])
             return
 
         # This order is verified by the subscription callback
-        (bl_vel, br_vel, fl_vel, fr_vel) = self._last_joint_command_msg.velocity
+        bl_vel, br_vel, fl_vel, fr_vel = self._last_joint_command_msg.velocity
 
         # Convert wheel rad/s to motor RPM
         bl_rpm = radps_to_rpm(bl_vel) * self.gear_ratio

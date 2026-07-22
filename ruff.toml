@@ -1,0 +1,3 @@
+# `extend-exclude` adds to Ruff's built-in default excludes (.git, __pycache__,
+# build/, install/, etc.) rather than replacing them.
+extend-exclude = ["src/core_pkg/core_pkg/siyi_sdk"]
