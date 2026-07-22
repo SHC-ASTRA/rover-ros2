@@ -11,6 +11,7 @@ import sys
 import pwd
 import grp
 from math import copysign
+from typing import NamedTuple
 
 from std_srvs.srv import Trigger
 from std_msgs.msg import Header, Float64MultiArray
@@ -350,33 +351,20 @@ class Headless(Node):
             # Ditto
 
     def send_core(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
 
         if self.use_old_topics:
             input = CoreControl()
             input.max_speed = 90
 
             # Right wheels
-            input.right_stick = float(round(-1 * right_stick_y, 2))
+            input.right_stick = float(round(-1 * state.right_stick_y, 2))
 
             # Left wheels
-            if right_trigger > 0:
+            if state.right_trigger > 0:
                 input.left_stick = input.right_stick
             else:
-                input.left_stick = float(round(-1 * left_stick_y, 2))
+                input.left_stick = float(round(-1 * state.left_stick_y, 2))
 
             # Debug
             output = f"L: {input.left_stick}, R: {input.right_stick}"
@@ -388,9 +376,9 @@ class Headless(Node):
             twist = Twist()
 
             # Forward/back and Turn
-            twist.linear.x = -1.0 * left_stick_y
+            twist.linear.x = -1.0 * state.left_stick_y
             twist.angular.z = -1.0 * copysign(
-                right_stick_x**2, right_stick_x
+                state.right_stick_x**2, state.right_stick_x
             )  # Exponent for finer control (curve)
 
             # This kinda looks dumb being seperate from the following block, but this
@@ -413,11 +401,11 @@ class Headless(Node):
             )
 
             # Brake mode
-            new_brake_mode = button_a
+            new_brake_mode = state.button_a
             # Max duty cycle
-            if left_bumper:
+            if state.left_bumper:
                 new_max_duty = 0.25
-            elif right_bumper:
+            elif state.right_bumper:
                 new_max_duty = 0.9
             else:
                 new_max_duty = 0.5
@@ -439,28 +427,15 @@ class Headless(Node):
                 )
 
     def send_arm(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
 
         # "IK" control mode (Servo) supports both IK and FK
         if self.use_arm_ik:
             new_servo_mode = self.servo_control_mode
 
-            if button_b:
+            if state.button_b:
                 new_servo_mode = "manual"
-            elif button_x:
+            elif state.button_x:
                 new_servo_mode = "ik"
 
             if new_servo_mode != self.servo_control_mode:
@@ -480,46 +455,46 @@ class Headless(Node):
             # OLD ARM MANUAL CONTROL SCHEME
             if not self.use_new_arm_manual_scheme:
                 # EF Grippers
-                if left_trigger > 0 and right_trigger > 0:
+                if state.left_trigger > 0 and state.right_trigger > 0:
                     arm_input.gripper = 0
-                elif left_trigger > 0:
+                elif state.left_trigger > 0:
                     arm_input.gripper = -1
-                elif right_trigger > 0:
+                elif state.right_trigger > 0:
                     arm_input.gripper = 1
 
                 # Axis 0
-                if dpad_input[0] == 1:
+                if state.dpad[0] == 1:
                     arm_input.axis0 = 1
-                elif dpad_input[0] == -1:
+                elif state.dpad[0] == -1:
                     arm_input.axis0 = -1
 
-                if right_bumper:  # Control end effector
+                if state.right_bumper:  # Control end effector
 
                     # Effector yaw
-                    if left_stick_x > 0:
+                    if state.left_stick_x > 0:
                         arm_input.effector_yaw = 1
-                    elif left_stick_x < 0:
+                    elif state.left_stick_x < 0:
                         arm_input.effector_yaw = -1
 
                     # Effector roll
-                    if right_stick_x > 0:
+                    if state.right_stick_x > 0:
                         arm_input.effector_roll = 1
-                    elif right_stick_x < 0:
+                    elif state.right_stick_x < 0:
                         arm_input.effector_roll = -1
 
                 else:  # Control arm axis
 
                     # Axis 1
-                    if abs(left_stick_x) > 0.15:
-                        arm_input.axis1 = round(left_stick_x)
+                    if abs(state.left_stick_x) > 0.15:
+                        arm_input.axis1 = round(state.left_stick_x)
 
                     # Axis 2
-                    if abs(left_stick_y) > 0.15:
-                        arm_input.axis2 = -1 * round(left_stick_y)
+                    if abs(state.left_stick_y) > 0.15:
+                        arm_input.axis2 = -1 * round(state.left_stick_y)
 
                     # Axis 3
-                    if abs(right_stick_y) > 0.15:
-                        arm_input.axis3 = -1 * round(right_stick_y)
+                    if abs(state.right_stick_y) > 0.15:
+                        arm_input.axis3 = -1 * round(state.right_stick_y)
 
             # NEW ARM MANUAL CONTROL SCHEME
             if self.use_new_arm_manual_scheme:
@@ -534,40 +509,40 @@ class Headless(Node):
                 # Y: linear actuator out
 
                 # Right stick: EF yaw and axis 3
-                arm_input.effector_yaw = stick_to_arm_direction(right_stick_x)
-                arm_input.axis3 = -1 * stick_to_arm_direction(right_stick_y)
+                arm_input.effector_yaw = stick_to_arm_direction(state.right_stick_x)
+                arm_input.axis3 = -1 * stick_to_arm_direction(state.right_stick_y)
 
                 # Left stick: axis 1 and 2
-                arm_input.axis1 = stick_to_arm_direction(left_stick_x)
-                arm_input.axis2 = -1 * stick_to_arm_direction(left_stick_y)
+                arm_input.axis1 = stick_to_arm_direction(state.left_stick_x)
+                arm_input.axis2 = -1 * stick_to_arm_direction(state.left_stick_y)
 
                 # D-pad: axis 0 and _
-                arm_input.axis0 = int(dpad_input[0])
+                arm_input.axis0 = int(state.dpad[0])
 
                 # Triggers: EF Grippers
-                if left_trigger > 0 and right_trigger > 0:
+                if state.left_trigger > 0 and state.right_trigger > 0:
                     arm_input.gripper = 0
-                elif left_trigger > 0:
+                elif state.left_trigger > 0:
                     arm_input.gripper = -1
-                elif right_trigger > 0:
+                elif state.right_trigger > 0:
                     arm_input.gripper = 1
 
                 # Bumpers: EF roll
-                if left_bumper > 0 and right_bumper > 0:
+                if state.left_bumper > 0 and state.right_bumper > 0:
                     arm_input.effector_roll = 0
-                elif left_bumper > 0:
+                elif state.left_bumper > 0:
                     arm_input.effector_roll = -1
-                elif right_bumper > 0:
+                elif state.right_bumper > 0:
                     arm_input.effector_roll = 1
 
                 # A: brake
-                if button_a:
+                if state.button_a:
                     arm_input.brake = True
 
                 # Y: linear actuator
-                if button_y and not button_b:
+                if state.button_y and not state.button_b:
                     arm_input.linear_actuator = 1
-                elif button_b and not button_y:
+                elif state.button_b and not state.button_y:
                     arm_input.linear_actuator = -1
                 else:
                     arm_input.linear_actuator = 0
@@ -598,37 +573,37 @@ class Headless(Node):
 
             # Right stick: EF yaw and axis 3
             arm_input.velocities[self.all_joint_names.index("wrist_yaw_joint")] = float(
-                stick_to_arm_direction(right_stick_x)
+                stick_to_arm_direction(state.right_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_3_joint")] = float(
-                stick_to_arm_direction(right_stick_y)
+                stick_to_arm_direction(state.right_stick_y)
             )
 
             # Left stick: axis 1 and 2
             arm_input.velocities[self.all_joint_names.index("axis_1_joint")] = float(
-                stick_to_arm_direction(left_stick_x)
+                stick_to_arm_direction(state.left_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_2_joint")] = float(
-                stick_to_arm_direction(left_stick_y)
+                stick_to_arm_direction(state.left_stick_y)
             )
 
             # D-pad: axis 0 and _
             arm_input.velocities[self.all_joint_names.index("axis_0_joint")] = float(
-                dpad_input[0]
+                state.dpad[0]
             )
 
             # Triggers: EF Grippers
             gripper_speed = 0.0
-            if left_trigger > 0 or right_trigger > 0:
-                gripper_speed = right_trigger - left_trigger
+            if state.left_trigger > 0 or state.right_trigger > 0:
+                gripper_speed = state.right_trigger - state.left_trigger
 
             # Bumpers: EF roll
             arm_input.velocities[self.all_joint_names.index("wrist_roll_joint")] = (
-                right_bumper - left_bumper
+                state.right_bumper - state.left_bumper
             )
 
             # A: brake
-            new_brake_mode = button_a
+            new_brake_mode = state.button_a
 
             if not self.use_arm_ik:
                 arm_input.velocities[
@@ -669,59 +644,46 @@ class Headless(Node):
             # Y: linear actuator out
 
             # Right stick: linear y and linear x
-            arm_twist.twist.linear.y = float(-1 * left_stick_x)
-            arm_twist.twist.linear.x = float(-1 * left_stick_y)
+            arm_twist.twist.linear.y = float(-1 * state.left_stick_x)
+            arm_twist.twist.linear.x = float(-1 * state.left_stick_y)
 
             # Left stick: angular z and linear z
-            arm_twist.twist.angular.z = float(-1 * right_stick_x)
-            arm_twist.twist.linear.z = float(-1 * right_stick_y)
+            arm_twist.twist.angular.z = float(-1 * state.right_stick_x)
+            arm_twist.twist.linear.z = float(-1 * state.right_stick_y)
             # D-pad: angular y and _
             arm_twist.twist.angular.y = (
-                float(0) if dpad_input[0] == 0 else float(copysign(0.75, dpad_input[0]))
+                float(0) if state.dpad[0] == 0 else float(copysign(0.75, state.dpad[0]))
             )
 
             # Triggers: EF Grippers
             gripper_speed = 0.0
-            if left_trigger > 0 or right_trigger > 0:
-                gripper_speed = right_trigger - left_trigger
+            if state.left_trigger > 0 or state.right_trigger > 0:
+                gripper_speed = state.right_trigger - state.left_trigger
 
             # Bumpers: angular x
-            if left_bumper > 0 and right_bumper > 0:
+            if state.left_bumper > 0 and state.right_bumper > 0:
                 arm_twist.twist.angular.x = float(0)
-            elif left_bumper > 0:
+            elif state.left_bumper > 0:
                 arm_twist.twist.angular.x = float(1)
-            elif right_bumper > 0:
+            elif state.right_bumper > 0:
                 arm_twist.twist.angular.x = float(-1)
 
             self.arm_ik_twist_publisher.publish(arm_twist)
             self.gripper_velocity_pub_.publish(Float64MultiArray(data=[gripper_speed]))
 
     def send_bio(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
 
         if self.use_old_topics:
             bio_input = BioControl(
-                bio_arm=int(left_stick_y * -100),
-                drill_arm=int(round(right_stick_y) * -100),
+                bio_arm=int(state.left_stick_y * -100),
+                drill_arm=int(round(state.right_stick_y) * -100),
             )
 
             # Drill motor (LANCE)
-            if left_trigger > 0 or right_trigger > 0:
+            if state.left_trigger > 0 or state.right_trigger > 0:
                 bio_input.drill = int(
-                    30 * (right_trigger - left_trigger)
+                    30 * (state.right_trigger - state.left_trigger)
                 )  # Max duty cycle 30%
 
             self.bio_publisher.publish(bio_input)
@@ -759,6 +721,49 @@ def stick_to_arm_direction(value: float, threshold=ARM_DEADZONE) -> int:
     if abs(value) < threshold:
         return 0
     return int(copysign(1, value))
+
+
+class ControllerState(NamedTuple):
+    """Snapshot of the gamepad state. Like a struct, but the values cannot be changed.
+
+    No enums are used for the gamepad.get_*() functions because they are all immediately
+    assigned to a reasonable variable name.
+    """
+
+    left_stick_x: float
+    left_stick_y: float
+    left_trigger: float
+    right_stick_x: float
+    right_stick_y: float
+    right_trigger: float
+    button_a: bool
+    button_b: bool
+    button_x: bool
+    button_y: bool
+    left_bumper: bool
+    right_bumper: bool
+    dpad: tuple[float, float]
+
+    @classmethod
+    def from_gamepad(cls, gamepad: pygame.joystick.JoystickType) -> "ControllerState":
+        # For the triggers, discard negative numbers in case a controller's trigger
+        # values are centered in the middle of the trigger's throw instead of the
+        # default position.
+        return cls(
+            left_stick_x=stick_deadzone(gamepad.get_axis(0)),
+            left_stick_y=stick_deadzone(gamepad.get_axis(1)),
+            left_trigger=max(0.0, stick_deadzone(gamepad.get_axis(2))),
+            right_stick_x=stick_deadzone(gamepad.get_axis(3)),
+            right_stick_y=stick_deadzone(gamepad.get_axis(4)),
+            right_trigger=max(0.0, stick_deadzone(gamepad.get_axis(5))),
+            button_a=gamepad.get_button(0),
+            button_b=gamepad.get_button(1),
+            button_x=gamepad.get_button(2),
+            button_y=gamepad.get_button(3),
+            left_bumper=gamepad.get_button(4),
+            right_bumper=gamepad.get_button(5),
+            dpad=gamepad.get_hat(0),
+        )
 
 
 def is_user_in_group(group_name: str) -> bool:
