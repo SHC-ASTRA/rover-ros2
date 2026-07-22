@@ -3,8 +3,6 @@ import rclpy
 from rclpy.node import Node
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-import signal
-import sys
 import threading
 import time
 

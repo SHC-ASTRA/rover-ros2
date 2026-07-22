@@ -61,7 +61,7 @@ class ArmNode(Node):
     def __init__(self):
         super().__init__("arm_node")
 
-        self.get_logger().info(f"arm launch_mode is: anchor")  # Hey I like the output
+        self.get_logger().info("arm launch_mode is: anchor")  # Hey I like the output
 
         ##################################################
         # Parameters
@@ -473,10 +473,10 @@ class ArmNode(Node):
             case 55:  # Arm joint positions
                 self.saved_joint_state.position[4] = math.radians(
                     msg.data[0]
-                )  # Wrist roll
+                )  # Wrist yaw
                 self.saved_joint_state.position[5] = math.radians(
                     msg.data[1]
-                )  # Wrist yaw
+                )  # Wrist roll
 
     @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):

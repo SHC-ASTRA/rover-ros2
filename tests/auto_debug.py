@@ -4,12 +4,11 @@ from inspect import currentframe, getframeinfo
 import os
 import socket
 import subprocess
-from typing import *
 
 # TODO: import pytest
 
 
-class Tester():
+class Tester:
     isRover = False
 
     def __init__(self):
@@ -18,13 +17,17 @@ class Tester():
 
         # Force to be bool
         self.isRover = True if os.getenv("ISROVER_OVERRIDE") else False
-    
+
         if user == "astra" and (host == "clucky" or host == "testbed"):
             # We are on the rover
             self.isRover = True
 
-        print("This script will attempt to perform some common health checks to assist with troubleshooting.")
-        print("If not ran on the rover, it will attempt to connect over SSH and run the commands remotely.")
+        print(
+            "This script will attempt to perform some common health checks to assist with troubleshooting."
+        )
+        print(
+            "If not ran on the rover, it will attempt to connect over SSH and run the commands remotely."
+        )
 
         if not self.isRover:
             # Figure out where that bitch is
@@ -48,7 +51,12 @@ class Tester():
 
     def run_checks(self):
         # TEST: Is Anchor service running
-        if self.run_on_rover(["systemctl", "--user", "--quiet", "is-active", "anchor.service"])[0].returncode != 0:
+        if (
+            self.run_on_rover(
+                ["systemctl", "--user", "--quiet", "is-active", "anchor.service"]
+            )[0].returncode
+            != 0
+        ):
             print("WARN: Anchor service is not running. Continuing anyways...")
 
         # TEST: Is the ros2 command available
@@ -56,7 +64,9 @@ class Tester():
             error_result("Cannot run ros2 command on the rover.")
 
         # TEST: Is the anchor service running
-        info_debug, info_debug_output = self.run_on_rover(["ros2", "topic", "info", "/anchor/from_vic/debug"], timeout=5)
+        info_debug, info_debug_output = self.run_on_rover(
+            ["ros2", "topic", "info", "/anchor/from_vic/debug"], timeout=5
+        )
         if info_debug.returncode != 0:
             error_result("Anchor is not actually running.")
         else:
@@ -73,20 +83,26 @@ class Tester():
 
         # TEST: Are we getting any feedback from the MCU
         print("Listening for feedback from the rover...")
-        _, echo_output = self.run_on_rover(["ros2", "topic", "echo", "/anchor/from_vic/debug", "--field", "data"], timeout=5)
+        _, echo_output = self.run_on_rover(
+            ["ros2", "topic", "echo", "/anchor/from_vic/debug", "--field", "data"],
+            timeout=5,
+        )
         getting_feedback = False
         for line in echo_output.strip().split("\n"):
             if line.startswith("can_relay_fromvic,"):
                 getting_feedback = True
                 break
         if not getting_feedback:
-            error_result("Not getting any feedback from the rover. Try `can_relay_mode,on`.")
+            error_result(
+                "Not getting any feedback from the rover. Try `can_relay_mode,on`."
+            )
 
         # END
-        print("All checks passed. This does not guarantee that you will not run into any problems.")
+        print(
+            "All checks passed. This does not guarantee that you will not run into any problems."
+        )
 
-
-    def run_on_rover(self, command: List[str], timeout=60):
+    def run_on_rover(self, command: list[str], timeout=60):
         if not self.isRover:
             command = ["ssh", f"astra@{self.rover_ip}", f"{" ".join(command)}"]
 
@@ -105,7 +121,9 @@ def error_result(msg, result=1):
     cf = currentframe()
     if cf is None or cf.f_back is None:  # Typing
         exit(1)
-    print(f"[{getframeinfo(cf).filename.split("/")[-1]}:{cf.f_back.f_lineno}] ERROR:", msg)
+    print(
+        f"[{getframeinfo(cf).filename.split("/")[-1]}:{cf.f_back.f_lineno}] ERROR:", msg
+    )
     exit(result)
 
 

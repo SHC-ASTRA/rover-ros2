@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
-from rclpy.duration import Duration
 
 import signal
 import time
@@ -28,7 +27,7 @@ warnings.filterwarnings(
     message="Your system is avx2 capable but pygame was not built with support for it.",
 )
 
-import pygame
+import pygame  # noqa: E402 - import not at top of file
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display
 os.environ["SDL_AUDIODRIVER"] = (
@@ -119,7 +118,7 @@ class Headless(Node):
                 self.gamepad.init()
             except Exception as e:
                 self.get_logger().error("Error when initializing gamepad")
-                self.get_logger().error(e)
+                self.get_logger().error(str(e))
                 id += 1
                 continue
             print(f"Gamepad found: {self.gamepad.get_name()}")
@@ -191,7 +190,7 @@ class Headless(Node):
             sys.exit(1)
         if not self.use_new_arm_manual_scheme and not self.use_old_topics:
             self.get_logger().warn(
-                f"New arm manual does not support old control scheme. Defaulting to new scheme."
+                "New arm manual does not support old control scheme. Defaulting to new scheme."
             )
 
         self.ctrl_mode = "core"  # Start in core mode
@@ -468,7 +467,9 @@ class Headless(Node):
                 self.stop_all()
                 self.gamepad.rumble(0.6, 0.7, 75)
                 self.servo_control_mode = new_servo_mode
-                self.get_logger().info(f"Switched to {self.servo_control_mode} control mode")
+                self.get_logger().info(
+                    f"Switched to {self.servo_control_mode} control mode"
+                )
 
         # OLD MANUAL
         # ==========
@@ -576,7 +577,9 @@ class Headless(Node):
         # NEW MANUAL
         # ==========
 
-        elif (not self.use_arm_ik or self.servo_control_mode == "manual") and not self.use_old_topics:
+        elif (
+            not self.use_arm_ik or self.servo_control_mode == "manual"
+        ) and not self.use_old_topics:
             arm_input = JointJog()
             arm_input.header.frame_id = "base_link"
             arm_input.header.stamp = self.get_clock().now().to_msg()
@@ -633,7 +636,9 @@ class Headless(Node):
                 ] = gripper_speed
                 self.arm_manual_pub_.publish(arm_input)
             else:
-                self.gripper_velocity_pub_.publish(Float64MultiArray(data=[gripper_speed]))
+                self.gripper_velocity_pub_.publish(
+                    Float64MultiArray(data=[gripper_speed])
+                )
                 self.arm_ik_jointjog_publisher.publish(arm_input)
 
             # Only publish state if needed
@@ -643,9 +648,7 @@ class Headless(Node):
                 state_msg.brake_mode = bool(self.arm_brake_mode)
 
                 self.arm_state_pub_.publish(state_msg)
-                self.get_logger().info(
-                    f"[Arm State] Brake: {self.arm_brake_mode}"
-                )
+                self.get_logger().info(f"[Arm State] Brake: {self.arm_brake_mode}")
 
         # IK (ONLY NEW)
         # =============
@@ -674,9 +677,7 @@ class Headless(Node):
             arm_twist.twist.linear.z = float(-1 * right_stick_y)
             # D-pad: angular y and _
             arm_twist.twist.angular.y = (
-                float(0)
-                if dpad_input[0] == 0
-                else float(copysign(0.75, dpad_input[0]))
+                float(0) if dpad_input[0] == 0 else float(copysign(0.75, dpad_input[0]))
             )
 
             # Triggers: EF Grippers

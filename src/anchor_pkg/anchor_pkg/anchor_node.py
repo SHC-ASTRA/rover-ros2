@@ -263,10 +263,16 @@ class Anchor(Node):
         if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
             version_msg = self.mcu_versions[msg.mcu_name]
             version_msg.project_commit_fragment = hex(
-                int.from_bytes(struct.pack("<hh", int(msg.data[0]), int(msg.data[1])))
+                int.from_bytes(
+                    struct.pack("<hh", int(msg.data[0]), int(msg.data[1])),
+                    byteorder="big",
+                )
             )[2:]
             version_msg.astra_lib_commit_fragment = hex(
-                int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
+                int.from_bytes(
+                    struct.pack("<hh", int(msg.data[2]), int(msg.data[3])),
+                    byteorder="big",
+                )
             )[2:]
         elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
             version_msg = self.mcu_versions[msg.mcu_name]
