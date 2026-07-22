@@ -167,6 +167,7 @@ class SerialRelay(Node):
 
     def libs_fire_callback(self, request, response):
         print("todo")
+        return response
 
     def execute_vacuum(self, goal_handle):
         valve_id = int(goal_handle.request.valve_id)
@@ -190,6 +191,7 @@ class SerialRelay(Node):
         feedback = BioVacuum.Feedback()
         start = time.time()
 
+        # This blocks every other callback of the Node
         while True:
             # set fan duty cycle
             self.anchor_tovic_pub_.publish(

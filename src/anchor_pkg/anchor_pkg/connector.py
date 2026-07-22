@@ -215,7 +215,7 @@ class SerialConnector(Connector):
             str: A hopefully-complete string read from the MCU via the serial interface.
         """
         if TYPE_CHECKING:
-            assert type(self.serial_interface) == serial.Serial
+            assert self.serial_interface is serial.Serial
 
         # Warn on buffer timeout, as the only scenarios that would trigger this are
         # a microcontroller output that isn't newline-terminated (bad), or the MCU is
@@ -278,7 +278,7 @@ class SerialConnector(Connector):
             if self.serial_interface.is_open:
                 self.serial_interface.close()
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(str(e))
 
 
 class CANConnector(Connector):
@@ -288,7 +288,7 @@ class CANConnector(Connector):
         self.can_channel: str | None = None
         self.can_bus: can.BusABC | None = None
 
-        avail = can.interfaces.socketcan.SocketcanBus._detect_available_configs()
+        avail = can.detect_available_configs(interfaces=["socketcan"])
 
         if len(avail) == 0:
             raise NoValidDeviceException("no CAN interfaces found")
@@ -435,7 +435,7 @@ class CANConnector(Connector):
             mcu_id = next(
                 key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower()
             )
-        except ValueError:
+        except (ValueError, StopIteration):
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
             )
@@ -503,7 +503,7 @@ class CANConnector(Connector):
                 self.logger.info("shutting down CAN bus")
                 self.can_bus.shutdown()
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(str(e))
 
 
 class MockConnector(Connector):

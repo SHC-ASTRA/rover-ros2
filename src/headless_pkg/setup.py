@@ -17,6 +17,6 @@ setup(
     description="Provides headless rover control, similar to Basestation.",
     license="AGPL-3.0-only",
     entry_points={
-        "console_scripts": ["headless_full = src.headless_node:main"],
+        "console_scripts": ["headless_full = headless_pkg.headless_node:main"],
     },
 )
