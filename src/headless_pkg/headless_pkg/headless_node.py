@@ -1,7 +1,8 @@
 import rclpy
-from rclpy.node import Node
-from rclpy.executors import ExternalShutdownException
 from rclpy import qos
+from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
+from rclpy.executors import ExternalShutdownException
 
 import signal
 import time
@@ -11,7 +12,7 @@ import sys
 import pwd
 import grp
 from math import copysign
-from typing import NamedTuple
+from typing import NamedTuple, TypeVar
 
 from std_srvs.srv import Trigger
 from std_msgs.msg import Header, Float64MultiArray
@@ -57,6 +58,9 @@ control_qos = qos.QoSProfile(
 
 STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
 ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
+
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
 
 
 class Headless(Node):
@@ -151,29 +155,17 @@ class Headless(Node):
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", False)
-        self.use_old_topics = (
-            self.get_parameter("use_old_topics").get_parameter_value().bool_value
-        )
+        self.use_old_topics = self._create_param("use_old_topics", False)
 
-        self.declare_parameter("use_cmd_vel", False)
-        self.use_cmd_vel = (
-            self.get_parameter("use_cmd_vel").get_parameter_value().bool_value
-        )
+        self.use_cmd_vel = self._create_param("use_cmd_vel", False)
 
-        self.declare_parameter("use_bio", False)
-        self.use_bio = self.get_parameter("use_bio").get_parameter_value().bool_value
+        self.use_bio = self._create_param("use_bio", False)
 
-        self.declare_parameter("use_arm_ik", False)
-        self.use_arm_ik = (
-            self.get_parameter("use_arm_ik").get_parameter_value().bool_value
-        )
+        self.use_arm_ik = self._create_param("use_arm_ik", False)
+
         # NOTE: only applicable if use_old_topics == True
-        self.declare_parameter("use_new_arm_manual_scheme", True)
-        self.use_new_arm_manual_scheme = (
-            self.get_parameter("use_new_arm_manual_scheme")
-            .get_parameter_value()
-            .bool_value
+        self.use_new_arm_manual_scheme = self._create_param(
+            "use_new_arm_manual_scheme", True
         )
 
         # Check parameter validity
@@ -280,6 +272,30 @@ class Headless(Node):
 
         # Added so you can tell when it starts running after changing the constant logging to debug from info
         self.get_logger().info("Defaulting to Core mode. Ready.")
+
+    def _create_param(self, name: str, default: T, silent=False) -> T:
+        try:
+            self.declare_parameter(name, default)
+        except InvalidParameterTypeException as e:
+            self.get_logger().fatal(f"Invalid type: {e}")
+            exit(1)
+        value: T = self.get_parameter(name).value  # type: ignore (trust me bro it's T)
+        if not silent:
+            self.get_logger().info(f"P: {name} = {value}")
+        # setattr(self, name, value)
+        return value
+
+    def _create_list_param(self, name: str, default: list[T], silent=False) -> list[T]:
+        try:
+            self.declare_parameter(name, default)
+        except InvalidParameterTypeException as e:
+            self.get_logger().fatal(f"Invalid type: {e}")
+            exit(1)
+        value: list[T] = self.get_parameter(name).value  # type: ignore (trust me bro it's T)
+        if not silent:
+            self.get_logger().info(f"P: {name} = {value}")
+        # setattr(self, name, value)
+        return value
 
     def stop_all(self):
         if self.use_old_topics:
