@@ -157,7 +157,7 @@ class Headless(Node):
 
         self.use_old_topics = self._create_param("use_old_topics", False)
 
-        self.use_cmd_vel = self._create_param("use_cmd_vel", False)
+        self.use_duty_cycle_core = self._create_param("use_duty_cycle_core", True)
 
         self.use_bio = self._create_param("use_bio", False)
 
@@ -169,15 +169,6 @@ class Headless(Node):
         )
 
         # Check parameter validity
-        if self.use_cmd_vel:
-            self.get_logger().info("Using cmd_vel for core control")
-            global CORE_MODE
-            CORE_MODE = "twist"
-        elif self.use_old_topics:
-            self.get_logger().info("Using astra_msgs/CoreControl for core control")
-        else:
-            self.get_logger().info("Using geometry_msgs/Twist for core control")
-
         if self.use_arm_ik and self.use_old_topics:
             self.get_logger().fatal("Old topics do not support arm IK control.")
             sys.exit(1)
@@ -210,9 +201,6 @@ class Headless(Node):
         # New Topics
 
         if not self.use_old_topics:
-            self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/control/twist_duty_cycle", qos_profile=control_qos
-            )
             self.core_cmd_vel_pub_ = self.create_publisher(
                 Twist, "/core/control/cmd_vel", qos_profile=control_qos
             )
@@ -303,10 +291,7 @@ class Headless(Node):
             self.arm_publisher.publish(ARM_STOP_MSG)
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
-            if self.use_cmd_vel:
-                self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
-            else:
-                self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
+            self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
@@ -397,28 +382,24 @@ class Headless(Node):
                 state.right_stick_x**2, state.right_stick_x
             )  # Exponent for finer control (curve)
 
-            # This kinda looks dumb being seperate from the following block, but this
-            # maintains the separation between modifying the control message and sending it.
-            if self.use_cmd_vel:
+            if not self.use_duty_cycle_core:
                 # These scaling factors convert raw stick inputs to absolute m/s and rad/s
                 # values that DiffDriveController will convert to motor RPM, rather than
-                # the plain Twist, which just sends the stick values as duty cycle and
-                # sends that scaled to the motors.
+                # sending the stick values as duty cycle (0-1) and sending that to the motors.
                 twist.linear.x *= 1.0
                 twist.angular.z *= 1.5
 
             # Publish
-            if self.use_cmd_vel:
-                self.core_cmd_vel_pub_.publish(twist)
-            else:
-                self.core_twist_pub_.publish(twist)
+            self.core_cmd_vel_pub_.publish(twist)
             self.get_logger().debug(
                 f"[Core Ctrl] Linear: {round(twist.linear.x, 2)}, Angular: {round(twist.angular.z, 2)}"
             )
 
             # Brake mode
             new_brake_mode = state.button_a
+
             # Max duty cycle
+            # TODO: this should be implemented as a modification to the twist message
             if state.left_bumper:
                 new_max_duty = 0.25
             elif state.right_bumper:
