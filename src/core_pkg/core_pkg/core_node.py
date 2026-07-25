@@ -155,14 +155,14 @@ class CoreNode(Node):
                 JointState, "/core/joint_commands", self.joint_command_callback, 2
             )
         else:
-            # manual twist -- [-1, 1] rather than real units
+            # duty cycle twist -- [-1, 1] rather than real units
             self.twist_man_sub_ = self.create_subscription(
                 Twist,
-                "/core/control/twist_duty_cycle",
+                "/core/control/cmd_vel",
                 self.twist_man_callback,
                 qos_profile=control_qos,
             )
-            # manual flags -- brake mode and max duty cycle
+            # duty cycle flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
                 CoreCtrlState,
                 "/core/control/state",
