@@ -163,19 +163,10 @@ class Headless(Node):
 
         self.use_arm_ik = self._create_param("use_arm_ik", False)
 
-        # NOTE: only applicable if use_old_topics == True
-        self.use_new_arm_manual_scheme = self._create_param(
-            "use_new_arm_manual_scheme", True
-        )
-
         # Check parameter validity
         if self.use_arm_ik and self.use_old_topics:
             self.get_logger().fatal("Old topics do not support arm IK control.")
             sys.exit(1)
-        if not self.use_new_arm_manual_scheme and not self.use_old_topics:
-            self.get_logger().warn(
-                "New arm manual does not support old control scheme. Defaulting to new scheme."
-            )
 
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
@@ -491,100 +482,54 @@ class Headless(Node):
         if not self.use_arm_ik and self.use_old_topics:
             arm_input = ArmManual()
 
-            # OLD ARM MANUAL CONTROL SCHEME
-            if not self.use_new_arm_manual_scheme:
-                # EF Grippers
-                if state.left_trigger > 0 and state.right_trigger > 0:
-                    arm_input.gripper = 0
-                elif state.left_trigger > 0:
-                    arm_input.gripper = -1
-                elif state.right_trigger > 0:
-                    arm_input.gripper = 1
+            # Right stick: EF yaw and axis 3
+            # Left stick: axis 1 and 2
+            # D-pad: axis 0 and _
+            # Triggers: EF grippers
+            # Bumpers: EF roll
+            # A: brake
+            # B: linear actuator in
+            # X: _
+            # Y: linear actuator out
 
-                # Axis 0
-                if state.dpad[0] == 1:
-                    arm_input.axis0 = 1
-                elif state.dpad[0] == -1:
-                    arm_input.axis0 = -1
+            # Right stick: EF yaw and axis 3
+            arm_input.effector_yaw = stick_to_arm_direction(state.right_stick_x)
+            arm_input.axis3 = -1 * stick_to_arm_direction(state.right_stick_y)
 
-                if state.right_bumper:  # Control end effector
+            # Left stick: axis 1 and 2
+            arm_input.axis1 = stick_to_arm_direction(state.left_stick_x)
+            arm_input.axis2 = -1 * stick_to_arm_direction(state.left_stick_y)
 
-                    # Effector yaw
-                    if state.left_stick_x > 0:
-                        arm_input.effector_yaw = 1
-                    elif state.left_stick_x < 0:
-                        arm_input.effector_yaw = -1
+            # D-pad: axis 0 and _
+            arm_input.axis0 = int(state.dpad[0])
 
-                    # Effector roll
-                    if state.right_stick_x > 0:
-                        arm_input.effector_roll = 1
-                    elif state.right_stick_x < 0:
-                        arm_input.effector_roll = -1
+            # Triggers: EF Grippers
+            if state.left_trigger > 0 and state.right_trigger > 0:
+                arm_input.gripper = 0
+            elif state.left_trigger > 0:
+                arm_input.gripper = -1
+            elif state.right_trigger > 0:
+                arm_input.gripper = 1
 
-                else:  # Control arm axis
+            # Bumpers: EF roll
+            if state.left_bumper > 0 and state.right_bumper > 0:
+                arm_input.effector_roll = 0
+            elif state.left_bumper > 0:
+                arm_input.effector_roll = -1
+            elif state.right_bumper > 0:
+                arm_input.effector_roll = 1
 
-                    # Axis 1
-                    if abs(state.left_stick_x) > 0.15:
-                        arm_input.axis1 = round(state.left_stick_x)
+            # A: brake
+            if state.button_a:
+                arm_input.brake = True
 
-                    # Axis 2
-                    if abs(state.left_stick_y) > 0.15:
-                        arm_input.axis2 = -1 * round(state.left_stick_y)
-
-                    # Axis 3
-                    if abs(state.right_stick_y) > 0.15:
-                        arm_input.axis3 = -1 * round(state.right_stick_y)
-
-            # NEW ARM MANUAL CONTROL SCHEME
-            if self.use_new_arm_manual_scheme:
-                # Right stick: EF yaw and axis 3
-                # Left stick: axis 1 and 2
-                # D-pad: axis 0 and _
-                # Triggers: EF grippers
-                # Bumpers: EF roll
-                # A: brake
-                # B: linear actuator in
-                # X: _
-                # Y: linear actuator out
-
-                # Right stick: EF yaw and axis 3
-                arm_input.effector_yaw = stick_to_arm_direction(state.right_stick_x)
-                arm_input.axis3 = -1 * stick_to_arm_direction(state.right_stick_y)
-
-                # Left stick: axis 1 and 2
-                arm_input.axis1 = stick_to_arm_direction(state.left_stick_x)
-                arm_input.axis2 = -1 * stick_to_arm_direction(state.left_stick_y)
-
-                # D-pad: axis 0 and _
-                arm_input.axis0 = int(state.dpad[0])
-
-                # Triggers: EF Grippers
-                if state.left_trigger > 0 and state.right_trigger > 0:
-                    arm_input.gripper = 0
-                elif state.left_trigger > 0:
-                    arm_input.gripper = -1
-                elif state.right_trigger > 0:
-                    arm_input.gripper = 1
-
-                # Bumpers: EF roll
-                if state.left_bumper > 0 and state.right_bumper > 0:
-                    arm_input.effector_roll = 0
-                elif state.left_bumper > 0:
-                    arm_input.effector_roll = -1
-                elif state.right_bumper > 0:
-                    arm_input.effector_roll = 1
-
-                # A: brake
-                if state.button_a:
-                    arm_input.brake = True
-
-                # Y: linear actuator
-                if state.button_y and not state.button_b:
-                    arm_input.linear_actuator = 1
-                elif state.button_b and not state.button_y:
-                    arm_input.linear_actuator = -1
-                else:
-                    arm_input.linear_actuator = 0
+            # Y: linear actuator
+            if state.button_y and not state.button_b:
+                arm_input.linear_actuator = 1
+            elif state.button_b and not state.button_y:
+                arm_input.linear_actuator = -1
+            else:
+                arm_input.linear_actuator = 0
 
             self.arm_publisher.publish(arm_input)
 
