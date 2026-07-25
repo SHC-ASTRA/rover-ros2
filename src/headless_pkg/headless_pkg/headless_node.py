@@ -195,7 +195,27 @@ class Headless(Node):
             self.arm_publisher = self.create_publisher(
                 ArmManual, "/arm/control/manual", 2
             )
-            self.bio_publisher = self.create_publisher(BioControl, "/bio/control", 2)
+            if self.use_bio:
+                self.bio_publisher = self.create_publisher(
+                    BioControl, "/bio/control", 2
+                )
+
+            # Print topic names and types
+            self.get_logger().info("NOTE: USING OLD TOPICS")
+            self.get_logger().info(
+                f"Core topic: {self.core_publisher.topic_name}"
+                f" [{self.core_publisher.msg_type.__qualname__}]"
+            )
+            if not self.use_bio:
+                self.get_logger().info(
+                    f"Arm topic: {self.arm_publisher.topic_name}"
+                    f" [{self.arm_publisher.msg_type.__qualname__}]"
+                )
+            else:
+                self.get_logger().info(
+                    f"Bio topic: {self.bio_publisher.topic_name}"
+                    f" [{self.bio_publisher.msg_type.__qualname__}]"
+                )
 
         ##################################################
         # New Topics
@@ -227,6 +247,28 @@ class Headless(Node):
             )
 
             # TODO: add new bio topics
+
+            # Print topic names and types
+            if self.use_duty_cycle_core:
+                core_method = "duty cycle"
+            else:
+                core_method = "velocity"
+            core_method += (
+                f" - {self.core_cmd_vel_pub_.topic_name}"
+                f" [{self.core_cmd_vel_pub_.msg_type.__qualname__}]"
+            )
+
+            if not self.use_arm_ik:
+                arm_method = (
+                    "manual/FK-only"
+                    f" - {self.arm_manual_pub_.topic_name}"
+                    f" [{self.arm_manual_pub_.msg_type.__qualname__}]"
+                )
+            else:
+                arm_method = "IK/FK switchable"
+
+            self.get_logger().info(f"Core: {core_method}")
+            self.get_logger().info(f"Arm: {arm_method}")
 
         ##################################################
         # Timers
