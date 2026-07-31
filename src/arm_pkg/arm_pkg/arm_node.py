@@ -164,6 +164,10 @@ class ArmNode(Node):
         ###################################################
         # Saved state
 
+        # Controls - initialize before timer has a chance to run
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = JointState()
+
         # Combined Socket and Digit feedback
         self.arm_feedback_new = ArmFeedback()
         self.arm_feedback_new.axis0_motor.id = 1
