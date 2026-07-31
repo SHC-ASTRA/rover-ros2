@@ -65,7 +65,9 @@ def generate_launch_description():
         )
     )
 
-    # nodes
+    ####################################################################################
+    # Launch Nodes
+
     ld.add_action(
         Node(
             package="anchor_pkg",
