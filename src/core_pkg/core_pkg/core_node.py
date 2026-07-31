@@ -1,6 +1,6 @@
 import sys
 import signal
-from typing import Literal, cast
+from typing import Callable, Literal, TypeVar, cast
 from enum import IntEnum
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
@@ -10,6 +10,7 @@ from socket import gethostname
 
 import rclpy
 from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
 from rclpy.duration import Duration
@@ -39,7 +40,13 @@ class MotorId(IntEnum):
     BR = 3
 
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
@@ -49,6 +56,74 @@ control_qos = qos.QoSProfile(
     # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
     # liveliness_lease_duration=Duration(seconds=5),
 )
+
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
 
 
 class CoreNode(Node):
@@ -77,17 +152,10 @@ class CoreNode(Node):
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_ros2_control", False)
-        self.use_ros2_control = (
-            self.get_parameter("use_ros2_control").get_parameter_value().bool_value
-        )
+        self.use_ros2_control = create_param(self, "use_ros2_control", False)
 
-        self.declare_parameter("rover_platform_override", "")
-        rover_platform = (
-            self.get_parameter("rover_platform_override")
-            .get_parameter_value()
-            .string_value
-        )
+        rover_platform = create_param(self, "rover_platform_override", "")
+
         # Verify rover_platform_override value is valid
         if rover_platform not in ("clucky", "testbed", ""):
             # Keeping this here, because I want a value error only if the user manually
@@ -160,14 +228,14 @@ class CoreNode(Node):
                 Twist,
                 "/core/control/cmd_vel",
                 self.twist_man_callback,
-                qos_profile=control_qos,
+                qos_profile=CONTROL_QOS,
             )
             # duty cycle flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
                 CoreCtrlState,
                 "/core/control/state",
                 self.control_state_callback,
-                qos_profile=control_qos,
+                qos_profile=CONTROL_QOS,
             )
             self.twist_max_duty = 0.5  # max duty cycle for twist commands (0.0 - 1.0); walking speed is 0.5
 
@@ -672,26 +740,8 @@ def radps_to_rpm(radps: float):
     return radps * 60 / (2 * pi)
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
-
-
 def main(args=None):
-    rclpy.init(args=args)
-
-    # Catch termination signals and exit cleanly
-    signal.signal(signal.SIGTERM, exit_handler)
-
-    core_node = CoreNode()
-
-    try:
-        rclpy.spin(core_node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        rclpy.try_shutdown()
+    run_node(CoreNode, args)
 
 
 if __name__ == "__main__":
