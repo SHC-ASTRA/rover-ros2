@@ -12,7 +12,7 @@ import sys
 import pwd
 import grp
 from math import copysign
-from typing import NamedTuple, TypeVar
+from typing import Callable, NamedTuple, TypeVar
 
 from std_srvs.srv import Trigger
 from std_msgs.msg import Header, Float64MultiArray
@@ -21,10 +21,10 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
 from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
-import warnings
+from warnings import filterwarnings
 
 # Literally headless
-warnings.filterwarnings(
+filterwarnings(
     "ignore",
     message="Your system is avx2 capable but pygame was not built with support for it.",
 )
@@ -44,10 +44,16 @@ BIO_STOP_MSG = BioControl()  # "
 GRIPPER_STOP_MSG = Float64MultiArray(data=[0.0])  # "
 
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
     durability=qos.QoSDurabilityPolicy.VOLATILE,
     # deadline=Duration(seconds=1),
     # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
@@ -55,26 +61,94 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
-
-STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
-ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
-
 # Template parameter type
 T = TypeVar("T", bool, int, float, str)
 
 
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
+
+# Every non-fixed joint defined in Arm's URDF
+# Used for JointState and JointJog messsages
+ALL_ARM_JOINT_NAMES = [
+    "axis_0_joint",
+    "axis_1_joint",
+    "axis_2_joint",
+    "axis_3_joint",
+    "wrist_yaw_joint",
+    "wrist_roll_joint",
+    "ef_gripper_left_joint",
+]
+
+
+STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
+ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
+
+
 class Headless(Node):
-    # Every non-fixed joint defined in Arm's URDF
-    # Used for JointState and JointJog messsages
-    all_joint_names = [
-        "axis_0_joint",
-        "axis_1_joint",
-        "axis_2_joint",
-        "axis_3_joint",
-        "wrist_yaw_joint",
-        "wrist_roll_joint",
-        "ef_gripper_left_joint",
-    ]
+    # Copy so instances can modify the list without touching the shared constant
+    all_joint_names = list(ALL_ARM_JOINT_NAMES)
 
     def __init__(self):
         # Initialize pygame first
@@ -85,10 +159,7 @@ class Headless(Node):
         ##################################################
         # Preamble
 
-        self.declare_parameter("require_anchor", True)
-        self.require_anchor = (
-            self.get_parameter("require_anchor").get_parameter_value().bool_value
-        )
+        self.require_anchor = create_param(self, "require_anchor", True)
 
         # Wait for anchor to start -- mainly to delay the controller buzz until the
         # rover is actually ready to drive
@@ -155,13 +226,13 @@ class Headless(Node):
         ##################################################
         # Parameters
 
-        self.use_old_topics = self._create_param("use_old_topics", False)
+        self.use_old_topics = create_param(self, "use_old_topics", False)
 
-        self.use_duty_cycle_core = self._create_param("use_duty_cycle_core", True)
+        self.use_duty_cycle_core = create_param(self, "use_duty_cycle_core", True)
 
-        self.use_bio = self._create_param("use_bio", False)
+        self.use_bio = create_param(self, "use_bio", False)
 
-        self.use_arm_ik = self._create_param("use_arm_ik", False)
+        self.use_arm_ik = create_param(self, "use_arm_ik", False)
 
         # Check parameter validity
         if self.use_arm_ik and self.use_old_topics:
@@ -213,28 +284,28 @@ class Headless(Node):
 
         if not self.use_old_topics:
             self.core_cmd_vel_pub_ = self.create_publisher(
-                Twist, "/core/control/cmd_vel", qos_profile=control_qos
+                Twist, "/core/control/cmd_vel", qos_profile=CONTROL_QOS
             )
             self.core_state_pub_ = self.create_publisher(
-                CoreCtrlState, "/core/control/state", qos_profile=control_qos
+                CoreCtrlState, "/core/control/state", qos_profile=CONTROL_QOS
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/control/manual_joint_jog", qos_profile=control_qos
+                JointJog, "/arm/control/manual_joint_jog", qos_profile=CONTROL_QOS
             )
             self.arm_state_pub_ = self.create_publisher(
-                ArmCtrlState, "/arm/control/state", qos_profile=control_qos
+                ArmCtrlState, "/arm/control/state", qos_profile=CONTROL_QOS
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
-                TwistStamped, "/arm/control/ik_twist", qos_profile=control_qos
+                TwistStamped, "/arm/control/ik_twist", qos_profile=CONTROL_QOS
             )
             self.arm_ik_jointjog_publisher = self.create_publisher(
-                JointJog, "/arm/control/ik_joint_jog", qos_profile=control_qos
+                JointJog, "/arm/control/ik_joint_jog", qos_profile=CONTROL_QOS
             )
 
             self.gripper_velocity_pub_ = self.create_publisher(
-                Float64MultiArray, "/arm/control/ik_gripper", qos_profile=control_qos
+                Float64MultiArray, "/arm/control/ik_gripper", qos_profile=CONTROL_QOS
             )
 
             # TODO: add new bio topics
@@ -293,30 +364,6 @@ class Headless(Node):
 
         # Added so you can tell when it starts running after changing the constant logging to debug from info
         self.get_logger().info("Defaulting to Core mode. Ready.")
-
-    def _create_param(self, name: str, default: T, silent=False) -> T:
-        try:
-            self.declare_parameter(name, default)
-        except InvalidParameterTypeException as e:
-            self.get_logger().fatal(f"Invalid type: {e}")
-            exit(1)
-        value: T = self.get_parameter(name).value  # type: ignore (trust me bro it's T)
-        if not silent:
-            self.get_logger().info(f"P: {name} = {value}")
-        # setattr(self, name, value)
-        return value
-
-    def _create_list_param(self, name: str, default: list[T], silent=False) -> list[T]:
-        try:
-            self.declare_parameter(name, default)
-        except InvalidParameterTypeException as e:
-            self.get_logger().fatal(f"Invalid type: {e}")
-            exit(1)
-        value: list[T] = self.get_parameter(name).value  # type: ignore (trust me bro it's T)
-        if not silent:
-            self.get_logger().info(f"P: {name} = {value}")
-        # setattr(self, name, value)
-        return value
 
     def stop_all(self):
         if self.use_old_topics:
@@ -768,25 +815,8 @@ def is_user_in_group(group_name: str) -> bool:
         return False
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
-
-
 def main(args=None):
-    try:
-        rclpy.init(args=args)
-
-        # Catch termination signals and exit cleanly
-        signal.signal(signal.SIGTERM, exit_handler)
-
-        node = Headless()
-        rclpy.spin(node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        print("Caught shutdown signal. Exiting...")
-    finally:
-        rclpy.try_shutdown()
+    run_node(Headless, args)
 
 
 if __name__ == "__main__":

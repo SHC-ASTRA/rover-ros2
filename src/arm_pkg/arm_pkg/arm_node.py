@@ -1,10 +1,12 @@
 import sys
 import signal
 import math
+from typing import Callable, TypeVar
 from warnings import deprecated
 
 import rclpy
 from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
 from rclpy.duration import Duration
@@ -15,7 +17,13 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual  # TODO: Old topics
 from astra_msgs.msg import ArmFeedback, ArmCtrlState, VicCAN, RevMotorState
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
@@ -26,21 +34,94 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal. Used with signal.signal(SIGNAL, exit_handler)"""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
+
+# Every non-fixed joint defined in Arm's URDF
+# Used for JointState and JointJog messages
+# Why this isn't shared: changes to this list should be accompanied by changes to the
+# corresponding code. There is no point in Headless having the updated list if it's
+# sending the wrong values and breaking the arm.
+ALL_ARM_JOINT_NAMES = [
+    "axis_0_joint",
+    "axis_1_joint",
+    "axis_2_joint",
+    "axis_3_joint",
+    "wrist_yaw_joint",
+    "wrist_roll_joint",
+    "ef_gripper_left_joint",
+]
+
 
 class ArmNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Arm related topics."""
 
-    # Every non-fixed joint defined in Arm's URDF
-    # Used for JointState and JointJog messsages
-    all_joint_names = [
-        "axis_0_joint",
-        "axis_1_joint",
-        "axis_2_joint",
-        "axis_3_joint",
-        "wrist_yaw_joint",
-        "wrist_roll_joint",
-        "ef_gripper_left_joint",
-    ]
+    # Copy so instances can modify the list without touching the shared constant
+    all_joint_names = list(ALL_ARM_JOINT_NAMES)
 
     # Used to verify the length of an incoming VicCAN feedback message
     # Key is VicCAN command_id, value is expected length of data list
@@ -66,15 +147,9 @@ class ArmNode(Node):
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", True)
-        self.use_old_topics = (
-            self.get_parameter("use_old_topics").get_parameter_value().bool_value
-        )
+        self.use_old_topics = create_param(self, "use_old_topics", True)
 
-        self.declare_parameter("use_ros2_control", False)
-        self.use_ros2_control = (
-            self.get_parameter("use_ros2_control").get_parameter_value().bool_value
-        )
+        self.use_ros2_control = create_param(self, "use_ros2_control", False)
 
         ##################################################
         # Old topics
@@ -124,7 +199,7 @@ class ArmNode(Node):
                 JointJog,
                 "/arm/control/manual_joint_jog",
                 self.jointjog_callback,
-                qos_profile=control_qos,
+                qos_profile=CONTROL_QOS,
             )
         else:
             # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
@@ -132,14 +207,14 @@ class ArmNode(Node):
                 JointState,
                 "/arm/joint_commands",
                 self.joint_command_callback,
-                qos_profile=control_qos,
+                qos_profile=CONTROL_QOS,
             )
         # State: /arm/control/state is published by Basestation or Headless
         self.man_state_sub_ = self.create_subscription(
             ArmCtrlState,
             "/arm/control/state",
             self.man_state_callback,
-            qos_profile=control_qos,
+            qos_profile=CONTROL_QOS,
         )
 
         # Feedback
@@ -546,26 +621,8 @@ class ArmNode(Node):
             self.arm_feedback.axis0_current = current
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
-
-
 def main(args=None):
-    rclpy.init(args=args)
-
-    # Catch termination signals and exit cleanly
-    signal.signal(signal.SIGTERM, exit_handler)
-
-    arm_node = ArmNode()
-
-    try:
-        rclpy.spin(arm_node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        rclpy.try_shutdown()
+    run_node(ArmNode, args)
 
 
 if __name__ == "__main__":
