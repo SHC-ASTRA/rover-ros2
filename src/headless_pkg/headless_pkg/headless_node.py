@@ -12,7 +12,8 @@ import sys
 import pwd
 import grp
 from math import copysign
-from typing import Callable, NamedTuple, TypeVar
+from collections.abc import Callable
+from typing import NamedTuple, TypeVar
 
 from std_srvs.srv import Trigger
 from std_msgs.msg import Header, Float64MultiArray
@@ -147,9 +148,6 @@ ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
 
 
 class Headless(Node):
-    # Copy so instances can modify the list without touching the shared constant
-    all_joint_names = list(ALL_ARM_JOINT_NAMES)
-
     def __init__(self):
         # Initialize pygame first
         pygame.init()
@@ -182,20 +180,20 @@ class Headless(Node):
             print("No gamepad found. Waiting...")
 
         # Initialize the gamepad
-        id = 0
+        gamepad_id = 0
         while True:
             self.num_gamepads = pygame.joystick.get_count()
-            if id >= self.num_gamepads:
+            if gamepad_id >= self.num_gamepads:
                 self.get_logger().fatal("Ran out of controllers to try")
                 sys.exit(1)
 
             try:
-                self.gamepad = pygame.joystick.Joystick(id)
+                self.gamepad = pygame.joystick.Joystick(gamepad_id)
                 self.gamepad.init()
             except Exception as e:
                 self.get_logger().error("Error when initializing gamepad")
                 self.get_logger().error(str(e))
-                id += 1
+                gamepad_id += 1
                 continue
             print(f"Gamepad found: {self.gamepad.get_name()}")
 
@@ -221,7 +219,7 @@ class Headless(Node):
                     )
             else:
                 break
-            id += 1
+            gamepad_id += 1
 
         ##################################################
         # Parameters
@@ -244,6 +242,9 @@ class Headless(Node):
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
         self.arm_brake_mode = False
         self.servo_control_mode = "ik"
+
+        # Per-instance copy so modifications don't touch the shared constant
+        self.all_joint_names = list(ALL_ARM_JOINT_NAMES)
 
         # Moveit Servo does not accept gripper commands, and will complain about it
         if self.use_arm_ik:
@@ -435,23 +436,23 @@ class Headless(Node):
         state = ControllerState.from_gamepad(self.gamepad)
 
         if self.use_old_topics:
-            input = CoreControl()
-            input.max_speed = 90
+            msg = CoreControl()
+            msg.max_speed = 90
 
             # Right wheels
-            input.right_stick = float(round(-1 * state.right_stick_y, 2))
+            msg.right_stick = float(round(-1 * state.right_stick_y, 2))
 
             # Left wheels
             if state.right_trigger > 0:
-                input.left_stick = input.right_stick
+                msg.left_stick = msg.right_stick
             else:
-                input.left_stick = float(round(-1 * state.left_stick_y, 2))
+                msg.left_stick = float(round(-1 * state.left_stick_y, 2))
 
             # Debug
-            output = f"L: {input.left_stick}, R: {input.right_stick}"
+            output = f"L: {msg.left_stick}, R: {msg.right_stick}"
             self.get_logger().info(f"[Ctrl] {output}")
 
-            self.core_publisher.publish(input)
+            self.core_publisher.publish(msg)
 
         else:  # New topics
             twist = Twist()

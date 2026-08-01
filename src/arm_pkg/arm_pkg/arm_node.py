@@ -1,7 +1,8 @@
 import sys
 import signal
 import math
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 from warnings import deprecated
 
 import rclpy
@@ -117,27 +118,25 @@ ALL_ARM_JOINT_NAMES = [
 ]
 
 
+# Used to verify the length of an incoming VicCAN feedback message
+# Key is VicCAN command_id, value is expected length of data list
+VICCAN_SOCKET_MSG_LEN_DICT = {
+    53: 4,
+    54: 4,
+    55: 4,
+    58: 4,
+    59: 4,
+}
+
+VICCAN_DIGIT_MSG_LEN_DICT = {
+    54: 4,
+    55: 2,
+    59: 2,
+}
+
+
 class ArmNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Arm related topics."""
-
-    # Copy so instances can modify the list without touching the shared constant
-    all_joint_names = list(ALL_ARM_JOINT_NAMES)
-
-    # Used to verify the length of an incoming VicCAN feedback message
-    # Key is VicCAN command_id, value is expected length of data list
-    viccan_socket_msg_len_dict = {
-        53: 4,
-        54: 4,
-        55: 4,
-        58: 4,
-        59: 4,
-    }
-
-    viccan_digit_msg_len_dict = {
-        54: 4,
-        55: 2,
-        59: 2,
-    }
 
     def __init__(self):
         super().__init__("arm_node")
@@ -253,7 +252,7 @@ class ArmNode(Node):
         # IK Arm pose
         self.saved_joint_state = JointState()
         self.saved_joint_state.header.frame_id = "base_link"
-        self.saved_joint_state.name = self.all_joint_names
+        self.saved_joint_state.name = list(ALL_ARM_JOINT_NAMES)  # Copy, don't reference
         # ... initialize with zeros
         self.saved_joint_state.position = [0.0] * len(self.saved_joint_state.name)
         self.saved_joint_state.velocity = [0.0] * len(self.saved_joint_state.name)
@@ -270,7 +269,7 @@ class ArmNode(Node):
                 if joint_name in msg.joint_names
                 else 0.0
             )
-            for joint_name in self.all_joint_names
+            for joint_name in ALL_ARM_JOINT_NAMES
         ]
         # Deadzone
         velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
@@ -352,7 +351,7 @@ class ArmNode(Node):
                 if joint_name in msg.name
                 else 0.0
             )
-            for joint_name in self.all_joint_names
+            for joint_name in ALL_ARM_JOINT_NAMES
         ]
 
         self.send_velocities(velocities, msg.header)
@@ -445,8 +444,8 @@ class ArmNode(Node):
         assert msg.mcu_name == "arm"
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_socket_msg_len_dict:
-            expected_len = self.viccan_socket_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_SOCKET_MSG_LEN_DICT:
+            expected_len = VICCAN_SOCKET_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
@@ -533,8 +532,8 @@ class ArmNode(Node):
         assert msg.mcu_name == "digit"
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_digit_msg_len_dict:
-            expected_len = self.viccan_digit_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_DIGIT_MSG_LEN_DICT:
+            expected_len = VICCAN_DIGIT_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
