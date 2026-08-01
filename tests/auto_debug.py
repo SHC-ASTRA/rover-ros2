@@ -8,10 +8,10 @@ from socket import gethostname
 from pathlib import Path
 
 ROVER_IPS = [
-    "192.168.0.69",  # Clucky (local)
-    "10.86.59.252",  # Clucky (eduroam)
-    "192.168.0.70",  # Testbed (local)
-    "10.86.125.130",  # Testbed (eduroam)
+    ("Clucky", "192.168.0.69"),  # local
+    ("Clucky", "10.86.59.252"),  # eduroam
+    ("Testbed", "192.168.0.70"),  # local
+    ("Testbed", "10.86.125.130"),  # eduroam
 ]
 
 # TODO: import pytest
@@ -37,27 +37,31 @@ class Tester:
             "If not ran on the rover, it will attempt to connect over SSH and run the commands remotely."
         )
 
-        # Test IPs to find the rover
-        if not self.is_rover:
-            # Figure out where that bitch is
-            self.rover_ip = None
-            for ip in ROVER_IPS:
-                ping = subprocess.run(["ping", "-w", "1", ip])
-
-                if ping.returncode != 0:
-                    continue
-
-                # Can ping rover
-                self.rover_ip = ip
-
-            if not self.rover_ip:
-                error_result("Unable to reach the rover; failed to ping all known IPs.")
-
-        # We are now able to connect to the rover
         if self.is_rover:
             print("Running on the rover.")
         else:
-            print("Found the rover.")
+            # Test IPs to find the rover
+            candidates = ROVER_IPS
+            if override_ip := os.getenv("ROVER_IP_OVERRIDE"):
+                candidates = [("override", override_ip)]
+
+            # Figure out where that bitch is
+            self.rover_ip = rover_name = None
+            for name, ip in candidates:
+                if subprocess.run(["ping", "-w", "1", ip]).returncode == 0:
+                    # Can ping rover
+                    self.rover_ip = ip
+                    rover_name = name
+                    break
+
+            if not self.rover_ip:
+                if override_ip:
+                    error_result(
+                        f"Unable to reach the rover at ROVER_IP_OVERRIDE={override_ip}."
+                    )
+                error_result("Unable to reach the rover; failed to ping all known IPs.")
+
+            print(f"Found {rover_name} at {self.rover_ip}.")
 
     def run_checks(self):
         # TEST: Is Anchor service running
