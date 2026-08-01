@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import subprocess
 from inspect import currentframe, getframeinfo
 from socket import gethostname
@@ -50,7 +51,7 @@ class Tester:
                 self.rover_ip = ip
 
             if not self.rover_ip:
-                error_result("Unable to establish a connection with the rover.")
+                error_result("Unable to reach the rover; failed to ping all known IPs.")
 
         # We are now able to connect to the rover
         if self.is_rover:
@@ -66,18 +67,28 @@ class Tester:
             ]
             != 0
         ):
-            print("WARN: Anchor service is not running. Continuing anyways...")
+            print(
+                "WARN: Anchor service is not running. Continuing anyways;"
+                " this is fine if you launched Anchor yourself with 'ros2 launch`."
+            )
 
         # TEST: Is the ros2 command available
-        if self.run_on_rover(["ros2", "-h"])[0] != 0:
-            error_result("Cannot run ros2 command on the rover.")
+        # `command -v` needs a shell, which SSH provides; locally, ask Python
+        if self.is_rover:
+            ros2_found = shutil.which("ros2") is not None
+        else:
+            ros2_found = self.run_on_rover(["command", "-v", "ros2"])[0] == 0
+        if not ros2_found:
+            error_result("The ros2 command was not found on the rover.")
 
         # TEST: Is the anchor service running
         info_debug, info_debug_output = self.run_on_rover(
             ["ros2", "topic", "info", "/anchor/from_vic/debug"], timeout=5
         )
         if info_debug != 0:
-            error_result("Anchor is not actually running.")
+            error_result(
+                "Anchor is not running -- `ros2 topic info /anchor/from_vic/debug` failed."
+            )
         else:
             # Expected format:
             # > Type: [MESSAGE_TYPE]
@@ -85,10 +96,15 @@ class Tester:
             # > Subscription count: [SUBS]
 
             lines = info_debug_output.split("\n")
-            if len(lines) != 3:
-                error_result("Unexpected error.")
+            if (n := len(lines)) != 3:
+                error_result(
+                    f"Expected 3 lines from `ros2 topic info`, got {n}:\n"
+                    f"{info_debug_output}"
+                )
             if int(lines[1].split(" ")[-1]) == 0:  # No publishers
-                error_result("Anchor is not actually running.")
+                error_result(
+                    "Anchor is not running -- no publishers on /anchor/from_vic/debug."
+                )
 
         # TEST: Are we getting any feedback from the MCU
         print("Listening for feedback from the rover...")
@@ -103,7 +119,8 @@ class Tester:
                 break
         if not getting_feedback:
             error_result(
-                "Not getting any feedback from the rover. Try `can_relay_mode,on`."
+                "Not getting any feedback from the rover."
+                " Try `can_relay_mode,on` (serial only)."
             )
 
         # END
