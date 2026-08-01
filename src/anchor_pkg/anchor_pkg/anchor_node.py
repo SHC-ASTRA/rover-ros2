@@ -3,7 +3,8 @@ import sys
 import signal
 import time
 import struct
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 import rclpy
 from rclpy.node import Node

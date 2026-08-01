@@ -1,7 +1,8 @@
 import signal
 import sys
 import time
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 import rclpy
 from astra_msgs.action import BioVacuum

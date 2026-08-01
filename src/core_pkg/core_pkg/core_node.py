@@ -1,6 +1,7 @@
 import sys
 import signal
-from typing import Callable, Literal, TypeVar, cast
+from collections.abc import Callable
+from typing import Literal, TypeVar, cast
 from enum import IntEnum
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
@@ -126,22 +127,24 @@ def run_node(node_factory: Callable[[], Node], args=None) -> None:
 ##################################################
 
 
+# Used to verify the length of an incoming VicCAN feedback message
+# Key is VicCAN command_id, value is expected length of data list
+VICCAN_MSG_LEN_DICT = {
+    48: 1,
+    49: 1,
+    50: 2,
+    51: 4,
+    52: 4,
+    53: 4,
+    54: 4,
+    56: 4,  # really 3, but viccan
+    58: 4,  # ditto
+}
+
+
 class CoreNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Core related topics."""
 
-    # Used to verify the length of an incoming VicCAN feedback message
-    # Key is VicCAN command_id, value is expected length of data list
-    viccan_msg_len_dict = {
-        48: 1,
-        49: 1,
-        50: 2,
-        51: 4,
-        52: 4,
-        53: 4,
-        54: 4,
-        56: 4,  # really 3, but viccan
-        58: 4,  # ditto
-    }
     rover_platform: Literal["clucky", "testbed"]
 
     def __init__(self):
@@ -174,12 +177,10 @@ class CoreNode(Node):
         self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
 
         if self.rover_platform == "testbed":
-            global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
             self.wheelbase = TESTBED_WHEELBASE
             self.wheel_radius = TESTBED_WHEEL_RADIUS
             self.gear_ratio = TESTBED_GEAR_RATIO
         else:  # default in case of unset or invalid environment variable
-            global CORE_WHEELBASE, CORE_WHEEL_RADIUS, CORE_GEAR_RATIO
             self.wheelbase = CORE_WHEELBASE
             self.wheel_radius = CORE_WHEEL_RADIUS
             self.gear_ratio = CORE_GEAR_RATIO
@@ -550,8 +551,8 @@ class CoreNode(Node):
         # skill diff if not
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_msg_len_dict:
-            expected_len = self.viccan_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_MSG_LEN_DICT:
+            expected_len = VICCAN_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"

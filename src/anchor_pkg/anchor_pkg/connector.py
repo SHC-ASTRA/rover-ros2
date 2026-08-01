@@ -263,6 +263,10 @@ class SerialConnector(Connector):
         except serial.SerialException as e:
             self.logger.error(f"SerialException: {e}")
             raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
+        except UnicodeDecodeError:
+            # Garbage bytes on the line (boot noise, partial frame) - ignore
+            self.logger.debug(f"got undecodable (non-UTF8) serial data on {self.port}")
+            return (None, None)
         except Exception:
             return (None, None)  # pretty much no other error matters
 
@@ -477,8 +481,9 @@ class CANConnector(Connector):
                 arbitration_id=(mcu_id << 8) | (data_type << 6) | command,
                 data=data,
                 is_extended_id=False,
+                check=True,
             )
-        except Exception as e:
+        except ValueError as e:
             self.logger.error(f"failed to construct CAN message: {e}")
             return
 
