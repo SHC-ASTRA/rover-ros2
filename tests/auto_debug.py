@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
-import os
+import getpass
+import shlex
 import shutil
 import subprocess
 from inspect import currentframe, getframeinfo
-from socket import gethostname
+from os import getenv
 from pathlib import Path
+from socket import gethostname
+
+ROVER_USER = "astra"
 
 ROVER_IPS = [
     ("Clucky", "192.168.0.69"),  # local
@@ -14,19 +18,31 @@ ROVER_IPS = [
     ("Testbed", "10.86.125.130"),  # eduroam
 ]
 
-# TODO: import pytest
+# BatchMode makes a missing SSH key an immediate error instead of an
+# invisible password prompt that hangs until the timeout; accept-new trusts
+# hosts on first contact but still rejects changed keys (e.g. after a reflash)
+SSH_OPTS = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=5",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+]
 
 
 class Tester:
     def __init__(self):
         """Find the rover's IP, if not already running on it."""
-        user = os.getlogin()
+        # os.getlogin() raises OSError without a controlling tty (e.g. when
+        # this script itself is run over SSH)
+        user = getpass.getuser()
         host = gethostname()
 
         # Force to be bool
-        self.is_rover = True if os.getenv("ISROVER_OVERRIDE") else False
+        self.is_rover = True if getenv("ISROVER_OVERRIDE") else False
 
-        if user == "astra" and (host == "clucky" or host == "testbed"):
+        if user == ROVER_USER and (host == "clucky" or host == "testbed"):
             # We are on the rover
             self.is_rover = True
 
@@ -42,7 +58,7 @@ class Tester:
         else:
             # Test IPs to find the rover
             candidates = ROVER_IPS
-            if override_ip := os.getenv("ROVER_IP_OVERRIDE"):
+            if override_ip := getenv("ROVER_IP_OVERRIDE"):
                 candidates = [("override", override_ip)]
 
             # Figure out where that bitch is
@@ -62,6 +78,15 @@ class Tester:
                 error_result("Unable to reach the rover; failed to ping all known IPs.")
 
             print(f"Found {rover_name} at {self.rover_ip}.")
+
+            # Ping succeeding does not mean SSH will; fail fast with a fix
+            # instead of a confusing error in the middle of the checks
+            if self.run_on_rover(["true"], timeout=10)[0] != 0:
+                error_result(
+                    f"Cannot SSH to {ROVER_USER}@{self.rover_ip}. If you have"
+                    " not set up SSH keys, run"
+                    f" `ssh-copy-id {ROVER_USER}@{self.rover_ip}` first."
+                )
 
     def run_checks(self):
         # TEST: Is Anchor service running
@@ -87,7 +112,7 @@ class Tester:
 
         # TEST: Is the anchor service running
         info_debug, info_debug_output = self.run_on_rover(
-            ["ros2", "topic", "info", "/anchor/from_vic/debug"], timeout=5
+            ["ros2", "topic", "info", "/anchor/from_vic/debug"], timeout=15
         )
         if info_debug != 0:
             error_result(
@@ -112,9 +137,22 @@ class Tester:
 
         # TEST: Are we getting any feedback from the MCU
         print("Listening for feedback from the rover...")
+        # timeout runs rover-side so the echo exits cleanly; PYTHONUNBUFFERED so its
+        # output isn't lost in its buffer when the timeout fires
         _, echo_output = self.run_on_rover(
-            ["ros2", "topic", "echo", "/anchor/from_vic/debug", "--field", "data"],
-            timeout=5,
+            [
+                "env",
+                "PYTHONUNBUFFERED=1",
+                "timeout",
+                "5",
+                "ros2",
+                "topic",
+                "echo",
+                "/anchor/from_vic/debug",
+                "--field",
+                "data",
+            ],
+            timeout=10,
         )
         getting_feedback = False
         for line in echo_output.split("\n"):
@@ -135,10 +173,22 @@ class Tester:
     def run_on_rover(self, command: list[str], timeout=60) -> tuple[int, str]:
         """Run a process on the rover, either via SSH or directly. Returns its returncode and stdout."""
         if not self.is_rover:
-            command = ["ssh", f"astra@{self.rover_ip}", f"{" ".join(command)}"]
+            command = [
+                "ssh",
+                *SSH_OPTS,
+                f"{ROVER_USER}@{self.rover_ip}",
+                f"bash -lc {shlex.quote(shlex.join(command))}",
+            ]
+
+        proc = None
+        try:
+            proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+        except FileNotFoundError as e:
+            error_result(f"Command not found: {e.filename}")
+
+        assert proc is not None  # There is genuinely no way that proc could be None
 
         outs = None
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
         try:
             outs, _ = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
