@@ -272,7 +272,7 @@ class PtzNode(Node):
                     timeout=5.0
                 )  # Added timeout
             except asyncio.TimeoutError:
-                self.get_logger().warning(f"Async function {coro.__name__} timed out.")
+                self.get_logger().debug(f"Async function {coro.__name__} timed out.")
                 return None
             except Exception as e:
                 self.get_logger().error(

@@ -9,6 +9,13 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    unilib = {
+      url = "github:SHC-ASTRA/unilib/1c4834be48c4d650fe43e88255c59fc087eaaac1";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "nix-ros-overlay/flake-utils";
+      inputs.treefmt.follows = "treefmt-nix";
+    };
   };
 
   outputs =
@@ -16,6 +23,7 @@
       self,
       nix-ros-overlay,
       nixpkgs,
+      unilib,
       ...
     }@inputs:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (
@@ -25,6 +33,7 @@
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+        treefmtEval = inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -41,6 +50,7 @@
                 scipy
                 crccheck
                 black
+                unilib.packages.${system}.unilib
               ]
             ))
             (
@@ -93,7 +103,8 @@
           '';
         };
 
-        formatter = (inputs.treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
+        checks.formatting = treefmtEval.config.build.check self;
+        formatter = treefmtEval.config.build.wrapper;
       }
     );
 
