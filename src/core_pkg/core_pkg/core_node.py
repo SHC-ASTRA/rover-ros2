@@ -141,6 +141,19 @@ VICCAN_MSG_LEN_DICT = {
     58: 4,  # ditto
 }
 
+# Covariance diagonal entry for axes a sensor doesn't measure (e.g. roll/pitch from a
+# heading-only orientation) -- tells nodes not to trust these values.
+UNMEASURED_VARIANCE = 1e6
+
+# Baseline sensor noise. IMU numbers derived from the BNO-055 datasheet, GPS numbers
+# from the NEO-M9N datasheet.
+# TODO: scale GPS covariance from HDOP/VDOP once embedded sends them
+GPS_H_STDDEV = 2.0  # m
+GPS_V_STDDEV = 4.0  # m
+IMU_YAW_STDDEV = 0.05  # rad
+IMU_GYRO_STDDEV = 0.0014  # rad/s
+IMU_ACCEL_STDDEV = 0.012  # m/s^2
+
 
 class CoreNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Core related topics."""
@@ -301,13 +314,26 @@ class CoreNode(Node):
         # IMU
         self.imu_state = Imu()
         self.imu_state.header.frame_id = "core_embedded_imu_link"
+        # Embedded does not currently send roll or pitch
+        self.imu_state.orientation_covariance = diag3(
+            UNMEASURED_VARIANCE, UNMEASURED_VARIANCE, IMU_YAW_STDDEV**2
+        )
+        self.imu_state.angular_velocity_covariance = diag3(
+            IMU_GYRO_STDDEV**2, IMU_GYRO_STDDEV**2, IMU_GYRO_STDDEV**2
+        )
+        self.imu_state.linear_acceleration_covariance = diag3(
+            IMU_ACCEL_STDDEV**2, IMU_ACCEL_STDDEV**2, IMU_ACCEL_STDDEV**2
+        )
 
         # GPS
         self.gps_state = NavSatFix()
         self.gps_state.header.frame_id = "core_gps_antenna_link"
         self.gps_state.status.service = NavSatStatus.SERVICE_GPS
         self.gps_state.status.status = NavSatStatus.STATUS_NO_FIX
-        self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
+        self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_APPROXIMATED
+        self.gps_state.position_covariance = diag3(
+            GPS_H_STDDEV**2, GPS_H_STDDEV**2, GPS_V_STDDEV**2
+        )
 
         # Barometer
         self.baro_state = Barometer()
@@ -739,6 +765,12 @@ def voltage_to_percentage(voltage: float, cells: int):
 
 def radps_to_rpm(radps: float):
     return radps * 60 / (2 * pi)
+
+
+# Temporary until numpy is added as a dependency
+def diag3(xx: float, yy: float, zz: float) -> list[float]:
+    """Row-major 3x3 covariance matrix with the given diagonal."""
+    return [xx, 0.0, 0.0, 0.0, yy, 0.0, 0.0, 0.0, zz]
 
 
 def main(args=None):
