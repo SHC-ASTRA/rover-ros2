@@ -300,11 +300,11 @@ class CoreNode(Node):
 
         # IMU
         self.imu_state = Imu()
-        self.imu_state.header.frame_id = "core_bno055"
+        self.imu_state.header.frame_id = "core_embedded_imu_link"
 
         # GPS
         self.gps_state = NavSatFix()
-        self.gps_state.header.frame_id = "core_gps_antenna"
+        self.gps_state.header.frame_id = "core_gps_antenna_link"
         self.gps_state.status.service = NavSatStatus.SERVICE_GPS
         self.gps_state.status.status = NavSatStatus.STATUS_NO_FIX
         self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
@@ -570,7 +570,7 @@ class CoreNode(Node):
             case 50:  # GNSS Satellite count and altitude
                 self.gps_state.status.status = (
                     NavSatStatus.STATUS_FIX
-                    if int(msg.data[0]) >= 3
+                    if int(msg.data[0]) >= 4
                     else NavSatStatus.STATUS_NO_FIX
                 )
                 self.gps_state.altitude = float(msg.data[1])
