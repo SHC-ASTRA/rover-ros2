@@ -5,7 +5,7 @@ from typing import Literal, TypeVar, cast
 from enum import IntEnum
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
-from math import copysign, pi, nan
+from math import copysign, pi, nan, radians
 from warnings import deprecated
 from socket import gethostname
 
@@ -605,9 +605,10 @@ class CoreNode(Node):
             # IMU
             case 51:  # Gyro x, y, z, and imu calibration
                 self.feedback_new_state.imu_calib = round(float(msg.data[3]))
-                self.imu_state.angular_velocity.x = float(msg.data[0])
-                self.imu_state.angular_velocity.y = float(msg.data[1])
-                self.imu_state.angular_velocity.z = float(msg.data[2])
+                # BNO-055 uses deg/s, REP-103 uses rad/s
+                self.imu_state.angular_velocity.x = radians(float(msg.data[0]))
+                self.imu_state.angular_velocity.y = radians(float(msg.data[1]))
+                self.imu_state.angular_velocity.z = radians(float(msg.data[2]))
                 self.imu_state.header.stamp = msg.header.stamp
             case 52:  # Accel x, y, z, heading
                 self.imu_state.linear_acceleration.x = float(msg.data[0])
@@ -615,6 +616,7 @@ class CoreNode(Node):
                 self.imu_state.linear_acceleration.z = float(msg.data[2])
                 self.feedback_new_state.orientation = float(msg.data[3])
                 # Deal with quaternion
+                # TODO: fix
                 r = Rotation.from_euler("z", float(msg.data[3]), degrees=True)
                 q = r.as_quat()
                 self.imu_state.orientation.x = q[0]
@@ -749,10 +751,12 @@ class CoreNode(Node):
 def map_range(
     value: float, in_min: float, in_max: float, out_min: float, out_max: float
 ):
+    """Implementation of Arduino's map(). Adapts a value from one range to another."""
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
 def voltage_to_percentage(voltage: float, cells: int):
+    """Converts [cells]S battery voltage to battery capacity in %."""
     min_v = 3.3 * cells
     max_v = 4.2 * cells
     if voltage < min_v:
@@ -764,6 +768,7 @@ def voltage_to_percentage(voltage: float, cells: int):
 
 
 def radps_to_rpm(radps: float):
+    """Converts rad/s to RPM."""
     return radps * 60 / (2 * pi)
 
 
