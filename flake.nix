@@ -83,6 +83,7 @@
                   joy
                   ros2-controllers
                   chomp-motion-planner
+                  robot-localization
                 ];
               }
             )
