@@ -231,8 +231,6 @@ class Headless(Node):
 
         self.use_old_topics = create_param(self, "use_old_topics", False)
 
-        self.use_duty_cycle_core = create_param(self, "use_duty_cycle_core", True)
-
         self.use_bio = create_param(self, "use_bio", False)
 
         self.use_arm_ik = create_param(self, "use_arm_ik", False)
@@ -293,6 +291,10 @@ class Headless(Node):
                 VicCAN, "/anchor/to_vic/relay", 20
             )
 
+            self.core_duty_cycle_pub_ = self.create_publisher(
+                Twist, "/core/control/duty_cycle", qos_profile=CONTROL_QOS
+            )
+
             self.core_cmd_vel_pub_ = self.create_publisher(
                 Twist, "/core/control/cmd_vel", qos_profile=CONTROL_QOS
             )
@@ -321,12 +323,10 @@ class Headless(Node):
             setup_bio(self)
 
             # Print topic names and types
-            if self.use_duty_cycle_core:
-                core_method = "duty cycle"
-            else:
-                core_method = "velocity"
+            core_method = "duty cycle AND velocity"
             core_method += (
-                f" - {self.core_cmd_vel_pub_.topic_name}"
+                f" - {self.core_duty_cycle_pub_.topic_name},"
+                f" {self.core_cmd_vel_pub_.topic_name}"
                 f" [{self.core_cmd_vel_pub_.msg_type.__qualname__}]"
             )
 
@@ -381,6 +381,7 @@ class Headless(Node):
             self.arm_publisher.publish(ARM_STOP_MSG)
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
+            self.core_duty_cycle_pub_.publish(CORE_STOP_TWIST_MSG)
             self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
@@ -473,18 +474,19 @@ class Headless(Node):
                 state.right_stick_x**2, state.right_stick_x
             )  # Exponent for finer control (curve)
 
-            if not self.use_duty_cycle_core:
-                # These scaling factors convert raw stick inputs to absolute m/s and rad/s
-                # values that DiffDriveController will convert to motor RPM, rather than
-                # sending the stick values as duty cycle (0-1) and sending that to the motors.
-                twist.linear.x *= 1.0
-                twist.angular.z *= 1.5
-
-            # Publish
-            self.core_cmd_vel_pub_.publish(twist)
+            # Duty cycle
+            self.core_duty_cycle_pub_.publish(twist)
             self.get_logger().debug(
                 f"[Core Ctrl] Linear: {round(twist.linear.x, 2)}, Angular: {round(twist.angular.z, 2)}"
             )
+
+            # Velocity
+            # These scaling factors convert raw stick inputs to absolute m/s and rad/s
+            # values that DiffDriveController will convert to motor RPM, rather than
+            # sending the stick values as duty cycle (0-1) and sending that to the motors.
+            twist.linear.x *= 1.0
+            twist.angular.z *= 1.5
+            self.core_cmd_vel_pub_.publish(twist)
 
             # Brake mode
             new_brake_mode = state.button_a
