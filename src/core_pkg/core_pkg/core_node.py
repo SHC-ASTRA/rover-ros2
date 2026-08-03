@@ -242,10 +242,10 @@ class CoreNode(Node):
             )
         else:
             # duty cycle twist -- [-1, 1] rather than real units
-            self.twist_man_sub_ = self.create_subscription(
+            self.twist_duty_cycle_sub_ = self.create_subscription(
                 Twist,
-                "/core/control/cmd_vel",
-                self.twist_man_callback,
+                "/core/control/duty_cycle",
+                self.twist_duty_cycle_callback,
                 qos_profile=CONTROL_QOS,
             )
             # duty cycle flags -- brake mode and max duty cycle
@@ -461,7 +461,7 @@ class CoreNode(Node):
 
         self.send_viccan(20, [fl_rpm, bl_rpm, fr_rpm, br_rpm])  # REV Velocity
 
-    def twist_man_callback(self, msg: Twist):
+    def twist_duty_cycle_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
         angular = msg.angular.z  # [-1 1] for left/right from right stick x
 
