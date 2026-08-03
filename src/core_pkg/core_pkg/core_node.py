@@ -616,8 +616,10 @@ class CoreNode(Node):
                 self.imu_state.linear_acceleration.z = float(msg.data[2])
                 self.feedback_new_state.orientation = float(msg.data[3])
                 # Deal with quaternion
-                # TODO: fix
-                r = Rotation.from_euler("z", float(msg.data[3]), degrees=True)
+                # BNO-055 heading is compass-style: degrees, clockwise-positive,
+                # 0 = magnetic north. REP-103 yaw is radians, CCW-positive, 0 = east.
+                # navsat_transform handles magnetic declination.
+                r = Rotation.from_euler("z", 90.0 - float(msg.data[3]), degrees=True)
                 q = r.as_quat()
                 self.imu_state.orientation.x = q[0]
                 self.imu_state.orientation.y = q[1]
