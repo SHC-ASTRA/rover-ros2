@@ -23,13 +23,15 @@ from geometry_msgs.msg import Twist
 from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
-CORE_WHEELBASE = 0.836  # meters
-CORE_WHEEL_RADIUS = 0.171  # meters
+CORE_WHEELBASE = 0.782  # m
+CORE_WHEEL_SEPARATION = 0.836 # m
+CORE_WHEEL_RADIUS = 0.171  # m
 CORE_GEAR_RATIO = 100.0  # Clucky: 100:1
 
 # TODO: update core_description or add testbed_description
-TESTBED_WHEELBASE = 0.368  # meters
-TESTBED_WHEEL_RADIUS = 0.108  # meters
+TESTBED_WHEELBASE = 0.368  # m
+TESTBED_WHEEL_SEPARATION = 0.502  # m
+TESTBED_WHEEL_RADIUS = 0.108  # m
 TESTBED_GEAR_RATIO = 64  # Testbed: 64:1
 
 
@@ -191,10 +193,12 @@ class CoreNode(Node):
 
         if self.rover_platform == "testbed":
             self.wheelbase = TESTBED_WHEELBASE
+            self.wheel_separation = TESTBED_WHEEL_SEPARATION
             self.wheel_radius = TESTBED_WHEEL_RADIUS
             self.gear_ratio = TESTBED_GEAR_RATIO
         else:  # default in case of unset or invalid environment variable
             self.wheelbase = CORE_WHEELBASE
+            self.wheel_separation = CORE_WHEEL_SEPARATION
             self.wheel_radius = CORE_WHEEL_RADIUS
             self.gear_ratio = CORE_GEAR_RATIO
 
