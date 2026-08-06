@@ -51,6 +51,12 @@
                 crccheck
                 black
                 unilib.packages.${system}.unilib
+                # asset generators in astra_descriptions (terrain, cliffs,
+                # aruco, collision-mesh decimation)
+                numpy
+                pillow
+                trimesh
+                fast-simplification
               ]
             ))
             (
