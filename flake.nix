@@ -42,6 +42,12 @@
                 scipy
                 crccheck
                 black
+                # asset generators in astra_descriptions (terrain, cliffs,
+                # aruco, collision-mesh decimation)
+                numpy
+                pillow
+                trimesh
+                fast-simplification
               ]
             ))
             (
