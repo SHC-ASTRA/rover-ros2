@@ -24,7 +24,7 @@ from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
 CORE_WHEELBASE = 0.782  # m
-CORE_WHEEL_SEPARATION = 0.836 # m
+CORE_WHEEL_SEPARATION = 0.836  # m
 CORE_WHEEL_RADIUS = 0.171  # m
 CORE_GEAR_RATIO = 100.0  # Clucky: 100:1
 
