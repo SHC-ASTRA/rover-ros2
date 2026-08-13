@@ -231,7 +231,7 @@ class Anchor(Node):
         # ROS2 Topic Setup
 
         # Publishers
-        self.fromvic_debug_pub_ = self.create_publisher(  # only used by serial
+        self.fromvic_debug_pub_ = self.create_publisher(  # raw MCU output
             String,
             "/anchor/from_vic/debug",
             20,
