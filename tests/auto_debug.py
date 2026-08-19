@@ -91,9 +91,14 @@ class Tester:
     def run_checks(self):
         # TEST: Is Anchor service running
         if (
-            self.run_on_rover(["systemctl", "--quiet", "is-active", "anchor.service"])[
-                0
-            ]
+            self.run_on_rover(
+                [
+                    "systemctl",
+                    "--quiet",
+                    "is-active",
+                    "anchor.service",
+                ]
+            )[0]
             != 0
         ):
             print(
@@ -102,7 +107,7 @@ class Tester:
             )
 
         # TEST: Is the ros2 command available
-        # `command -v` needs a shell, which SSH provides; locally, ask Python
+        # use which() locally because `command -v` needs a shell
         if self.is_rover:
             ros2_found = shutil.which("ros2") is not None
         else:
@@ -138,7 +143,7 @@ class Tester:
         # TEST: Are we getting any feedback from the MCU
         print("Listening for feedback from the rover...")
         # timeout runs rover-side so the echo exits cleanly; PYTHONUNBUFFERED so its
-        # output isn't lost in its buffer when the timeout fires
+        # output isn't lost in its buffer when the timeout kills it
         _, echo_output = self.run_on_rover(
             [
                 "env",
