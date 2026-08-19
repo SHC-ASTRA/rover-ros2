@@ -20,6 +20,9 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
 from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
+# bio
+from .headless_bio import setup_bio, loop_bio, stop_bio
+
 import warnings
 
 # Literally headless
@@ -207,30 +210,30 @@ class Headless(Node):
 
         if not self.use_old_topics:
             self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/twist", qos_profile=control_qos
+                Twist, "/core/control/man_twist", qos_profile=control_qos
             )
             self.core_cmd_vel_pub_ = self.create_publisher(
-                TwistStamped, "/diff_controller/cmd_vel", qos_profile=control_qos
+                Twist, "/core/control/cmd_vel", qos_profile=control_qos
             )
             self.core_state_pub_ = self.create_publisher(
                 CoreCtrlState, "/core/control/state", qos_profile=control_qos
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/control/joint_jog", qos_profile=control_qos
+                JointJog, "/arm/control/man_joint_jog", qos_profile=control_qos
             )
             self.arm_state_pub_ = self.create_publisher(
                 ArmCtrlState, "/arm/control/state", qos_profile=control_qos
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
-                TwistStamped, "/servo_node/delta_twist_cmds", qos_profile=control_qos
+                TwistStamped, "/arm/control/ik_twist", qos_profile=control_qos
             )
             self.arm_ik_jointjog_publisher = self.create_publisher(
-                JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
+                JointJog, "/arm/control/ik_joint_jog", qos_profile=control_qos
             )
 
-            # TODO: add new bio topics
+            setup_bio(self)
 
         ##################################################
         # Timers
@@ -272,14 +275,15 @@ class Headless(Node):
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
             if self.use_cmd_vel:
-                self.core_cmd_vel_pub_.publish(self.core_cmd_vel_stop_msg())
+                self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
             else:
                 self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
                 self.arm_manual_pub_.publish(self.arm_manual_stop_msg())
-            # TODO: add bio here after implementing new topics
+            if self.use_bio:
+                stop_bio()
 
     def send_controls(self):
         """Read the gamepad state and publish control messages"""
@@ -389,8 +393,7 @@ class Headless(Node):
 
             # Publish
             if self.use_cmd_vel:
-                header = Header(stamp=self.get_clock().now().to_msg())
-                self.core_cmd_vel_pub_.publish(TwistStamped(header=header, twist=twist))
+                self.core_cmd_vel_pub_.publish(twist)
             else:
                 self.core_twist_pub_.publish(twist)
             self.get_logger().debug(
@@ -705,7 +708,7 @@ class Headless(Node):
             self.bio_publisher.publish(bio_input)
 
         else:
-            pass  # TODO: implement new bio control topics
+            loop_bio(self.gamepad)
 
     def core_cmd_vel_stop_msg(self):
         return TwistStamped(
