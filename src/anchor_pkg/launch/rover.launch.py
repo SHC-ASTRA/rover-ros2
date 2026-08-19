@@ -95,16 +95,16 @@ def generate_launch_description():
         )
     )
 
-    ld.add_action(
-        Node(
-            package="bio_pkg",
-            executable="bio",
-            name="bio",
-            output="both",
-            parameters=[{"launch_mode": "anchor"}],
-            on_exit=Shutdown(),
-        )
-    )
+    # ld.add_action(
+    #    Node(
+    #        package="bio_pkg",
+    #        executable="bio",
+    #        name="bio",
+    #        output="both",
+    #        parameters=[{"launch_mode": "anchor"}],
+    #        on_exit=Shutdown(),
+    #    )
+    # )
 
     ld.add_action(
         Node(
