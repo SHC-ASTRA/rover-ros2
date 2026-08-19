@@ -1,33 +1,37 @@
 import sys
 import signal
-from typing import Literal, cast
+from collections.abc import Callable
+from typing import Literal, TypeVar, cast
 from enum import IntEnum
+from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation
-from math import copysign, pi
+from math import copysign, pi, nan, radians
 from warnings import deprecated
-from os import getenv
 from socket import gethostname
 
 import rclpy
 from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
 from rclpy.duration import Duration
 
+from rclpy.time import Time as rclpyTime
 from std_msgs.msg import String, Header
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState
-from geometry_msgs.msg import TwistStamped, Twist
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus, JointState, BatteryState
+from geometry_msgs.msg import Twist
 from astra_msgs.msg import CoreControl, CoreFeedback, RevMotorState
 from astra_msgs.msg import VicCAN, NewCoreFeedback, Barometer, CoreCtrlState
 
-
-CORE_WHEELBASE = 0.836  # meters
-CORE_WHEEL_RADIUS = 0.171  # meters
+CORE_WHEELBASE = 0.782  # m
+CORE_WHEEL_SEPARATION = 0.836  # m
+CORE_WHEEL_RADIUS = 0.171  # m
 CORE_GEAR_RATIO = 100.0  # Clucky: 100:1
 
 # TODO: update core_description or add testbed_description
-TESTBED_WHEELBASE = 0.368  # meters
-TESTBED_WHEEL_RADIUS = 0.108  # meters
+TESTBED_WHEELBASE = 0.368  # m
+TESTBED_WHEEL_SEPARATION = 0.502  # m
+TESTBED_WHEEL_RADIUS = 0.108  # m
 TESTBED_GEAR_RATIO = 64  # Testbed: 64:1
 
 
@@ -39,7 +43,13 @@ class MotorId(IntEnum):
     BR = 3
 
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
@@ -50,44 +60,120 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
+
+
+# Used to verify the length of an incoming VicCAN feedback message
+# Key is VicCAN command_id, value is expected length of data list
+VICCAN_MSG_LEN_DICT = {
+    48: 1,
+    49: 1,
+    50: 2,
+    51: 4,
+    52: 4,
+    53: 4,
+    54: 4,
+    56: 4,  # really 3, but viccan
+    58: 4,  # ditto
+}
+
+# Covariance diagonal entry for axes a sensor doesn't measure (e.g. roll/pitch from a
+# heading-only orientation) -- tells nodes not to trust these values.
+UNMEASURED_VARIANCE = 1e6
+
+# Baseline sensor noise. IMU numbers derived from the BNO-055 datasheet, GPS numbers
+# from the NEO-M9N datasheet.
+# TODO: scale GPS covariance from HDOP/VDOP once embedded sends them
+GPS_H_STDDEV = 2.0  # m
+GPS_V_STDDEV = 4.0  # m
+IMU_YAW_STDDEV = 0.05  # rad
+IMU_GYRO_STDDEV = 0.0014  # rad/s
+IMU_ACCEL_STDDEV = 0.012  # m/s^2
+
 
 class CoreNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Core related topics."""
 
-    # Used to verify the length of an incoming VicCAN feedback message
-    # Key is VicCAN command_id, value is expected length of data list
-    viccan_msg_len_dict = {
-        48: 1,
-        49: 1,
-        50: 2,
-        51: 4,
-        52: 4,
-        53: 4,
-        54: 4,
-        56: 4,  # really 3, but viccan
-        58: 4,  # ditto
-    }
     rover_platform: Literal["clucky", "testbed"]
 
     def __init__(self):
         super().__init__("core_node")
 
-        self.get_logger().info(f"core launch_mode is: anchor")
+        self.get_logger().info("core launch_mode is: anchor")
 
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_ros2_control", False)
-        self.use_ros2_control = (
-            self.get_parameter("use_ros2_control").get_parameter_value().bool_value
-        )
+        self.use_ros2_control = create_param(self, "use_ros2_control", False)
 
-        self.declare_parameter("rover_platform_override", "")
-        rover_platform = (
-            self.get_parameter("rover_platform_override")
-            .get_parameter_value()
-            .string_value
-        )
+        rover_platform = create_param(self, "rover_platform_override", "")
+
         # Verify rover_platform_override value is valid
         if rover_platform not in ("clucky", "testbed", ""):
             # Keeping this here, because I want a value error only if the user manually
@@ -106,13 +192,13 @@ class CoreNode(Node):
         self.rover_platform = cast(Literal["clucky", "testbed"], rover_platform)
 
         if self.rover_platform == "testbed":
-            global TESTBED_WHEELBASE, TESTBED_WHEEL_RADIUS, TESTBED_GEAR_RATIO
             self.wheelbase = TESTBED_WHEELBASE
+            self.wheel_separation = TESTBED_WHEEL_SEPARATION
             self.wheel_radius = TESTBED_WHEEL_RADIUS
             self.gear_ratio = TESTBED_GEAR_RATIO
         else:  # default in case of unset or invalid environment variable
-            global CORE_WHEELBASE, CORE_WHEEL_RADIUS, CORE_GEAR_RATIO
             self.wheelbase = CORE_WHEELBASE
+            self.wheel_separation = CORE_WHEEL_SEPARATION
             self.wheel_radius = CORE_WHEEL_RADIUS
             self.gear_ratio = CORE_GEAR_RATIO
 
@@ -155,27 +241,28 @@ class CoreNode(Node):
                 JointState, "/core/joint_commands", self.joint_command_callback, 2
             )
         else:
-            # manual twist -- [-1, 1] rather than real units
-            # TODO: change topic to '/core/control/twist'
-            self.twist_man_sub_ = self.create_subscription(
-                Twist, "/core/twist", self.twist_man_callback, qos_profile=control_qos
+            # duty cycle twist -- [-1, 1] rather than real units
+            self.twist_duty_cycle_sub_ = self.create_subscription(
+                Twist,
+                "/core/control/duty_cycle",
+                self.twist_duty_cycle_callback,
+                qos_profile=CONTROL_QOS,
             )
-            # manual flags -- brake mode and max duty cycle
+            # duty cycle flags -- brake mode and max duty cycle
             self.control_state_sub_ = self.create_subscription(
                 CoreCtrlState,
                 "/core/control/state",
                 self.control_state_callback,
-                qos_profile=control_qos,
+                qos_profile=CONTROL_QOS,
             )
             self.twist_max_duty = 0.5  # max duty cycle for twist commands (0.0 - 1.0); walking speed is 0.5
 
         # Feedback
 
         # Consolidated and organized main core feedback
-        # TODO: change topic to something like '/core/feedback/main'
         self.feedback_new_pub_ = self.create_publisher(
             NewCoreFeedback,
-            "/core/feedback_new",
+            "/core/feedback/main",
             qos_profile=qos.qos_profile_sensor_data,
         )
 
@@ -186,12 +273,12 @@ class CoreNode(Node):
 
         # IMU (embedded BNO-055)
         self.imu_pub_ = self.create_publisher(
-            Imu, "/core/imu", qos_profile=qos.qos_profile_sensor_data
+            Imu, "/core/feedback/imu/data", qos_profile=qos.qos_profile_sensor_data
         )
 
         # GPS (embedded u-blox M9N)
         self.gps_pub_ = self.create_publisher(
-            NavSatFix, "/gps/fix", qos_profile=qos.qos_profile_sensor_data
+            NavSatFix, "/core/feedback/gps/fix", qos_profile=qos.qos_profile_sensor_data
         )
 
         # Barometer (embedded BMP-388)
@@ -199,11 +286,20 @@ class CoreNode(Node):
             Barometer, "/core/feedback/baro", qos_profile=qos.qos_profile_sensor_data
         )
 
+        # Battery
+        self.batt_pub_ = self.create_publisher(
+            BatteryState,
+            "/core/feedback/battery",
+            qos_profile=qos.qos_profile_sensor_data,
+        )
+
         ###################################################
         # Timers
 
         if self.use_ros2_control:
             self.vel_cmd_timer_ = self.create_timer(0.1, self.vel_cmd_timer_callback)
+
+        self.batt_timer_ = self.create_timer(1.0, self.batt_timer_callback)
 
         ###################################################
         # Saved state
@@ -221,18 +317,52 @@ class CoreNode(Node):
 
         # IMU
         self.imu_state = Imu()
-        self.imu_state.header.frame_id = "core_bno055"
+        self.imu_state.header.frame_id = "core_embedded_imu_link"
+        # Embedded does not currently send roll or pitch
+        self.imu_state.orientation_covariance = diag3(
+            UNMEASURED_VARIANCE, UNMEASURED_VARIANCE, IMU_YAW_STDDEV**2
+        )
+        self.imu_state.angular_velocity_covariance = diag3(
+            IMU_GYRO_STDDEV**2, IMU_GYRO_STDDEV**2, IMU_GYRO_STDDEV**2
+        )
+        self.imu_state.linear_acceleration_covariance = diag3(
+            IMU_ACCEL_STDDEV**2, IMU_ACCEL_STDDEV**2, IMU_ACCEL_STDDEV**2
+        )
 
         # GPS
         self.gps_state = NavSatFix()
-        self.gps_state.header.frame_id = "core_gps_antenna"
+        self.gps_state.header.frame_id = "core_gps_antenna_link"
         self.gps_state.status.service = NavSatStatus.SERVICE_GPS
         self.gps_state.status.status = NavSatStatus.STATUS_NO_FIX
-        self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_UNKNOWN
+        self.gps_state.position_covariance_type = NavSatFix.COVARIANCE_TYPE_APPROXIMATED
+        self.gps_state.position_covariance = diag3(
+            GPS_H_STDDEV**2, GPS_H_STDDEV**2, GPS_V_STDDEV**2
+        )
 
         # Barometer
         self.baro_state = Barometer()
         self.baro_state.header.frame_id = "core_bmp388"
+
+        # Battery
+        self.battery_state = BatteryState(
+            header=Header(
+                frame_id="core_battery", stamp=self.get_clock().now().to_msg()
+            ),
+            voltage=0.0,
+            temperature=nan,
+            current=nan,
+            charge=nan,
+            capacity=nan,
+            design_capacity=nan,
+            percentage=0.0,
+            power_supply_status=BatteryState.POWER_SUPPLY_STATUS_DISCHARGING,
+            power_supply_health=BatteryState.POWER_SUPPLY_HEALTH_UNKNOWN,
+            power_supply_technology=BatteryState.POWER_SUPPLY_TECHNOLOGY_LIPO,
+            cell_voltage=[nan] * 4,
+            cell_temperature=[nan] * 4,
+            location="chassis",
+            serial_number="idk",
+        )
 
     @deprecated("Uses an old message type. Will be removed at some point.")
     def scale_duty(self, value: float, max_speed: float):
@@ -289,7 +419,7 @@ class CoreNode(Node):
             or len(msg.position) != 0
         ):
             self.get_logger().warning(
-                f"Received joint control message with unexpected number of joints. Ignoring."
+                "Received joint control message with unexpected number of joints. Ignoring."
             )
             return
         if msg.name[-4:] != [  # type: ignore
@@ -299,7 +429,7 @@ class CoreNode(Node):
             "fr_wheel_joint",
         ]:
             self.get_logger().warning(
-                f"Received joint control message with unexpected name[]. Ignoring."
+                "Received joint control message with unexpected name[]. Ignoring."
             )
             return
 
@@ -312,14 +442,16 @@ class CoreNode(Node):
         # Safety timeout for diff_drive_controller commands via topic_based_ros2_control.
         # It is safe to send stop command here because if self.use_ros2_control,
         # then this is the only callback that is controlling Core's motors.
-        if self.get_clock().now() - self._last_joint_command_time > Duration(
-            nanoseconds=int(1e8)  # 100ms
+        if (
+            self.get_clock().now() - self._last_joint_command_time
+            > Duration(nanoseconds=int(1e8))  # 100ms
+            or len(self._last_joint_command_msg.velocity) != 4
         ):
             self.send_viccan(20, [0.0, 0.0, 0.0, 0.0])
             return
 
         # This order is verified by the subscription callback
-        (bl_vel, br_vel, fl_vel, fr_vel) = self._last_joint_command_msg.velocity
+        bl_vel, br_vel, fl_vel, fr_vel = self._last_joint_command_msg.velocity
 
         # Convert wheel rad/s to motor RPM
         bl_rpm = radps_to_rpm(bl_vel) * self.gear_ratio
@@ -329,7 +461,7 @@ class CoreNode(Node):
 
         self.send_viccan(20, [fl_rpm, bl_rpm, fr_rpm, br_rpm])  # REV Velocity
 
-    def twist_man_callback(self, msg: Twist):
+    def twist_duty_cycle_callback(self, msg: Twist):
         linear = msg.linear.x  # [-1 1] for forward/back from left stick y
         angular = msg.angular.z  # [-1 1] for left/right from right stick x
 
@@ -449,8 +581,8 @@ class CoreNode(Node):
         # skill diff if not
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_msg_len_dict:
-            expected_len = self.viccan_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_MSG_LEN_DICT:
+            expected_len = VICCAN_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
@@ -468,7 +600,7 @@ class CoreNode(Node):
             case 50:  # GNSS Satellite count and altitude
                 self.gps_state.status.status = (
                     NavSatStatus.STATUS_FIX
-                    if int(msg.data[0]) >= 3
+                    if int(msg.data[0]) >= 4
                     else NavSatStatus.STATUS_NO_FIX
                 )
                 self.gps_state.altitude = float(msg.data[1])
@@ -477,9 +609,10 @@ class CoreNode(Node):
             # IMU
             case 51:  # Gyro x, y, z, and imu calibration
                 self.feedback_new_state.imu_calib = round(float(msg.data[3]))
-                self.imu_state.angular_velocity.x = float(msg.data[0])
-                self.imu_state.angular_velocity.y = float(msg.data[1])
-                self.imu_state.angular_velocity.z = float(msg.data[2])
+                # BNO-055 uses deg/s, REP-103 uses rad/s
+                self.imu_state.angular_velocity.x = radians(float(msg.data[0]))
+                self.imu_state.angular_velocity.y = radians(float(msg.data[1]))
+                self.imu_state.angular_velocity.z = radians(float(msg.data[2]))
                 self.imu_state.header.stamp = msg.header.stamp
             case 52:  # Accel x, y, z, heading
                 self.imu_state.linear_acceleration.x = float(msg.data[0])
@@ -487,7 +620,10 @@ class CoreNode(Node):
                 self.imu_state.linear_acceleration.z = float(msg.data[2])
                 self.feedback_new_state.orientation = float(msg.data[3])
                 # Deal with quaternion
-                r = Rotation.from_euler("z", float(msg.data[3]), degrees=True)
+                # BNO-055 heading is compass-style: degrees, clockwise-positive,
+                # 0 = magnetic north. REP-103 yaw is radians, CCW-positive, 0 = east.
+                # navsat_transform handles magnetic declination.
+                r = Rotation.from_euler("z", 90.0 - float(msg.data[3]), degrees=True)
                 q = r.as_quat()
                 self.imu_state.orientation.x = q[0]
                 self.imu_state.orientation.y = q[1]
@@ -587,6 +723,31 @@ class CoreNode(Node):
             case _:
                 return
 
+    def batt_timer_callback(self):
+        # Don't use information older than 1 second
+        if self.get_clock().now() - rclpyTime.from_msg(
+            self.feedback_new_state.header.stamp
+        ) > Duration(nanoseconds=int(1e9)):
+            return
+
+        # pcb_voltage = self.feedback_new_state.board_voltage.vbatt
+
+        esc_voltages = [
+            getattr(self.feedback_new_state, f"{pos}_motor").voltage
+            for pos in ("fr", "fl", "bl", "br")
+        ]
+        esc_voltages = [voltage for voltage in esc_voltages if voltage != 0]
+        avg_esc_voltage = sum(esc_voltages) / len(esc_voltages) if esc_voltages else 0
+
+        if avg_esc_voltage == 0:
+            return
+
+        # For now, just use the average ESC voltage
+        self.battery_state.header.stamp = self.get_clock().now().to_msg()
+        self.battery_state.voltage = avg_esc_voltage
+        self.battery_state.percentage = voltage_to_percentage(avg_esc_voltage, 4)
+        self.batt_pub_.publish(self.battery_state)
+
     @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):
         # self.get_logger().info(f"[Core] {self.core_feedback}")
@@ -596,33 +757,35 @@ class CoreNode(Node):
 def map_range(
     value: float, in_min: float, in_max: float, out_min: float, out_max: float
 ):
+    """Implementation of Arduino's map(). Adapts a value from one range to another."""
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 
+def voltage_to_percentage(voltage: float, cells: int):
+    """Converts [cells]S battery voltage to battery capacity in %."""
+    min_v = 3.3 * cells
+    max_v = 4.2 * cells
+    if voltage < min_v:
+        return 0.0
+    elif voltage > max_v:
+        return 1.0
+
+    return float(interp1d([min_v, max_v], [0.0, 1.0])(voltage))
+
+
 def radps_to_rpm(radps: float):
+    """Converts rad/s to RPM."""
     return radps * 60 / (2 * pi)
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
+# Temporary until numpy is added as a dependency
+def diag3(xx: float, yy: float, zz: float) -> list[float]:
+    """Row-major 3x3 covariance matrix with the given diagonal."""
+    return [xx, 0.0, 0.0, 0.0, yy, 0.0, 0.0, 0.0, zz]
 
 
 def main(args=None):
-    rclpy.init(args=args)
-
-    # Catch termination signals and exit cleanly
-    signal.signal(signal.SIGTERM, exit_handler)
-
-    core_node = CoreNode()
-
-    try:
-        rclpy.spin(core_node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        rclpy.try_shutdown()
+    run_node(CoreNode, args)
 
 
 if __name__ == "__main__":
