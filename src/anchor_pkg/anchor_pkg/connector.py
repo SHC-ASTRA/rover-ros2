@@ -416,10 +416,8 @@ class CANConnector(Connector):
 
         return (
             viccan,
-            ",".join(
-                ["can_relay_fromvic", viccan.mcu_name, str(viccan.command_id)]
-                + [str(d) for d in viccan.data]
-            ),
+            f"can_relay_fromvic,{viccan.mcu_name},{viccan.command_id}"
+            + ",".join(map(str, viccan.data)),
         )
 
     def write(self, msg: VicCAN):
