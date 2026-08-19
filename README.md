@@ -133,6 +133,14 @@ These instructions apply to the black XBox-style GuliKit controller, primarily u
 
 ## Common Problems/Troubleshooting
 
+**Q**: The rover isn't working.
+
+A: You may want to try the auto debugger, which checks for common issues that could be causing the rover not to work. To do so, run this command from the `rover-ros2` directory:
+
+```bash
+$ python tests/auto_debug.py
+```
+
 **Q**: When I try to launch the nodes, I receive a `package '' not found` error.
 
 A: Make sure you have sourced the workspace in the current shell:
