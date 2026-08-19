@@ -416,7 +416,7 @@ class CANConnector(Connector):
 
         return (
             viccan,
-            f"can_relay_fromvic,{viccan.mcu_name},{viccan.command_id}"
+            f"can_relay_fromvic,{viccan.mcu_name},{viccan.command_id},"
             + ",".join(map(str, viccan.data)),
         )
 
