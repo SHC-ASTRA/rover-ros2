@@ -65,7 +65,9 @@ def generate_launch_description():
         )
     )
 
-    # nodes
+    ####################################################################################
+    # Launch Nodes
+
     ld.add_action(
         Node(
             package="anchor_pkg",
@@ -90,7 +92,10 @@ def generate_launch_description():
             executable="arm",
             name="arm",
             output="both",
-            parameters=[{"launch_mode": "anchor"}],
+            parameters=[
+                {"launch_mode": "anchor"},
+                {"use_ros2_control": LaunchConfiguration("use_ros2_control")},
+            ],
             on_exit=Shutdown(),
         )
     )
@@ -114,14 +119,10 @@ def generate_launch_description():
             output="both",
             parameters=[
                 {"launch_mode": "anchor"},
-                {
-                    "use_ros2_control": LaunchConfiguration(
-                        "use_ros2_control", default=False
-                    )
-                },
+                {"use_ros2_control": LaunchConfiguration("use_ros2_control")},
                 {
                     "rover_platform_override": LaunchConfiguration(
-                        "rover_platform_override", default="auto"
+                        "rover_platform_override"
                     )
                 },
             ],
@@ -144,25 +145,9 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution(
                     [
-                        FindPackageShare("core_description"),
+                        FindPackageShare("rover_description"),
                         "launch",
-                        "robot_state_publisher.launch.py",
-                    ]
-                )
-            ),
-            condition=IfCondition(LaunchConfiguration("use_ros2_control")),
-            launch_arguments={("hardware_mode", "physical")},
-        )
-    )
-
-    ld.add_action(
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                PathJoinSubstitution(
-                    [
-                        FindPackageShare("core_description"),
-                        "launch",
-                        "spawn_controllers.launch.py",
+                        "physical.launch.py",
                     ]
                 )
             ),

@@ -1,12 +1,16 @@
 import sys
 import signal
 import math
+from collections.abc import Callable
+from typing import TypeVar
 from warnings import deprecated
 
 import rclpy
 from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
 from rclpy.executors import ExternalShutdownException
 from rclpy import qos
+from rclpy.duration import Duration
 
 from std_msgs.msg import String, Header
 from sensor_msgs.msg import JointState
@@ -14,7 +18,13 @@ from control_msgs.msg import JointJog
 from astra_msgs.msg import SocketFeedback, DigitFeedback, ArmManual  # TODO: Old topics
 from astra_msgs.msg import ArmFeedback, ArmCtrlState, VicCAN, RevMotorState
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
     reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
@@ -25,50 +35,120 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal. Used with signal.signal(SIGNAL, exit_handler)"""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
+
+# Every non-fixed joint defined in Arm's URDF
+# Used for JointState and JointJog messages
+# Why this isn't shared: changes to this list should be accompanied by changes to the
+# corresponding code. There is no point in Headless having the updated list if it's
+# sending the wrong values and breaking the arm.
+ALL_ARM_JOINT_NAMES = [
+    "axis_0_joint",
+    "axis_1_joint",
+    "axis_2_joint",
+    "axis_3_joint",
+    "wrist_yaw_joint",
+    "wrist_roll_joint",
+    "ef_gripper_left_joint",
+]
+
+
+# Used to verify the length of an incoming VicCAN feedback message
+# Key is VicCAN command_id, value is expected length of data list
+VICCAN_SOCKET_MSG_LEN_DICT = {
+    53: 4,
+    54: 4,
+    55: 4,
+    58: 4,
+    59: 4,
+}
+
+VICCAN_DIGIT_MSG_LEN_DICT = {
+    54: 4,
+    55: 2,
+    59: 2,
+}
+
 
 class ArmNode(Node):
     """Relay between Anchor and Basestation/Headless/Moveit2 for Arm related topics."""
 
-    # Every non-fixed joint defined in Arm's URDF
-    # Used for JointState and JointJog messsages
-    all_joint_names = [
-        "axis_0_joint",
-        "axis_1_joint",
-        "axis_2_joint",
-        "axis_3_joint",
-        "wrist_yaw_joint",
-        "wrist_roll_joint",
-        "ef_gripper_left_joint",
-    ]
-
-    # Used to verify the length of an incoming VicCAN feedback message
-    # Key is VicCAN command_id, value is expected length of data list
-    viccan_socket_msg_len_dict = {
-        53: 4,
-        54: 4,
-        55: 4,
-        58: 4,
-        59: 4,
-    }
-
-    viccan_digit_msg_len_dict = {
-        54: 4,
-        55: 2,
-        59: 2,
-    }
-
     def __init__(self):
         super().__init__("arm_node")
 
-        self.get_logger().info(f"arm launch_mode is: anchor")  # Hey I like the output
+        self.get_logger().info("arm launch_mode is: anchor")  # Hey I like the output
 
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", True)
-        self.use_old_topics = (
-            self.get_parameter("use_old_topics").get_parameter_value().bool_value
-        )
+        self.use_old_topics = create_param(self, "use_old_topics", True)
+
+        self.use_ros2_control = create_param(self, "use_ros2_control", False)
 
         ##################################################
         # Old topics
@@ -112,26 +192,28 @@ class ArmNode(Node):
 
         # Control
 
-        # Manual: /arm/control/joint_jog is published by Basestation or Headless
-        self.man_jointjog_sub_ = self.create_subscription(
-            JointJog,
-            "/arm/control/joint_jog",
-            self.jointjog_callback,
-            qos_profile=control_qos,
-        )
-        # IK: /joint_commands is published by JointTrajectoryController via topic_based_control
-        self.joint_command_sub_ = self.create_subscription(
-            JointState,
-            "/joint_commands",
-            self.joint_command_callback,
-            qos_profile=control_qos,
-        )
+        if not self.use_ros2_control:
+            # Manual: /arm/control/joint_jog is published by Basestation or Headless
+            self.man_jointjog_sub_ = self.create_subscription(
+                JointJog,
+                "/arm/control/manual_joint_jog",
+                self.jointjog_callback,
+                qos_profile=CONTROL_QOS,
+            )
+        else:
+            # IK: /arm/joint_commands is published by JointTrajectoryController via topic_based_control
+            self.joint_command_sub_ = self.create_subscription(
+                JointState,
+                "/arm/joint_commands",
+                self.joint_command_callback,
+                qos_profile=CONTROL_QOS,
+            )
         # State: /arm/control/state is published by Basestation or Headless
         self.man_state_sub_ = self.create_subscription(
             ArmCtrlState,
             "/arm/control/state",
             self.man_state_callback,
-            qos_profile=control_qos,
+            qos_profile=CONTROL_QOS,
         )
 
         # Feedback
@@ -139,7 +221,7 @@ class ArmNode(Node):
         # Combined Socket and Digit feedback
         self.arm_feedback_pub_ = self.create_publisher(
             ArmFeedback,
-            "/arm/feedback",
+            "/arm/feedback/main",
             qos_profile=qos.qos_profile_sensor_data,
         )
         # IK arm pose: /joint_states is published from here to topic_based_control
@@ -148,7 +230,17 @@ class ArmNode(Node):
         )
 
         ###################################################
+        # Timers
+
+        if self.use_ros2_control:
+            self.vel_cmd_timer_ = self.create_timer(0.1, self.vel_cmd_timer_callback)
+
+        ###################################################
         # Saved state
+
+        # Controls - initialize before timer has a chance to run
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = JointState()
 
         # Combined Socket and Digit feedback
         self.arm_feedback_new = ArmFeedback()
@@ -160,7 +252,7 @@ class ArmNode(Node):
         # IK Arm pose
         self.saved_joint_state = JointState()
         self.saved_joint_state.header.frame_id = "base_link"
-        self.saved_joint_state.name = self.all_joint_names
+        self.saved_joint_state.name = list(ALL_ARM_JOINT_NAMES)  # Copy, don't reference
         # ... initialize with zeros
         self.saved_joint_state.position = [0.0] * len(self.saved_joint_state.name)
         self.saved_joint_state.velocity = [0.0] * len(self.saved_joint_state.name)
@@ -177,7 +269,7 @@ class ArmNode(Node):
                 if joint_name in msg.joint_names
                 else 0.0
             )
-            for joint_name in self.all_joint_names
+            for joint_name in ALL_ARM_JOINT_NAMES
         ]
         # Deadzone
         velocities = [vel if abs(vel) > 0.05 else 0.0 for vel in velocities]
@@ -235,6 +327,23 @@ class ArmNode(Node):
             self.get_logger().debug("Ignoring malformed /joint_command message.")
             return  # command needs either position or velocity for all 7 joints
 
+        # A 10 Hz timer callback actually sends these commands to Arm for rate limiting
+        # These come from ros2_control at 50 Hz
+        self._last_joint_command_time = self.get_clock().now()
+        self._last_joint_command_msg = msg
+
+    def vel_cmd_timer_callback(self):
+        # Safety timeout for Moveit Servo commands via topic_based_ros2_control.
+        # It is safe to send stop command here because if self.use_ros2_control,
+        # then this is the only callback that is controlling Arm's motors.
+        if self.get_clock().now() - self._last_joint_command_time > Duration(
+            nanoseconds=int(1e8)  # 100ms
+        ):
+            self.send_velocities([0.0] * 7, self._last_joint_command_msg.header)
+            return
+
+        msg = self._last_joint_command_msg
+
         # Grab velocities from message
         velocities = [
             (
@@ -242,7 +351,7 @@ class ArmNode(Node):
                 if joint_name in msg.name
                 else 0.0
             )
-            for joint_name in self.all_joint_names
+            for joint_name in ALL_ARM_JOINT_NAMES
         ]
 
         self.send_velocities(velocities, msg.header)
@@ -335,8 +444,8 @@ class ArmNode(Node):
         assert msg.mcu_name == "arm"
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_socket_msg_len_dict:
-            expected_len = self.viccan_socket_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_SOCKET_MSG_LEN_DICT:
+            expected_len = VICCAN_SOCKET_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
@@ -423,8 +532,8 @@ class ArmNode(Node):
         assert msg.mcu_name == "digit"
 
         # Check message len to prevent crashing on bad data
-        if msg.command_id in self.viccan_digit_msg_len_dict:
-            expected_len = self.viccan_digit_msg_len_dict[msg.command_id]
+        if msg.command_id in VICCAN_DIGIT_MSG_LEN_DICT:
+            expected_len = VICCAN_DIGIT_MSG_LEN_DICT[msg.command_id]
             if len(msg.data) != expected_len:
                 self.get_logger().warning(
                     f"Ignoring VicCAN message with id {msg.command_id} due to unexpected data length (expected {expected_len}, got {len(msg.data)})"
@@ -442,10 +551,10 @@ class ArmNode(Node):
             case 55:  # Arm joint positions
                 self.saved_joint_state.position[4] = math.radians(
                     msg.data[0]
-                )  # Wrist roll
+                )  # Wrist yaw
                 self.saved_joint_state.position[5] = math.radians(
                     msg.data[1]
-                )  # Wrist yaw
+                )  # Wrist roll
 
     @deprecated("Uses an old message type. Will be removed at some point.")
     def publish_feedback(self):
@@ -511,26 +620,8 @@ class ArmNode(Node):
             self.arm_feedback.axis0_current = current
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
-
-
 def main(args=None):
-    rclpy.init(args=args)
-
-    # Catch termination signals and exit cleanly
-    signal.signal(signal.SIGTERM, exit_handler)
-
-    arm_node = ArmNode()
-
-    try:
-        rclpy.spin(arm_node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        rclpy.try_shutdown()
+    run_node(ArmNode, args)
 
 
 if __name__ == "__main__":

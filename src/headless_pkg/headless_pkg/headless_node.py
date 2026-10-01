@@ -1,8 +1,8 @@
 import rclpy
-from rclpy.node import Node
-from rclpy.executors import ExternalShutdownException
 from rclpy import qos
-from rclpy.duration import Duration
+from rclpy.node import Node
+from rclpy.exceptions import InvalidParameterTypeException
+from rclpy.executors import ExternalShutdownException
 
 import signal
 import time
@@ -12,23 +12,25 @@ import sys
 import pwd
 import grp
 from math import copysign
+from collections.abc import Callable
+from typing import NamedTuple, TypeVar
 
 from std_srvs.srv import Trigger
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Float64MultiArray
 from geometry_msgs.msg import Twist, TwistStamped
 from control_msgs.msg import JointJog
 from astra_msgs.msg import CoreControl, ArmManual, BioControl
 from astra_msgs.msg import CoreCtrlState, ArmCtrlState
 
-import warnings
+from warnings import filterwarnings
 
 # Literally headless
-warnings.filterwarnings(
+filterwarnings(
     "ignore",
     message="Your system is avx2 capable but pygame was not built with support for it.",
 )
 
-import pygame
+import pygame  # noqa: E402 - import not at top of file
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"  # Prevents pygame from trying to open a display
 os.environ["SDL_AUDIODRIVER"] = (
@@ -40,12 +42,19 @@ CORE_STOP_MSG = CoreControl()  # All zeros by default
 CORE_STOP_TWIST_MSG = Twist()  # "
 ARM_STOP_MSG = ArmManual()  # "
 BIO_STOP_MSG = BioControl()  # "
+GRIPPER_STOP_MSG = Float64MultiArray(data=[0.0])  # "
 
 
-control_qos = qos.QoSProfile(
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
     history=qos.QoSHistoryPolicy.KEEP_LAST,
     depth=2,
-    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
     durability=qos.QoSDurabilityPolicy.VOLATILE,
     # deadline=Duration(seconds=1),
     # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
@@ -53,24 +62,92 @@ control_qos = qos.QoSProfile(
     # liveliness_lease_duration=Duration(seconds=5),
 )
 
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
+
+# Every non-fixed joint defined in Arm's URDF
+# Used for JointState and JointJog messsages
+ALL_ARM_JOINT_NAMES = [
+    "axis_0_joint",
+    "axis_1_joint",
+    "axis_2_joint",
+    "axis_3_joint",
+    "wrist_yaw_joint",
+    "wrist_roll_joint",
+    "ef_gripper_left_joint",
+]
+
 
 STICK_DEADZONE = float(os.getenv("STICK_DEADZONE", "0.05"))
 ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
 
 
 class Headless(Node):
-    # Every non-fixed joint defined in Arm's URDF
-    # Used for JointState and JointJog messsages
-    all_joint_names = [
-        "axis_0_joint",
-        "axis_1_joint",
-        "axis_2_joint",
-        "axis_3_joint",
-        "wrist_yaw_joint",
-        "wrist_roll_joint",
-        "ef_gripper_left_joint",
-    ]
-
     def __init__(self):
         # Initialize pygame first
         pygame.init()
@@ -80,12 +157,16 @@ class Headless(Node):
         ##################################################
         # Preamble
 
-        # Wait for anchor to start
-        pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
-        while len(pub_info) == 0:
-            self.get_logger().info("Waiting for anchor to start...")
-            time.sleep(1.0)
+        self.require_anchor = create_param(self, "require_anchor", True)
+
+        # Wait for anchor to start -- mainly to delay the controller buzz until the
+        # rover is actually ready to drive
+        if self.require_anchor:
             pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
+            while len(pub_info) == 0:
+                self.get_logger().info("Waiting for anchor to start...")
+                time.sleep(1.0)
+                pub_info = self.get_publishers_info_by_topic("/anchor/from_vic/debug")
 
         # Wait for a gamepad to be connected
         print("Waiting for gamepad connection...")
@@ -99,20 +180,20 @@ class Headless(Node):
             print("No gamepad found. Waiting...")
 
         # Initialize the gamepad
-        id = 0
+        gamepad_id = 0
         while True:
             self.num_gamepads = pygame.joystick.get_count()
-            if id >= self.num_gamepads:
+            if gamepad_id >= self.num_gamepads:
                 self.get_logger().fatal("Ran out of controllers to try")
                 sys.exit(1)
 
             try:
-                self.gamepad = pygame.joystick.Joystick(id)
+                self.gamepad = pygame.joystick.Joystick(gamepad_id)
                 self.gamepad.init()
             except Exception as e:
                 self.get_logger().error("Error when initializing gamepad")
-                self.get_logger().error(e)
-                id += 1
+                self.get_logger().error(str(e))
+                gamepad_id += 1
                 continue
             print(f"Gamepad found: {self.gamepad.get_name()}")
 
@@ -138,59 +219,34 @@ class Headless(Node):
                     )
             else:
                 break
-            id += 1
+            gamepad_id += 1
 
         ##################################################
         # Parameters
 
-        self.declare_parameter("use_old_topics", False)
-        self.use_old_topics = (
-            self.get_parameter("use_old_topics").get_parameter_value().bool_value
-        )
+        self.use_old_topics = create_param(self, "use_old_topics", False)
 
-        self.declare_parameter("use_cmd_vel", False)
-        self.use_cmd_vel = (
-            self.get_parameter("use_cmd_vel").get_parameter_value().bool_value
-        )
+        self.use_bio = create_param(self, "use_bio", False)
 
-        self.declare_parameter("use_bio", False)
-        self.use_bio = self.get_parameter("use_bio").get_parameter_value().bool_value
-
-        self.declare_parameter("use_arm_ik", False)
-        self.use_arm_ik = (
-            self.get_parameter("use_arm_ik").get_parameter_value().bool_value
-        )
-        # NOTE: only applicable if use_old_topics == True
-        self.declare_parameter("use_new_arm_manual_scheme", True)
-        self.use_new_arm_manual_scheme = (
-            self.get_parameter("use_new_arm_manual_scheme")
-            .get_parameter_value()
-            .bool_value
-        )
+        self.use_arm_ik = create_param(self, "use_arm_ik", False)
 
         # Check parameter validity
-        if self.use_cmd_vel:
-            self.get_logger().info("Using cmd_vel for core control")
-            global CORE_MODE
-            CORE_MODE = "twist"
-        elif self.use_old_topics:
-            self.get_logger().info("Using astra_msgs/CoreControl for core control")
-        else:
-            self.get_logger().info("Using geometry_msgs/Twist for core control")
-
         if self.use_arm_ik and self.use_old_topics:
             self.get_logger().fatal("Old topics do not support arm IK control.")
             sys.exit(1)
-        if not self.use_new_arm_manual_scheme and not self.use_old_topics:
-            self.get_logger().warn(
-                f"New arm manual does not support old control scheme. Defaulting to new scheme."
-            )
 
         self.ctrl_mode = "core"  # Start in core mode
         self.core_brake_mode = False
         self.core_max_duty = 0.5  # Default max duty cycle (walking speed)
         self.arm_brake_mode = False
-        self.arm_laser = False
+        self.servo_control_mode = "ik"
+
+        # Per-instance copy so modifications don't touch the shared constant
+        self.all_joint_names = list(ALL_ARM_JOINT_NAMES)
+
+        # Moveit Servo does not accept gripper commands, and will complain about it
+        if self.use_arm_ik:
+            self.all_joint_names.remove("ef_gripper_left_joint")
 
         ##################################################
         # Old Topics
@@ -200,37 +256,81 @@ class Headless(Node):
             self.arm_publisher = self.create_publisher(
                 ArmManual, "/arm/control/manual", 2
             )
-            self.bio_publisher = self.create_publisher(BioControl, "/bio/control", 2)
+            if self.use_bio:
+                self.bio_publisher = self.create_publisher(
+                    BioControl, "/bio/control", 2
+                )
+
+            # Print topic names and types
+            self.get_logger().info("NOTE: USING OLD TOPICS")
+            self.get_logger().info(
+                f"Core topic: {self.core_publisher.topic_name}"
+                f" [{self.core_publisher.msg_type.__qualname__}]"
+            )
+            if not self.use_bio:
+                self.get_logger().info(
+                    f"Arm topic: {self.arm_publisher.topic_name}"
+                    f" [{self.arm_publisher.msg_type.__qualname__}]"
+                )
+            else:
+                self.get_logger().info(
+                    f"Bio topic: {self.bio_publisher.topic_name}"
+                    f" [{self.bio_publisher.msg_type.__qualname__}]"
+                )
 
         ##################################################
         # New Topics
 
         if not self.use_old_topics:
-            self.core_twist_pub_ = self.create_publisher(
-                Twist, "/core/twist", qos_profile=control_qos
+            self.core_duty_cycle_pub_ = self.create_publisher(
+                Twist, "/core/control/duty_cycle", qos_profile=CONTROL_QOS
             )
             self.core_cmd_vel_pub_ = self.create_publisher(
-                TwistStamped, "/diff_controller/cmd_vel", qos_profile=control_qos
+                Twist, "/core/control/cmd_vel", qos_profile=CONTROL_QOS
             )
             self.core_state_pub_ = self.create_publisher(
-                CoreCtrlState, "/core/control/state", qos_profile=control_qos
+                CoreCtrlState, "/core/control/state", qos_profile=CONTROL_QOS
             )
 
             self.arm_manual_pub_ = self.create_publisher(
-                JointJog, "/arm/control/joint_jog", qos_profile=control_qos
+                JointJog, "/arm/control/manual_joint_jog", qos_profile=CONTROL_QOS
             )
             self.arm_state_pub_ = self.create_publisher(
-                ArmCtrlState, "/arm/control/state", qos_profile=control_qos
+                ArmCtrlState, "/arm/control/state", qos_profile=CONTROL_QOS
             )
 
             self.arm_ik_twist_publisher = self.create_publisher(
-                TwistStamped, "/servo_node/delta_twist_cmds", qos_profile=control_qos
+                TwistStamped, "/arm/control/ik_twist", qos_profile=CONTROL_QOS
             )
             self.arm_ik_jointjog_publisher = self.create_publisher(
-                JointJog, "/servo_node/delta_joint_cmds", qos_profile=control_qos
+                JointJog, "/arm/control/ik_joint_jog", qos_profile=CONTROL_QOS
+            )
+
+            self.gripper_velocity_pub_ = self.create_publisher(
+                Float64MultiArray, "/arm/control/ik_gripper", qos_profile=CONTROL_QOS
             )
 
             # TODO: add new bio topics
+
+            # Print topic names and types
+            core_method = "duty cycle AND velocity"
+            core_method += (
+                f" - {self.core_duty_cycle_pub_.topic_name},"
+                f" {self.core_cmd_vel_pub_.topic_name}"
+                f" [{self.core_cmd_vel_pub_.msg_type.__qualname__}]"
+            )
+
+            if not self.use_arm_ik:
+                arm_method = (
+                    "manual/FK-only"
+                    f" - {self.arm_manual_pub_.topic_name}"
+                    f" [{self.arm_manual_pub_.msg_type.__qualname__}]"
+                )
+            else:
+                arm_method = "IK/FK switchable"
+
+            self.get_logger().info(f"Core: {core_method}")
+            self.get_logger().info(f"Arm: {arm_method}")
 
         ##################################################
         # Timers
@@ -271,14 +371,13 @@ class Headless(Node):
             self.arm_publisher.publish(ARM_STOP_MSG)
             self.bio_publisher.publish(BIO_STOP_MSG)
         else:
-            if self.use_cmd_vel:
-                self.core_cmd_vel_pub_.publish(self.core_cmd_vel_stop_msg())
-            else:
-                self.core_twist_pub_.publish(CORE_STOP_TWIST_MSG)
+            self.core_duty_cycle_pub_.publish(CORE_STOP_TWIST_MSG)
+            self.core_cmd_vel_pub_.publish(CORE_STOP_TWIST_MSG)
             if self.use_arm_ik:
                 self.arm_ik_twist_publisher.publish(self.arm_ik_twist_stop_msg())
             else:
                 self.arm_manual_pub_.publish(self.arm_manual_stop_msg())
+            self.gripper_velocity_pub_.publish(GRIPPER_STOP_MSG)
             # TODO: add bio here after implementing new topics
 
     def send_controls(self):
@@ -334,75 +433,58 @@ class Headless(Node):
             # Ditto
 
     def send_core(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
 
         if self.use_old_topics:
-            input = CoreControl()
-            input.max_speed = 90
+            msg = CoreControl()
+            msg.max_speed = 90
 
             # Right wheels
-            input.right_stick = float(round(-1 * right_stick_y, 2))
+            msg.right_stick = float(round(-1 * state.right_stick_y, 2))
 
             # Left wheels
-            if right_trigger > 0:
-                input.left_stick = input.right_stick
+            if state.right_trigger > 0:
+                msg.left_stick = msg.right_stick
             else:
-                input.left_stick = float(round(-1 * left_stick_y, 2))
+                msg.left_stick = float(round(-1 * state.left_stick_y, 2))
 
             # Debug
-            output = f"L: {input.left_stick}, R: {input.right_stick}"
+            output = f"L: {msg.left_stick}, R: {msg.right_stick}"
             self.get_logger().info(f"[Ctrl] {output}")
 
-            self.core_publisher.publish(input)
+            self.core_publisher.publish(msg)
 
         else:  # New topics
             twist = Twist()
 
             # Forward/back and Turn
-            twist.linear.x = -1.0 * left_stick_y
+            twist.linear.x = -1.0 * state.left_stick_y
             twist.angular.z = -1.0 * copysign(
-                right_stick_x**2, right_stick_x
+                state.right_stick_x**2, state.right_stick_x
             )  # Exponent for finer control (curve)
 
-            # This kinda looks dumb being seperate from the following block, but this
-            # maintains the separation between modifying the control message and sending it.
-            if self.use_cmd_vel:
-                # These scaling factors convert raw stick inputs to absolute m/s and rad/s
-                # values that DiffDriveController will convert to motor RPM, rather than
-                # the plain Twist, which just sends the stick values as duty cycle and
-                # sends that scaled to the motors.
-                twist.linear.x *= 1.0
-                twist.angular.z *= 1.5
-
-            # Publish
-            if self.use_cmd_vel:
-                header = Header(stamp=self.get_clock().now().to_msg())
-                self.core_cmd_vel_pub_.publish(TwistStamped(header=header, twist=twist))
-            else:
-                self.core_twist_pub_.publish(twist)
+            # Duty cycle
+            self.core_duty_cycle_pub_.publish(twist)
             self.get_logger().debug(
                 f"[Core Ctrl] Linear: {round(twist.linear.x, 2)}, Angular: {round(twist.angular.z, 2)}"
             )
 
+            # Velocity
+            # These scaling factors convert raw stick inputs to absolute m/s and rad/s
+            # values that DiffDriveController will convert to motor RPM, rather than
+            # sending the stick values as duty cycle (0-1) and sending that to the motors.
+            twist.linear.x *= 1.0
+            twist.angular.z *= 1.5
+            self.core_cmd_vel_pub_.publish(twist)
+
             # Brake mode
-            new_brake_mode = button_a
+            new_brake_mode = state.button_a
+
             # Max duty cycle
-            if left_bumper:
+            # TODO: this should be implemented as a modification to the twist message
+            if state.left_bumper:
                 new_max_duty = 0.25
-            elif right_bumper:
+            elif state.right_bumper:
                 new_max_duty = 0.9
             else:
                 new_max_duty = 0.5
@@ -424,133 +506,30 @@ class Headless(Node):
                 )
 
     def send_arm(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
+
+        # "IK" control mode (Servo) supports both IK and FK
+        if self.use_arm_ik:
+            new_servo_mode = self.servo_control_mode
+
+            if state.button_b:
+                new_servo_mode = "manual"
+            elif state.button_x:
+                new_servo_mode = "ik"
+
+            if new_servo_mode != self.servo_control_mode:
+                self.stop_all()
+                self.gamepad.rumble(0.6, 0.7, 75)
+                self.servo_control_mode = new_servo_mode
+                self.get_logger().info(
+                    f"Switched to {self.servo_control_mode} control mode"
+                )
 
         # OLD MANUAL
         # ==========
 
         if not self.use_arm_ik and self.use_old_topics:
             arm_input = ArmManual()
-
-            # OLD ARM MANUAL CONTROL SCHEME
-            if not self.use_new_arm_manual_scheme:
-                # EF Grippers
-                if left_trigger > 0 and right_trigger > 0:
-                    arm_input.gripper = 0
-                elif left_trigger > 0:
-                    arm_input.gripper = -1
-                elif right_trigger > 0:
-                    arm_input.gripper = 1
-
-                # Axis 0
-                if dpad_input[0] == 1:
-                    arm_input.axis0 = 1
-                elif dpad_input[0] == -1:
-                    arm_input.axis0 = -1
-
-                if right_bumper:  # Control end effector
-
-                    # Effector yaw
-                    if left_stick_x > 0:
-                        arm_input.effector_yaw = 1
-                    elif left_stick_x < 0:
-                        arm_input.effector_yaw = -1
-
-                    # Effector roll
-                    if right_stick_x > 0:
-                        arm_input.effector_roll = 1
-                    elif right_stick_x < 0:
-                        arm_input.effector_roll = -1
-
-                else:  # Control arm axis
-
-                    # Axis 1
-                    if abs(left_stick_x) > 0.15:
-                        arm_input.axis1 = round(left_stick_x)
-
-                    # Axis 2
-                    if abs(left_stick_y) > 0.15:
-                        arm_input.axis2 = -1 * round(left_stick_y)
-
-                    # Axis 3
-                    if abs(right_stick_y) > 0.15:
-                        arm_input.axis3 = -1 * round(right_stick_y)
-
-            # NEW ARM MANUAL CONTROL SCHEME
-            if self.use_new_arm_manual_scheme:
-                # Right stick: EF yaw and axis 3
-                # Left stick: axis 1 and 2
-                # D-pad: axis 0 and _
-                # Triggers: EF grippers
-                # Bumpers: EF roll
-                # A: brake
-                # B: linear actuator in
-                # X: _
-                # Y: linear actuator out
-
-                # Right stick: EF yaw and axis 3
-                arm_input.effector_yaw = stick_to_arm_direction(right_stick_x)
-                arm_input.axis3 = -1 * stick_to_arm_direction(right_stick_y)
-
-                # Left stick: axis 1 and 2
-                arm_input.axis1 = stick_to_arm_direction(left_stick_x)
-                arm_input.axis2 = -1 * stick_to_arm_direction(left_stick_y)
-
-                # D-pad: axis 0 and _
-                arm_input.axis0 = int(dpad_input[0])
-
-                # Triggers: EF Grippers
-                if left_trigger > 0 and right_trigger > 0:
-                    arm_input.gripper = 0
-                elif left_trigger > 0:
-                    arm_input.gripper = -1
-                elif right_trigger > 0:
-                    arm_input.gripper = 1
-
-                # Bumpers: EF roll
-                if left_bumper > 0 and right_bumper > 0:
-                    arm_input.effector_roll = 0
-                elif left_bumper > 0:
-                    arm_input.effector_roll = -1
-                elif right_bumper > 0:
-                    arm_input.effector_roll = 1
-
-                # A: brake
-                if button_a:
-                    arm_input.brake = True
-
-                # Y: linear actuator
-                if button_y and not button_b:
-                    arm_input.linear_actuator = 1
-                elif button_b and not button_y:
-                    arm_input.linear_actuator = -1
-                else:
-                    arm_input.linear_actuator = 0
-
-            self.arm_publisher.publish(arm_input)
-
-        # NEW MANUAL
-        # ==========
-
-        elif not self.use_arm_ik and not self.use_old_topics:
-            arm_input = JointJog()
-            arm_input.header.frame_id = "base_link"
-            arm_input.header.stamp = self.get_clock().now().to_msg()
-            arm_input.joint_names = self.all_joint_names
-            arm_input.velocities = [0.0] * len(self.all_joint_names)
 
             # Right stick: EF yaw and axis 3
             # Left stick: axis 1 and 2
@@ -563,65 +542,121 @@ class Headless(Node):
             # Y: linear actuator out
 
             # Right stick: EF yaw and axis 3
+            arm_input.effector_yaw = stick_to_arm_direction(state.right_stick_x)
+            arm_input.axis3 = -1 * stick_to_arm_direction(state.right_stick_y)
+
+            # Left stick: axis 1 and 2
+            arm_input.axis1 = stick_to_arm_direction(state.left_stick_x)
+            arm_input.axis2 = -1 * stick_to_arm_direction(state.left_stick_y)
+
+            # D-pad: axis 0 and _
+            arm_input.axis0 = int(state.dpad[0])
+
+            # Triggers: EF Grippers
+            if state.left_trigger > 0 and state.right_trigger > 0:
+                arm_input.gripper = 0
+            elif state.left_trigger > 0:
+                arm_input.gripper = -1
+            elif state.right_trigger > 0:
+                arm_input.gripper = 1
+
+            # Bumpers: EF roll
+            if state.left_bumper > 0 and state.right_bumper > 0:
+                arm_input.effector_roll = 0
+            elif state.left_bumper > 0:
+                arm_input.effector_roll = -1
+            elif state.right_bumper > 0:
+                arm_input.effector_roll = 1
+
+            # A: brake
+            if state.button_a:
+                arm_input.brake = True
+
+            # Y: linear actuator
+            if state.button_y and not state.button_b:
+                arm_input.linear_actuator = 1
+            elif state.button_b and not state.button_y:
+                arm_input.linear_actuator = -1
+            else:
+                arm_input.linear_actuator = 0
+
+            self.arm_publisher.publish(arm_input)
+
+        # NEW MANUAL
+        # ==========
+
+        elif (
+            not self.use_arm_ik or self.servo_control_mode == "manual"
+        ) and not self.use_old_topics:
+            arm_input = JointJog()
+            arm_input.header.frame_id = "base_link"
+            arm_input.header.stamp = self.get_clock().now().to_msg()
+            arm_input.joint_names = self.all_joint_names
+            arm_input.velocities = [0.0] * len(self.all_joint_names)
+
+            # Right stick: EF yaw and axis 3
+            # Left stick: axis 1 and 2
+            # D-pad: axis 0 and _
+            # Triggers: EF grippers
+            # Bumpers: EF roll
+            # A: brake
+            # B: IK mode
+            # X: manual mode
+            # Y: linear actuator out
+
+            # Right stick: EF yaw and axis 3
             arm_input.velocities[self.all_joint_names.index("wrist_yaw_joint")] = float(
-                stick_to_arm_direction(right_stick_x)
+                stick_to_arm_direction(state.right_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_3_joint")] = float(
-                stick_to_arm_direction(right_stick_y)
+                stick_to_arm_direction(state.right_stick_y)
             )
 
             # Left stick: axis 1 and 2
             arm_input.velocities[self.all_joint_names.index("axis_1_joint")] = float(
-                stick_to_arm_direction(left_stick_x)
+                stick_to_arm_direction(state.left_stick_x)
             )
             arm_input.velocities[self.all_joint_names.index("axis_2_joint")] = float(
-                stick_to_arm_direction(left_stick_y)
+                stick_to_arm_direction(state.left_stick_y)
             )
 
             # D-pad: axis 0 and _
             arm_input.velocities[self.all_joint_names.index("axis_0_joint")] = float(
-                dpad_input[0]
+                state.dpad[0]
             )
 
             # Triggers: EF Grippers
-            if left_trigger > 0 and right_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = 0.0
-            elif left_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = -1.0
-            elif right_trigger > 0:
-                arm_input.velocities[
-                    self.all_joint_names.index("ef_gripper_left_joint")
-                ] = 1.0
+            gripper_speed = 0.0
+            if state.left_trigger > 0 or state.right_trigger > 0:
+                gripper_speed = state.right_trigger - state.left_trigger
 
             # Bumpers: EF roll
             arm_input.velocities[self.all_joint_names.index("wrist_roll_joint")] = (
-                right_bumper - left_bumper
+                state.right_bumper - state.left_bumper
             )
 
             # A: brake
-            new_brake_mode = button_a
+            new_brake_mode = state.button_a
 
-            # X: laser
-            new_laser = button_x
-
-            self.arm_manual_pub_.publish(arm_input)
+            if not self.use_arm_ik:
+                arm_input.velocities[
+                    arm_input.joint_names.index("ef_gripper_left_joint")
+                ] = gripper_speed
+                self.arm_manual_pub_.publish(arm_input)
+            else:
+                self.gripper_velocity_pub_.publish(
+                    Float64MultiArray(data=[gripper_speed])
+                )
+                self.arm_ik_jointjog_publisher.publish(arm_input)
 
             # Only publish state if needed
-            if new_brake_mode != self.arm_brake_mode or new_laser != self.arm_laser:
+            if new_brake_mode != self.arm_brake_mode:
                 self.arm_brake_mode = new_brake_mode
-                self.arm_laser = new_laser
                 state_msg = ArmCtrlState()
                 state_msg.brake_mode = bool(self.arm_brake_mode)
-                state_msg.laser = bool(self.arm_laser)
 
                 self.arm_state_pub_.publish(state_msg)
-                self.get_logger().info(
-                    f"[Arm State] Brake: {self.arm_brake_mode}, Laser: {self.arm_laser}"
-                )
+                self.get_logger().info(f"[Arm State] Brake: {self.arm_brake_mode}")
 
         # IK (ONLY NEW)
         # =============
@@ -630,9 +665,6 @@ class Headless(Node):
             arm_twist = TwistStamped()
             arm_twist.header.frame_id = "base_link"
             arm_twist.header.stamp = self.get_clock().now().to_msg()
-            arm_jointjog = JointJog()
-            arm_jointjog.header.frame_id = "base_link"
-            arm_jointjog.header.stamp = self.get_clock().now().to_msg()
 
             # Right stick: linear y and linear x
             # Left stick: angular z and linear z
@@ -642,64 +674,49 @@ class Headless(Node):
             # A: brake
             # B: IK mode
             # X: manual mode
-            # Y: linear actuator
+            # Y: linear actuator out
 
             # Right stick: linear y and linear x
-            arm_twist.twist.linear.y = float(right_stick_x)
-            arm_twist.twist.linear.x = float(right_stick_y)
+            arm_twist.twist.linear.y = float(-1 * state.left_stick_x)
+            arm_twist.twist.linear.x = float(-1 * state.left_stick_y)
 
             # Left stick: angular z and linear z
-            arm_twist.twist.angular.z = float(-1 * left_stick_x)
-            arm_twist.twist.linear.z = float(-1 * left_stick_y)
+            arm_twist.twist.angular.z = float(-1 * state.right_stick_x)
+            arm_twist.twist.linear.z = float(-1 * state.right_stick_y)
             # D-pad: angular y and _
             arm_twist.twist.angular.y = (
-                float(0)
-                if dpad_input[0] == 0
-                else float(-1 * copysign(0.75, dpad_input[0]))
+                float(0) if state.dpad[0] == 0 else float(copysign(0.75, state.dpad[0]))
             )
 
             # Triggers: EF Grippers
-            if left_trigger > 0 or right_trigger > 0:
-                arm_jointjog.joint_names.append("ef_gripper_left_joint")  # type: ignore
-                arm_jointjog.velocities.append(float(right_trigger - left_trigger))
+            gripper_speed = 0.0
+            if state.left_trigger > 0 or state.right_trigger > 0:
+                gripper_speed = state.right_trigger - state.left_trigger
 
             # Bumpers: angular x
-            if left_bumper > 0 and right_bumper > 0:
+            if state.left_bumper > 0 and state.right_bumper > 0:
                 arm_twist.twist.angular.x = float(0)
-            elif left_bumper > 0:
+            elif state.left_bumper > 0:
                 arm_twist.twist.angular.x = float(1)
-            elif right_bumper > 0:
+            elif state.right_bumper > 0:
                 arm_twist.twist.angular.x = float(-1)
 
             self.arm_ik_twist_publisher.publish(arm_twist)
-            # self.arm_ik_jointjog_publisher.publish(arm_jointjog)  # TODO: Figure this shit out
+            self.gripper_velocity_pub_.publish(Float64MultiArray(data=[gripper_speed]))
 
     def send_bio(self):
-        # Collect controller state
-        left_stick_x = stick_deadzone(self.gamepad.get_axis(0))
-        left_stick_y = stick_deadzone(self.gamepad.get_axis(1))
-        left_trigger = stick_deadzone(self.gamepad.get_axis(2))
-        right_stick_x = stick_deadzone(self.gamepad.get_axis(3))
-        right_stick_y = stick_deadzone(self.gamepad.get_axis(4))
-        right_trigger = stick_deadzone(self.gamepad.get_axis(5))
-        button_a = self.gamepad.get_button(0)
-        button_b = self.gamepad.get_button(1)
-        button_x = self.gamepad.get_button(2)
-        button_y = self.gamepad.get_button(3)
-        left_bumper = self.gamepad.get_button(4)
-        right_bumper = self.gamepad.get_button(5)
-        dpad_input = self.gamepad.get_hat(0)
+        state = ControllerState.from_gamepad(self.gamepad)
 
         if self.use_old_topics:
             bio_input = BioControl(
-                bio_arm=int(left_stick_y * -100),
-                drill_arm=int(round(right_stick_y) * -100),
+                bio_arm=int(state.left_stick_y * -100),
+                drill_arm=int(round(state.right_stick_y) * -100),
             )
 
             # Drill motor (LANCE)
-            if left_trigger > 0 or right_trigger > 0:
+            if state.left_trigger > 0 or state.right_trigger > 0:
                 bio_input.drill = int(
-                    30 * (right_trigger - left_trigger)
+                    30 * (state.right_trigger - state.left_trigger)
                 )  # Max duty cycle 30%
 
             self.bio_publisher.publish(bio_input)
@@ -739,6 +756,49 @@ def stick_to_arm_direction(value: float, threshold=ARM_DEADZONE) -> int:
     return int(copysign(1, value))
 
 
+class ControllerState(NamedTuple):
+    """Snapshot of the gamepad state. Like a struct, but the values cannot be changed.
+
+    No enums are used for the gamepad.get_*() functions because they are all immediately
+    assigned to a reasonable variable name.
+    """
+
+    left_stick_x: float
+    left_stick_y: float
+    left_trigger: float
+    right_stick_x: float
+    right_stick_y: float
+    right_trigger: float
+    button_a: bool
+    button_b: bool
+    button_x: bool
+    button_y: bool
+    left_bumper: bool
+    right_bumper: bool
+    dpad: tuple[float, float]
+
+    @classmethod
+    def from_gamepad(cls, gamepad: pygame.joystick.JoystickType) -> "ControllerState":
+        # For the triggers, discard negative numbers in case a controller's trigger
+        # values are centered in the middle of the trigger's throw instead of the
+        # default position.
+        return cls(
+            left_stick_x=stick_deadzone(gamepad.get_axis(0)),
+            left_stick_y=stick_deadzone(gamepad.get_axis(1)),
+            left_trigger=max(0.0, stick_deadzone(gamepad.get_axis(2))),
+            right_stick_x=stick_deadzone(gamepad.get_axis(3)),
+            right_stick_y=stick_deadzone(gamepad.get_axis(4)),
+            right_trigger=max(0.0, stick_deadzone(gamepad.get_axis(5))),
+            button_a=gamepad.get_button(0),
+            button_b=gamepad.get_button(1),
+            button_x=gamepad.get_button(2),
+            button_y=gamepad.get_button(3),
+            left_bumper=gamepad.get_button(4),
+            right_bumper=gamepad.get_button(5),
+            dpad=gamepad.get_hat(0),
+        )
+
+
 def is_user_in_group(group_name: str) -> bool:
     # Copied from https://zetcode.com/python/os-getgrouplist/
     try:
@@ -757,25 +817,8 @@ def is_user_in_group(group_name: str) -> bool:
         return False
 
 
-def exit_handler(signum, frame):
-    print("Caught SIGTERM. Exiting...")
-    rclpy.try_shutdown()
-    sys.exit(0)
-
-
 def main(args=None):
-    try:
-        rclpy.init(args=args)
-
-        # Catch termination signals and exit cleanly
-        signal.signal(signal.SIGTERM, exit_handler)
-
-        node = Headless()
-        rclpy.spin(node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        print("Caught shutdown signal. Exiting...")
-    finally:
-        rclpy.try_shutdown()
+    run_node(Headless, args)
 
 
 if __name__ == "__main__":

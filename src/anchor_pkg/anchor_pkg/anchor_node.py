@@ -1,9 +1,16 @@
 from warnings import deprecated
+import sys
+import signal
 import time
 import struct
+from collections.abc import Callable
+from typing import TypeVar
+
 import rclpy
 from rclpy.node import Node
-from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
+from rclpy.exceptions import InvalidParameterTypeException
+from rclpy.executors import ExternalShutdownException
+from rclpy import qos
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 from .connector import (
@@ -19,6 +26,91 @@ from .convert import string_to_viccan, viccan_to_string
 from builtin_interfaces.msg import Time
 from std_msgs.msg import String
 from astra_msgs.msg import VicCAN, McuVersion
+
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
+)
+
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
 
 # TODO: move these to unilib
 EPOCH_YEAR = 2022
@@ -263,10 +355,16 @@ class Anchor(Node):
         if msg.command_id == CMD_VERSION_COMMIT:  # commit hashes
             version_msg = self.mcu_versions[msg.mcu_name]
             version_msg.project_commit_fragment = hex(
-                int.from_bytes(struct.pack("<hh", int(msg.data[0]), int(msg.data[1])))
+                int.from_bytes(
+                    struct.pack("<hh", int(msg.data[0]), int(msg.data[1])),
+                    byteorder="big",
+                )
             )[2:]
             version_msg.astra_lib_commit_fragment = hex(
-                int.from_bytes(struct.pack("<hh", int(msg.data[2]), int(msg.data[3])))
+                int.from_bytes(
+                    struct.pack("<hh", int(msg.data[2]), int(msg.data[3])),
+                    byteorder="big",
+                )
             )[2:]
         elif msg.command_id == CMD_VERSION_BUILD:  # build timestamp and version numbers
             version_msg = self.mcu_versions[msg.mcu_name]
@@ -288,19 +386,4 @@ class Anchor(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    anchor_node = Anchor()
-    executor = SingleThreadedExecutor()
-    executor.add_node(anchor_node)
-
-    try:
-        executor.spin()
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        # don't accept any more jobs
-        executor.shutdown()
-        # make the node quit processing things
-        anchor_node.destroy_node()
-        # shut down everything else
-        rclpy.try_shutdown()
+    run_node(Anchor, args)

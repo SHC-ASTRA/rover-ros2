@@ -215,7 +215,7 @@ class SerialConnector(Connector):
             str: A hopefully-complete string read from the MCU via the serial interface.
         """
         if TYPE_CHECKING:
-            assert type(self.serial_interface) == serial.Serial
+            assert self.serial_interface is serial.Serial
 
         # Warn on buffer timeout, as the only scenarios that would trigger this are
         # a microcontroller output that isn't newline-terminated (bad), or the MCU is
@@ -263,6 +263,10 @@ class SerialConnector(Connector):
         except serial.SerialException as e:
             self.logger.error(f"SerialException: {e}")
             raise DeviceClosedException(f"serial port {self.port} closed unexpectedly")
+        except UnicodeDecodeError:
+            # Garbage bytes on the line (boot noise, partial frame) - ignore
+            self.logger.debug(f"got undecodable (non-UTF8) serial data on {self.port}")
+            return (None, None)
         except Exception:
             return (None, None)  # pretty much no other error matters
 
@@ -278,7 +282,7 @@ class SerialConnector(Connector):
             if self.serial_interface.is_open:
                 self.serial_interface.close()
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(str(e))
 
 
 class CANConnector(Connector):
@@ -288,7 +292,7 @@ class CANConnector(Connector):
         self.can_channel: str | None = None
         self.can_bus: can.BusABC | None = None
 
-        avail = can.interfaces.socketcan.SocketcanBus._detect_available_configs()
+        avail = can.detect_available_configs(interfaces=["socketcan"])
 
         if len(avail) == 0:
             raise NoValidDeviceException("no CAN interfaces found")
@@ -435,7 +439,7 @@ class CANConnector(Connector):
             mcu_id = next(
                 key for key, name in MCU_IDS.items() if name == msg.mcu_name.lower()
             )
-        except ValueError:
+        except (ValueError, StopIteration):
             self.logger.error(
                 f"unknown VicCAN mcu_name '{msg.mcu_name}' for CAN frame; dropping message"
             )
@@ -477,8 +481,9 @@ class CANConnector(Connector):
                 arbitration_id=(mcu_id << 8) | (data_type << 6) | command,
                 data=data,
                 is_extended_id=False,
+                check=True,
             )
-        except Exception as e:
+        except ValueError as e:
             self.logger.error(f"failed to construct CAN message: {e}")
             return
 
@@ -503,7 +508,7 @@ class CANConnector(Connector):
                 self.logger.info("shutting down CAN bus")
                 self.can_bus.shutdown()
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(str(e))
 
 
 class MockConnector(Connector):
