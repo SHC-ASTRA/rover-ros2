@@ -151,7 +151,6 @@ ARM_DEADZONE = float(os.getenv("ARM_DEADZONE", "0.2"))
 
 
 class Headless(Node):
-    
 
     def __init__(self):
         # Initialize pygame first
