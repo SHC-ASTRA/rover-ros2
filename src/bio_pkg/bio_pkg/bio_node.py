@@ -1,19 +1,105 @@
 import signal
 import sys
-import threading
 import time
+from collections.abc import Callable
+from typing import TypeVar
 
 import rclpy
 from astra_msgs.action import BioVacuum
 from astra_msgs.msg import NewBioFeedback, CitadelControl, LanceControl, VicCAN
 from astra_msgs.srv import BioTestTube, FireLibs
 from rclpy.action import ActionServer
+from rclpy.exceptions import InvalidParameterTypeException
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from rclpy import qos
 from std_msgs.msg import Header, String
 from unilib import CanCmdId
 
-serial_pub = None
-thread = None
+##################################################
+# Shared code -- candidate for unilib.
+# Keep this section identical across all five node files (anchor, arm, bio, core, headless).
+
+# NOTE: The commented-out QoS options can break other nodes and CLI commands if enabled.
+# The values are left here for if they are desired in the future.
+CONTROL_QOS = qos.QoSProfile(
+    history=qos.QoSHistoryPolicy.KEEP_LAST,
+    depth=2,
+    reliability=qos.QoSReliabilityPolicy.BEST_EFFORT,  # Best Effort subscribers are still compatible with Reliable publishers
+    durability=qos.QoSDurabilityPolicy.VOLATILE,
+    # deadline=Duration(seconds=1),
+    # lifespan=Duration(nanoseconds=500_000_000),  # 500ms
+    # liveliness=qos.QoSLivelinessPolicy.SYSTEM_DEFAULT,
+    # liveliness_lease_duration=Duration(seconds=5),
+)
+
+# Template parameter type
+T = TypeVar("T", bool, int, float, str)
+
+
+def create_param(node: Node, name: str, default: T, silent: bool = False) -> T:
+    """Declare a parameter on `node` and return its value, logging it unless silent.
+
+    Example usage:
+
+    ```
+    self.use_ros2_control = create_param(self, "use_ros2_control", True)
+    ```
+    """
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: T = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def create_list_param(
+    node: Node, name: str, default: list[T], silent: bool = False
+) -> list[T]:
+    """Declare a list parameter on `node` and return its value, logging it unless silent."""
+    try:
+        node.declare_parameter(name, default)
+    except InvalidParameterTypeException as e:
+        node.get_logger().fatal(f"Invalid type: {e}")
+        sys.exit(1)
+    value: list[T] = node.get_parameter(name).value  # type: ignore (trust me bro it's T)
+    if not silent:
+        node.get_logger().info(f"P: {name} = {value}")
+    return value
+
+
+def exit_handler(signum: int, frame):
+    """Exit cleanly on a termination signal."""
+    print(f"Caught {signal.Signals(signum).name}. Exiting...")
+    rclpy.try_shutdown()
+    sys.exit(0)
+
+
+def run_node(node_factory: Callable[[], Node], args=None) -> None:
+    """Init rclpy, construct the node, and spin until shutdown (Ctrl-C, SIGTERM/SIGHUP, or rclpy)."""
+    node: Node | None = None
+    try:
+        rclpy.init(args=args)
+        # Catch termination signals and exit cleanly
+        # SIGTERM: systemd stop / launch shutdown. SIGHUP: SSH or terminal dropped
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, exit_handler)
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        print("Caught shutdown signal. Exiting...")
+    finally:
+        if node is not None:
+            node.destroy_node()  # runs node-specific cleanup (e.g. Anchor's connector)
+        rclpy.try_shutdown()
+
+
+# End of shared code
+##################################################
 
 
 class SerialRelay(Node):
@@ -67,17 +153,6 @@ class SerialRelay(Node):
 
         # Publish feedback periodically
         self.feedback_timer = self.create_timer(1.0, self.publish_bio_feedback)
-
-    def run(self):
-        global thread
-        thread = threading.Thread(target=rclpy.spin, args=(self,), daemon=True)
-        thread.start()
-
-        try:
-            while rclpy.ok():
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            pass
 
     def send_cmd(self, msg: str):
         # send to anchor node to relay
@@ -167,6 +242,7 @@ class SerialRelay(Node):
 
     def libs_fire_callback(self, request, response):
         print("todo")
+        return response
 
     def execute_vacuum(self, goal_handle):
         valve_id = int(goal_handle.request.valve_id)
@@ -190,6 +266,7 @@ class SerialRelay(Node):
         feedback = BioVacuum.Feedback()
         start = time.time()
 
+        # This blocks every other callback of the Node
         while True:
             # set fan duty cycle
             self.anchor_tovic_pub_.publish(
@@ -240,22 +317,9 @@ def clamp_short(x: int) -> int:
     return max(-32768, min(32767, x))
 
 
-def myexcepthook(type, value, tb):
-    print("Uncaught exception:", type, value)
-
-
 def main(args=None):
-    rclpy.init(args=args)
-    sys.excepthook = myexcepthook
-
-    global serial_pub
-    serial_pub = SerialRelay()
-    serial_pub.run()
+    run_node(SerialRelay, args)
 
 
 if __name__ == "__main__":
-    # signal.signal(signal.SIGTSTP, lambda signum, frame: sys.exit(0))  # Catch Ctrl+Z and exit cleanly
-    signal.signal(
-        signal.SIGTERM, lambda signum, frame: sys.exit(0)
-    )  # Catch termination signals and exit cleanly
     main()
